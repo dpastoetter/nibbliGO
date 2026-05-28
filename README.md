@@ -90,11 +90,7 @@ Or use **Local Chat** for non-agent streaming.
 
 Install a small on-device model (`nibbli-fast` or `functiongemma-270m`) for varied Talk replies; Phase 1 care loop works fully with templates only.
 
-### Screenshots
 
-| Home (pixel device) | Talk sheet | Settings (LLM + personality) |
-|---------------------|------------|------------------------------|
-| ![Pet home](docs/screenshots/pet-pixel-device.png) | ![Talk](docs/screenshots/pet-talk.png) | ![Settings](docs/screenshots/pet-settings.png) |
 
 ## Agentic AI (Gallery-inspired)
 
