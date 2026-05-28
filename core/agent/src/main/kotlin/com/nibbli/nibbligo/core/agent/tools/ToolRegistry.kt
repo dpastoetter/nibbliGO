@@ -34,6 +34,17 @@ class ToolRegistry @Inject constructor() {
         _tools.update { it.filter { it.skillId != skillId } }
     }
 
+    fun registerMcpTools(tools: List<AgentTool>) {
+        _tools.update { current ->
+            val withoutMcp = current.filter { it.source != ToolSource.MCP }
+            withoutMcp + tools.map { it.copy(source = ToolSource.MCP) }
+        }
+    }
+
+    fun unregisterMcpServer(serverId: String) {
+        _tools.update { it.filter { !(it.source == ToolSource.MCP && it.skillId == serverId) } }
+    }
+
     fun registerActionTools(actions: List<AgentTool>) {
         val withSource = actions.map { it.copy(source = ToolSource.ACTION) }
         _tools.update { current ->

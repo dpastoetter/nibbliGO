@@ -10,7 +10,23 @@ data class ModelInfo(
     val isBundled: Boolean = true,
     val downloadUrl: String? = null,
     val requiresLiteRt: Boolean = false,
-)
+    /** Hugging Face repo id, e.g. litert-community/gemma-4-E2B-it-litert-lm */
+    val hfRepoId: String? = null,
+    /** File name inside the repo, e.g. gemma-4-E2B-it.litertlm */
+    val hfModelFile: String? = null,
+    val hfCommitHash: String? = null,
+    val requiresHfAuth: Boolean = false,
+) {
+    fun resolveDownloadUrl(): String? {
+        downloadUrl?.let { return it }
+        val repo = hfRepoId ?: return null
+        val file = hfModelFile ?: return null
+        val version = hfCommitHash ?: "main"
+        return "https://huggingface.co/$repo/resolve/$version/$file?download=true"
+    }
+
+    fun localFileName(): String = hfModelFile ?: "$id.litertlm"
+}
 
 data class InstalledModel(
     val modelId: String,

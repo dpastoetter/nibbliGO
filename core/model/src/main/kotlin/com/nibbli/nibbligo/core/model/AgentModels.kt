@@ -4,6 +4,7 @@ enum class ToolSource {
     BUILTIN,
     SKILL_PACKAGE,
     ACTION,
+    MCP,
 }
 
 enum class ToolRiskLevel {

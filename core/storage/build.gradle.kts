@@ -13,12 +13,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
 }
 
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain"))
+    implementation(project(":core:hf-download"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -29,6 +29,7 @@ dependencies {
     implementation(libs.hilt.android)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.hilt.work)
+    implementation(libs.okhttp)
     ksp(libs.hilt.compiler)
     ksp(libs.hilt.work.compiler)
 }

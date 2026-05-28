@@ -1,0 +1,13 @@
+nibbliGO
+
+This product includes software developed from Google AI Edge Gallery
+(https://github.com/google-ai-edge/gallery), licensed under the Apache License 2.0.
+
+Ported components include patterns and code from:
+- LlmChatModelHelper / LiteRT-LM integration
+- GalleryWebView / skill WebView asset loading
+- MobileActionsTools
+- Hugging Face OAuth download flow
+- MCP client integration
+
+See individual source files for "Ported from gallery@..." comments.

@@ -33,7 +33,7 @@ import com.nibbli.nibbligo.core.storage.local.entity.SkillInstallEntity
         ActionHistoryEntity::class,
         SkillInstallEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class NibbliDatabase : RoomDatabase() {

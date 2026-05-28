@@ -7,6 +7,7 @@ import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.ModelInfo
+import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.SavedPrompt
 import kotlinx.coroutines.flow.Flow
@@ -59,8 +60,12 @@ interface UserPreferencesRepository {
     val generationParams: Flow<GenerationParams>
     val allowDownloads: Flow<Boolean>
     val preferredRuntimeKind: Flow<String>
+    val petPersonality: Flow<PetPersonality>
+    val usePetLlmReactions: Flow<Boolean>
     suspend fun setDefaultModelId(modelId: String?)
     suspend fun setGenerationParams(params: GenerationParams)
     suspend fun setAllowDownloads(allowed: Boolean)
     suspend fun setPreferredRuntimeKind(kind: String)
+    suspend fun setPetPersonality(personality: PetPersonality)
+    suspend fun setUsePetLlmReactions(enabled: Boolean)
 }

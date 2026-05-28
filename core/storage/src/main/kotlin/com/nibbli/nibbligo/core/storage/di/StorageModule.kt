@@ -21,6 +21,10 @@ import com.nibbli.nibbligo.core.storage.repository.PetRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.PromptRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.RecordingRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.UserPreferencesRepositoryImpl
+import com.nibbli.nibbligo.core.domain.download.HfModelDownloadScheduler
+import com.nibbli.nibbligo.core.domain.model.InstalledModelPathResolver
+import com.nibbli.nibbligo.core.storage.download.HfModelDownloadSchedulerImpl
+import com.nibbli.nibbligo.core.storage.model.InstalledModelPathResolverImpl
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -62,4 +66,8 @@ abstract class RepositoryModule {
   @Binds @Singleton abstract fun bindUserPreferences(impl: UserPreferencesRepositoryImpl): UserPreferencesRepository
   @Binds @Singleton abstract fun bindSkillPackageRepository(impl: SkillPackageRepositoryImpl): SkillPackageRepository
   @Binds @Singleton abstract fun bindActionHistoryRepository(impl: ActionHistoryRepositoryImpl): ActionHistoryRepository
+  @Binds @Singleton abstract fun bindHfDownloadScheduler(impl: HfModelDownloadSchedulerImpl): HfModelDownloadScheduler
+  @Binds @Singleton abstract fun bindInstalledModelPathResolver(
+    impl: InstalledModelPathResolverImpl,
+  ): InstalledModelPathResolver
 }

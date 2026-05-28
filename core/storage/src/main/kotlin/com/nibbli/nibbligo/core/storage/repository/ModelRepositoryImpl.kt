@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
+import com.nibbli.nibbligo.core.domain.download.HfModelDownloadScheduler
 import com.nibbli.nibbligo.core.storage.work.ModelDownloadWorker
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.ModelInfo
@@ -23,6 +24,7 @@ import javax.inject.Singleton
 class ModelRepositoryImpl @Inject constructor(
   @ApplicationContext private val context: Context,
   private val modelInstallDao: ModelInstallDao,
+  private val hfDownloadScheduler: HfModelDownloadScheduler,
 ) : ModelRepository {
 
   private val modelsDir: File
@@ -46,10 +48,7 @@ class ModelRepositoryImpl @Inject constructor(
     val info = ModelCatalog.find(modelId)
       ?: return@withContext Result.failure(IllegalArgumentException("Unknown model: $modelId"))
     if (info.requiresLiteRt) {
-      val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
-        .setInputData(ModelDownloadWorker.input(modelId))
-        .build()
-      WorkManager.getInstance(context).enqueue(request)
+      hfDownloadScheduler.enqueueLiteRtModelDownload(modelId)
       return@withContext Result.success(Unit)
     }
     val modelFile = File(modelsDir, "$modelId.nibbli")

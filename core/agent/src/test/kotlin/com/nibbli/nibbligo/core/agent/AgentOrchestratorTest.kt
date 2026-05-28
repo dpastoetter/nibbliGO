@@ -1,7 +1,8 @@
 package com.nibbli.nibbligo.core.agent
 
 import com.nibbli.nibbligo.core.agent.execution.ToolExecutor
-import com.nibbli.nibbligo.core.agent.skills.JsSkillWebViewBridge
+import com.nibbli.nibbligo.core.agent.skills.GallerySkillWebViewBridge
+import com.nibbli.nibbligo.core.mcp.McpToolRegistry
 import com.nibbli.nibbligo.core.agent.tools.ToolRegistry
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
@@ -28,13 +29,14 @@ class AgentOrchestratorTest {
     private val toolRegistry = ToolRegistry()
     private val actionHistory: ActionHistoryRepository = mockk(relaxed = true)
     private val skillPackages: SkillPackageRepository = mockk(relaxed = true)
-    private val jsBridge: JsSkillWebViewBridge = mockk(relaxed = true)
+    private val galleryBridge: GallerySkillWebViewBridge = mockk(relaxed = true)
+    private val mcpRegistry: McpToolRegistry = mockk(relaxed = true)
     private val petBus = PetEventBus()
 
     @Before
     fun setup() {
         coEvery { actionHistory.log(any(), any(), any()) } returns Unit
-        val executor = ToolExecutor(toolRegistry, actionHistory, skillPackages, jsBridge)
+        val executor = ToolExecutor(toolRegistry, actionHistory, skillPackages, galleryBridge, mcpRegistry)
         orchestrator = AgentOrchestrator(runtime, toolRegistry, executor, petBus)
     }
 

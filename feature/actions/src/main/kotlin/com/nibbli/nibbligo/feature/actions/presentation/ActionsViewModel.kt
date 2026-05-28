@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.agent.skills.SkillPackageLoader
 import com.nibbli.nibbligo.core.agent.tools.ToolRegistry
+import com.nibbli.nibbligo.core.mcp.McpServerConfig
+import com.nibbli.nibbligo.core.mcp.McpServerStore
+import com.nibbli.nibbligo.core.mcp.McpToolRegistry
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
 import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
@@ -50,6 +53,8 @@ data class ActionsUiState(
     val pendingDraft: ActionDraft? = null,
     val pendingSkillSummary: String? = null,
     val resultMessage: String? = null,
+    val mcpServers: List<McpServerConfig> = emptyList(),
+    val mcpServerUrlInput: String = "",
 )
 
 @HiltViewModel
@@ -59,6 +64,8 @@ class ActionsViewModel @Inject constructor(
     private val actionHistoryRepository: ActionHistoryRepository,
     private val toolRegistry: ToolRegistry,
     private val skillPackageLoader: SkillPackageLoader,
+    private val mcpServerStore: McpServerStore,
+    private val mcpToolRegistry: McpToolRegistry,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ActionsUiState())
@@ -68,6 +75,29 @@ class ActionsViewModel @Inject constructor(
         viewModelScope.launch {
             skillPackageRepository.observeAll().collect { packages ->
                 _uiState.update { it.copy(installedSkillPackages = packages) }
+            }
+        }
+        viewModelScope.launch {
+            mcpServerStore.servers.collect { servers ->
+                _uiState.update { it.copy(mcpServers = servers) }
+            }
+        }
+    }
+
+    fun updateMcpUrlInput(value: String) = _uiState.update { it.copy(mcpServerUrlInput = value) }
+
+    fun addMcpServer() {
+        val url = _uiState.value.mcpServerUrlInput.trim()
+        if (url.isBlank()) return
+        val id = url.hashCode().toString()
+        viewModelScope.launch {
+            val server = McpServerConfig(id = id, name = "MCP $id", url = url)
+            mcpServerStore.add(server)
+            mcpToolRegistry.refresh(server).onSuccess { count ->
+                toolRegistry.registerMcpTools(mcpToolRegistry.allTools())
+                _uiState.update {
+                    it.copy(mcpServerUrlInput = "", resultMessage = "MCP: discovered $count tools")
+                }
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo.core.agent.execution
 
-import com.nibbli.nibbligo.core.agent.skills.JsSkillWebViewBridge
+import com.nibbli.nibbligo.core.agent.skills.GallerySkillWebViewBridge
+import com.nibbli.nibbligo.core.mcp.McpToolRegistry
 import com.nibbli.nibbligo.core.agent.tools.ToolRegistry
 import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
 import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
@@ -16,7 +17,8 @@ class ToolExecutor @Inject constructor(
     private val toolRegistry: ToolRegistry,
     private val actionHistoryRepository: ActionHistoryRepository,
     private val skillPackageRepository: SkillPackageRepository,
-    private val jsSkillWebViewBridge: JsSkillWebViewBridge,
+    private val gallerySkillWebViewBridge: GallerySkillWebViewBridge,
+    private val mcpToolRegistry: McpToolRegistry,
 ) {
     suspend fun execute(call: ToolCall): ToolResult {
         val tool = toolRegistry.findTool(call.toolId)
@@ -73,15 +75,23 @@ class ToolExecutor @Inject constructor(
     }
 
     private suspend fun executeSkillOrGeneric(toolId: String, call: ToolCall): ToolResult {
-        val tool = toolRegistry.findTool(toolId)
-        val skillId = tool?.skillId
-        if (tool?.source != ToolSource.SKILL_PACKAGE || skillId == null) {
+        val tool = toolRegistry.findTool(toolId) ?: return ToolResult(toolId, false, """{"error":"unknown"}""")
+        if (tool.source == ToolSource.MCP) {
+            val result = mcpToolRegistry.invoke(toolId, call.argumentsJson)
+            return ToolResult(
+                toolId,
+                result.isSuccess,
+                result.getOrElse { """{"error":"${it.message}"}""" },
+            )
+        }
+        val skillId = tool.skillId
+        if (tool.source != ToolSource.SKILL_PACKAGE || skillId == null) {
             return ToolResult(toolId, false, """{"error":"not implemented"}""")
         }
         val pkg = skillPackageRepository.get(skillId)
         return if (pkg?.hasJsRuntime == true) {
             val allowNetwork = pkg.permissions.contains("network")
-            val output = jsSkillWebViewBridge.execute(
+            val output = gallerySkillWebViewBridge.runSkillTool(
                 skillId = skillId,
                 toolName = tool.name,
                 argumentsJson = call.argumentsJson,

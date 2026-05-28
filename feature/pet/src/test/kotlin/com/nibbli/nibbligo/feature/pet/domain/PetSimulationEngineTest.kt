@@ -1,9 +1,12 @@
 package com.nibbli.nibbligo.feature.pet.domain
 
+import com.nibbli.nibbligo.core.model.LifeStage
+import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PetExpression
 import com.nibbli.nibbligo.core.model.PetInteraction
+import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.PetStats
 import org.junit.Assert.assertEquals
@@ -15,21 +18,49 @@ class PetSimulationEngineTest {
     private val engine = PetSimulationEngine()
 
     @Test
-    fun feed_increases_hunger_and_mood() {
+    fun feed_meal_increases_hunger_and_mood() {
         val state = PetState(stats = PetStats(hunger = 40, mood = 50))
-        val result = engine.interact(state, PetInteraction.FEED, nowMillis = 1000L)
-        assertTrue(result.stats.hunger > 40)
-        assertTrue(result.stats.mood > 50)
+        val result = engine.interact(state, PetInteraction.FEED_MEAL, nowMillis = 1000L)
+        assertTrue(result.state.stats.hunger > 40)
+        assertTrue(result.state.stats.mood > 50)
     }
 
     @Test
-    fun time_decay_reduces_hunger_after_hours() {
+    fun tick_reduces_hunger_over_time() {
         val state = PetState(
             stats = PetStats(hunger = 80),
+            lastTickAtMillis = 0L,
             lastInteractionAtMillis = 0L,
         )
-        val result = engine.applyTimeDecay(state, nowMillis = 5 * 60 * 60 * 1000L)
-        assertTrue(result.stats.hunger < 80)
+        val result = engine.tick(state, nowMillis = 3 * 60 * 60 * 1000L)
+        assertTrue(result.state.stats.hunger < 80)
+    }
+
+    @Test
+    fun medicine_only_when_sick() {
+        val healthy = PetState(condition = PetCondition.HEALTHY, stats = PetStats(health = 90))
+        val wrong = engine.interact(healthy, PetInteraction.MEDICINE, 1000L)
+        assertTrue(wrong.state.stats.trust < healthy.stats.trust)
+
+        val sick = PetState(condition = PetCondition.SICK, stats = PetStats(health = 30))
+        val fixed = engine.interact(sick, PetInteraction.MEDICINE, 2000L)
+        assertEquals(PetCondition.HEALTHY, fixed.state.condition)
+    }
+
+    @Test
+    fun clean_clears_mess() {
+        val messy = PetState(hasMess = true, stats = PetStats(hygiene = 20))
+        val result = engine.interact(messy, PetInteraction.CLEAN, 1000L)
+        assertTrue(!result.state.hasMess)
+        assertTrue(result.state.stats.hygiene > 20)
+    }
+
+    @Test
+    fun evolution_egg_to_baby() {
+        val egg = PetState(stage = LifeStage.EGG, ageMinutes = 0, careScore = 60, lastTickAtMillis = 0L)
+        val result = engine.tick(egg, nowMillis = 40 * 60 * 1000L)
+        assertEquals(LifeStage.BABY, result.state.stage)
+        assertTrue(result.evolved)
     }
 
     @Test
@@ -48,16 +79,18 @@ class PetSimulationEngineTest {
     }
 
     @Test
-    fun neglect_tick_lowers_mood() {
-        val state = PetState(stats = PetStats(mood = 70))
-        val result = engine.onPetEvent(state, PetEvent.NeglectTick)
-        assertTrue(result.stats.mood < 70)
+    fun hungry_need_when_hunger_low() {
+        val state = PetState(stats = PetStats(hunger = 10, energy = 80, mood = 50))
+        val result = engine.interact(state, PetInteraction.PLAY, 1000L)
+        assertEquals(PetExpression.HUNGRY, result.state.expression)
+        assertEquals(PetNeed.HUNGRY, result.state.activeNeed)
     }
 
     @Test
-    fun hungry_expression_when_hunger_low() {
-        val state = PetState(stats = PetStats(hunger = 10, energy = 80, mood = 50))
-        val result = engine.interact(state, PetInteraction.PLAY, 1000L)
-        assertEquals(PetExpression.HUNGRY, result.expression)
+    fun hatch_new_egg_keeps_memory() {
+        val old = PetState(memorySummary = "Loved prompt lab.", condition = PetCondition.DEAD)
+        val egg = engine.hatchNewEgg(old)
+        assertEquals(LifeStage.EGG, egg.stage)
+        assertTrue(egg.memorySummary.contains("Loved"))
     }
 }

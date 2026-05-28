@@ -1,0 +1,4 @@
+[submodule "third_party/gallery"]
+	path = third_party/gallery
+	url = https://github.com/google-ai-edge/gallery.git
+	branch = main

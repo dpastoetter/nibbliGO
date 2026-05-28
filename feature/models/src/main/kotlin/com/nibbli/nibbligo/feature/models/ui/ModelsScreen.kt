@@ -60,7 +60,14 @@ fun ModelsScreen(
                             ModelCapabilityChip(viewModel.modalityLabel(mod))
                         }
                     }
-                    if (item.isInstalled) {
+                    if (item.isDownloading) {
+                        Text(
+                            "Downloading…",
+                            modifier = Modifier.padding(top = 12.dp),
+                            color = MaterialTheme.colorScheme.tertiary,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    } else if (item.isInstalled) {
                         Text(
                             "Installed",
                             modifier = Modifier
@@ -73,7 +80,7 @@ fun ModelsScreen(
                             onClick = { viewModel.uninstall(item.info.id) },
                             modifier = Modifier.padding(top = 8.dp).testTag("uninstall_${item.info.id}"),
                         ) { Text("Remove") }
-                    } else {
+                    } else if (!item.isDownloading) {
                         Button(
                             onClick = { viewModel.install(item.info.id) },
                             modifier = Modifier.padding(top = 12.dp).testTag("install_${item.info.id}"),

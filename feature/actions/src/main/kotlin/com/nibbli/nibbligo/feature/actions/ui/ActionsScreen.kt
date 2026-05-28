@@ -11,6 +11,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +51,22 @@ fun ActionsScreen(
                     modifier = Modifier.padding(top = 8.dp),
                 ) { Text("Run") }
             }
+        }
+        Text("MCP servers", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 8.dp))
+        Text(
+            "Add a StreamableHTTP MCP endpoint (see Gallery MCP guide). Tools require confirmation in Agent Chat.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = uiState.mcpServerUrlInput,
+            onValueChange = viewModel::updateMcpUrlInput,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("MCP server URL") },
+            placeholder = { Text("https://your-tunnel/mcp") },
+        )
+        Button(onClick = { viewModel.addMcpServer() }) { Text("Add MCP server") }
+        uiState.mcpServers.forEach { server ->
+            Text("• ${server.name}: ${server.url}", style = MaterialTheme.typography.bodySmall)
         }
         Text(
             "Installed skill packages (${uiState.installedSkillPackages.size})",

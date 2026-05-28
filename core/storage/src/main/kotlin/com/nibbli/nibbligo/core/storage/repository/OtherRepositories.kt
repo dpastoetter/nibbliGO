@@ -16,6 +16,7 @@ import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.GenerationParams
+import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.SavedPrompt
 import com.nibbli.nibbligo.core.storage.local.dao.BenchmarkRunDao
 import com.nibbli.nibbligo.core.storage.local.dao.RecordingDao
@@ -97,6 +98,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val systemPrompt = stringPreferencesKey("system_prompt")
     val allowDownloads = booleanPreferencesKey("allow_downloads")
     val preferredRuntime = stringPreferencesKey("preferred_runtime")
+    val petPersonality = stringPreferencesKey("pet_personality")
+    val usePetLlm = booleanPreferencesKey("use_pet_llm")
   }
 
   override val defaultModelId: Flow<String?> =
@@ -119,6 +122,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override val preferredRuntimeKind: Flow<String> =
     context.dataStore.data.map { it[Keys.preferredRuntime] ?: "fake" }
+
+  override val petPersonality: Flow<PetPersonality> =
+    context.dataStore.data.map { prefs ->
+      runCatching {
+        PetPersonality.valueOf(prefs[Keys.petPersonality] ?: PetPersonality.PLAYFUL.name)
+      }.getOrDefault(PetPersonality.PLAYFUL)
+    }
+
+  override val usePetLlmReactions: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.usePetLlm] ?: true }
 
   override suspend fun setDefaultModelId(modelId: String?) {
     context.dataStore.edit { prefs ->
@@ -143,5 +156,13 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override suspend fun setPreferredRuntimeKind(kind: String) {
     context.dataStore.edit { it[Keys.preferredRuntime] = kind }
+  }
+
+  override suspend fun setPetPersonality(personality: PetPersonality) {
+    context.dataStore.edit { it[Keys.petPersonality] = personality.name }
+  }
+
+  override suspend fun setUsePetLlmReactions(enabled: Boolean) {
+    context.dataStore.edit { it[Keys.usePetLlm] = enabled }
   }
 }

@@ -8,4 +8,6 @@ sealed class PetEvent {
     data object AgentStepCompleted : PetEvent()
     data class SkillInvoked(val skillId: String) : PetEvent()
     data object NeglectTick : PetEvent()
+    data class Evolution(val stage: LifeStage) : PetEvent()
+    data object BecameSick : PetEvent()
 }

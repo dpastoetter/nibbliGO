@@ -1,14 +1,19 @@
 package com.nibbli.nibbligo.feature.models.presentation
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.model.Modality
 import com.nibbli.nibbligo.core.model.PetEvent
+import com.nibbli.nibbligo.core.storage.work.ModelDownloadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +25,7 @@ import javax.inject.Inject
 data class ModelItemUi(
     val info: ModelInfo,
     val isInstalled: Boolean,
+    val isDownloading: Boolean = false,
 )
 
 data class ModelsUiState(
@@ -31,6 +37,7 @@ data class ModelsUiState(
 
 @HiltViewModel
 class ModelsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val modelRepository: ModelRepository,
     private val petEventBus: PetEventBus,
 ) : ViewModel() {
@@ -38,17 +45,38 @@ class ModelsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ModelsUiState())
     val uiState: StateFlow<ModelsUiState> = _uiState.asStateFlow()
 
+    private val workManager = WorkManager.getInstance(context)
+
     init {
         viewModelScope.launch {
             combine(
                 modelRepository.observeCatalog(),
                 modelRepository.observeInstalled(),
-            ) { catalog, installed ->
+                workManager.getWorkInfosByTagFlow(ModelDownloadWorker.WORK_TAG),
+            ) { catalog, installed, workInfos ->
                 val installedIds = installed.map { it.modelId }.toSet()
+                val downloadingIds = workInfos
+                    .filter { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+                    .mapNotNull { work ->
+                        work.tags.find { it.startsWith("hf_download_") }
+                            ?.removePrefix("hf_download_")
+                    }
+                    .toSet()
+                val failed = workInfos
+                    .filter { it.state == WorkInfo.State.FAILED }
+                    .maxByOrNull { it.id }
+                val failMsg = failed?.outputData?.getString(ModelDownloadWorker.KEY_ERROR)
                 ModelsUiState(
-                    models = catalog.map { ModelItemUi(it, it.id in installedIds) },
+                    models = catalog.map { info ->
+                        ModelItemUi(
+                            info = info,
+                            isInstalled = info.id in installedIds,
+                            isDownloading = info.id in downloadingIds,
+                        )
+                    },
                     installed = installed,
                     isLoading = false,
+                    message = failMsg?.let { "Download failed: $it" } ?: _uiState.value.message,
                 )
             }.collect { state -> _uiState.value = state }
         }
@@ -59,7 +87,13 @@ class ModelsViewModel @Inject constructor(
             modelRepository.install(modelId)
                 .onSuccess {
                     petEventBus.emit(PetEvent.NewModelTried(modelId))
-                    _uiState.update { it.copy(message = "Installed $modelId") }
+                    val info = modelRepository.getCatalog().find { it.id == modelId }
+                    val msg = if (info?.requiresLiteRt == true) {
+                        "Downloading $modelId… watch the notification; use Wi‑Fi for large files."
+                    } else {
+                        "Installed $modelId"
+                    }
+                    _uiState.update { it.copy(message = msg) }
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(message = e.message) }

@@ -6,9 +6,13 @@ import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.ChatMessage
 import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.model.LifeStage
 import com.nibbli.nibbligo.core.model.MessageRole
+import com.nibbli.nibbligo.core.model.PetAnimation
+import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetExpression
+import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.PetStats
 import com.nibbli.nibbligo.core.model.PromptPreset
@@ -22,30 +26,71 @@ import com.nibbli.nibbligo.core.storage.local.entity.RecordingEntity
 import com.nibbli.nibbligo.core.storage.local.entity.SavedPromptEntity
 
 fun PetStateEntity.toDomain(): PetState = PetState(
-    stats = PetStats(hunger, energy, mood, trust, curiosity, skill),
-    expression = PetExpression.valueOf(expression),
+    name = name,
+    stats = PetStats(
+        hunger = hunger,
+        energy = energy,
+        mood = mood,
+        hygiene = hygiene,
+        health = health,
+        discipline = discipline,
+        weight = weight,
+        trust = trust,
+        curiosity = curiosity,
+        skill = skill,
+    ),
+    stage = runCatching { LifeStage.valueOf(stage) }.getOrDefault(LifeStage.BABY),
+    condition = runCatching { PetCondition.valueOf(condition) }.getOrDefault(PetCondition.HEALTHY),
+    activeNeed = runCatching { PetNeed.valueOf(activeNeed) }.getOrDefault(PetNeed.NONE),
+    expression = runCatching { PetExpression.valueOf(expression) }.getOrDefault(PetExpression.NEUTRAL),
+    animation = runCatching { PetAnimation.valueOf(animation) }.getOrDefault(PetAnimation.IDLE),
     equippedCosmetic = equippedCosmetic?.let { PetCosmetic.valueOf(it) },
     lastInteractionAtMillis = lastInteractionAtMillis,
+    lastTickAtMillis = lastTickAtMillis,
+    bornAtMillis = bornAtMillis,
+    ageMinutes = ageMinutes,
     dialogueLine = dialogueLine,
+    memorySummary = memorySummary,
     unlockedCosmetics = unlockedCosmetics.split(",")
         .filter { it.isNotBlank() }
-        .map { PetCosmetic.valueOf(it) }
+        .mapNotNull { runCatching { PetCosmetic.valueOf(it) }.getOrNull() }
         .toSet(),
+    hasMess = hasMess,
+    roomId = roomId,
+    careScore = careScore,
+    criticalNeglectSinceMillis = criticalNeglectSinceMillis,
 )
 
 fun PetState.toEntity(): PetStateEntity = PetStateEntity(
     id = 1,
+    name = name,
     hunger = stats.hunger,
     energy = stats.energy,
     mood = stats.mood,
+    hygiene = stats.hygiene,
+    health = stats.health,
+    discipline = stats.discipline,
+    weight = stats.weight,
     trust = stats.trust,
     curiosity = stats.curiosity,
     skill = stats.skill,
     expression = expression.name,
+    animation = animation.name,
+    stage = stage.name,
+    condition = condition.name,
+    activeNeed = activeNeed.name,
     equippedCosmetic = equippedCosmetic?.name,
     lastInteractionAtMillis = lastInteractionAtMillis,
+    lastTickAtMillis = lastTickAtMillis,
+    bornAtMillis = bornAtMillis,
+    ageMinutes = ageMinutes,
     dialogueLine = dialogueLine,
+    memorySummary = memorySummary,
     unlockedCosmetics = unlockedCosmetics.joinToString(",") { it.name },
+    hasMess = hasMess,
+    roomId = roomId,
+    careScore = careScore,
+    criticalNeglectSinceMillis = criticalNeglectSinceMillis,
 )
 
 fun ModelInstallEntity.toDomain() = InstalledModel(modelId, localPath, installedAtMillis, sizeBytes)

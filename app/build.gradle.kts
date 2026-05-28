@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -10,6 +12,20 @@ android {
     namespace = "com.nibbli.nibbligo"
     compileSdk = 35
 
+    val localProperties = Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) {
+            file.inputStream().use { load(it) }
+        }
+    }
+    val hfClientId = localProperties.getProperty("hf.oauth.clientId", "")
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+    val hfRedirectUri = localProperties.getProperty(
+        "hf.oauth.redirectUri",
+        "nibbli://oauth/huggingface",
+    ).replace("\\", "\\\\").replace("\"", "\\\"")
+
     defaultConfig {
         applicationId = "com.nibbli.nibbligo"
         minSdk = 31
@@ -17,6 +33,9 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "com.nibbli.nibbligo.HiltTestRunner"
+        manifestPlaceholders["appAuthRedirectScheme"] = "nibbli"
+        buildConfigField("String", "HF_OAUTH_CLIENT_ID", "\"$hfClientId\"")
+        buildConfigField("String", "HF_OAUTH_REDIRECT_URI", "\"$hfRedirectUri\"")
     }
 
     buildTypes {
@@ -29,14 +48,16 @@ android {
         }
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions { jvmTarget = "17" }
 
     packaging {
         resources {
@@ -54,6 +75,11 @@ dependencies {
     implementation(project(":core:runtime"))
     implementation(project(":core:agent"))
     implementation(project(":core:runtime-litert"))
+    implementation(project(":core:litert-engine"))
+    implementation(project(":core:hf-download"))
+    implementation(project(":core:mcp"))
+    implementation(project(":core:pet-llm"))
+    implementation(libs.openid.appauth)
     implementation(project(":feature:agent"))
     implementation(project(":feature:pet"))
     implementation(project(":feature:chat"))
