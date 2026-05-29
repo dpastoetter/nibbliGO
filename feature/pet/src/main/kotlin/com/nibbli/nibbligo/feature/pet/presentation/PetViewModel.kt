@@ -58,18 +58,19 @@ class PetViewModel @Inject constructor(
                 if (tick.welcomeBack) {
                     generateReaction(state, lastAction = "returning after a while")
                 }
-
-                petEventBus.events.collect { event ->
-                    val updated = engine.onPetEvent(_uiState.value.petState, event)
-                    persist(updated)
-                    val toast = when {
-                        event.javaClass.simpleName.contains("Agent") -> "nibbli noticed your agent work!"
-                        else -> null
-                    }
-                    _uiState.update { it.copy(agentToast = toast) }
-                }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+        viewModelScope.launch {
+            petEventBus.events.collect { event ->
+                val updated = engine.onPetEvent(_uiState.value.petState, event)
+                persist(updated)
+                val toast = when {
+                    event.javaClass.simpleName.contains("Agent") -> "nibbli noticed your agent work!"
+                    else -> null
+                }
+                _uiState.update { it.copy(agentToast = toast) }
             }
         }
     }
