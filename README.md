@@ -10,14 +10,6 @@ A local-first Android companion: an evolving **pixel friend** on Home, plus on-d
 |:---:|:---:|:---:|
 | ![Home super dark](docs/screenshots/home-super-dark.png) | ![Agent Chat](docs/screenshots/agent-chat.png) | ![Manage appearance](docs/screenshots/manage-appearance.png) |
 
-| Pixel device | Talk | Looks |
-|:---:|:---:|:---:|
-| ![Pixel device](docs/screenshots/pet-pixel-device.png) | ![Talk sheet](docs/screenshots/pet-talk-sheet.png) | ![Looks](docs/screenshots/pet-looks.png) |
-
-| Assist hub | Models | Light theme |
-|:---:|:---:|:---:|
-| ![Assist](docs/screenshots/assist-hub.png) | ![Models](docs/screenshots/manage-models.png) | ![Home light](docs/screenshots/home-light.png) |
-
 Regenerate after UI changes:
 
 ```bash
