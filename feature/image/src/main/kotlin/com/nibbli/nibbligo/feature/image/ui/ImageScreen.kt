@@ -53,10 +53,6 @@ fun AskImageScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             label = { Text("Question") },
         )
-        Button(
-            onClick = { viewModel.setImageUri("content://demo/gallery/photo") },
-            modifier = Modifier.padding(top = 8.dp),
-        ) { Text("Use demo image") }
         Button(onClick = { viewModel.analyze() }, modifier = Modifier.padding(top = 8.dp)) {
             Text("Analyze on-device")
         }

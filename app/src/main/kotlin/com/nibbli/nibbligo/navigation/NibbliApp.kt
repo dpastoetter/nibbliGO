@@ -37,7 +37,9 @@ fun NibbliApp() {
     Scaffold(
         bottomBar = {
             NavigationBar {
-                TopLevelDestination.entries.forEach { destination ->
+                TopLevelDestination.entries
+                    .filter { it != TopLevelDestination.Sense }
+                    .forEach { destination ->
                     val selected = currentRoute?.startsWith(destination.route) == true ||
                         when (destination) {
                             TopLevelDestination.Assist -> currentRoute in listOf(
@@ -47,7 +49,7 @@ fun NibbliApp() {
                             )
                             TopLevelDestination.Sense -> currentRoute in listOf(Routes.ASK_IMAGE, Routes.AUDIO_SCRIBE)
                             TopLevelDestination.Do -> currentRoute == Routes.ACTIONS
-                            TopLevelDestination.Manage -> currentRoute in listOf(Routes.MODELS, Routes.BENCHMARK, Routes.SETTINGS)
+                            TopLevelDestination.Manage -> currentRoute in listOf(Routes.MODELS, Routes.SETTINGS)
                             else -> false
                         }
                     NavigationBarItem(

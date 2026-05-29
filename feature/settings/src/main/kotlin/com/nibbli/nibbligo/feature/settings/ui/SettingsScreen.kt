@@ -124,22 +124,12 @@ fun SettingsScreen(
             }
         }
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
-            Text("Tamagotchi pet", style = MaterialTheme.typography.titleMedium)
+            Text("Pixel Friend", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Home companion uses on-device LLM for talk and care reactions when enabled.",
+                "Talk and care reactions use your installed LiteRT model.",
                 modifier = Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("LLM pet reactions", modifier = Modifier.weight(1f))
-                Switch(
-                    checked = uiState.usePetLlmReactions,
-                    onCheckedChange = viewModel::setUsePetLlmReactions,
-                )
-            }
             Text("Personality", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
             androidx.compose.foundation.layout.FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -157,25 +147,6 @@ fun SettingsScreen(
                         }
                     }
                 }
-            }
-        }
-        NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
-            Text("Runtime", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "Use LiteRT-LM when a .litertlm model is in files/models/. " +
-                    "Otherwise nibbliGO uses the demo fake runtime.",
-                modifier = Modifier.padding(top = 8.dp),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            androidx.compose.foundation.layout.Row(
-                modifier = Modifier.padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Prefer LiteRT runtime", modifier = Modifier.weight(1f))
-                Switch(
-                    checked = uiState.useLiteRtRuntime,
-                    onCheckedChange = viewModel::setUseLiteRt,
-                )
             }
         }
         Button(

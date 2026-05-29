@@ -67,7 +67,10 @@ abstract class RepositoryModule {
   @Binds @Singleton abstract fun bindSkillPackageRepository(impl: SkillPackageRepositoryImpl): SkillPackageRepository
   @Binds @Singleton abstract fun bindActionHistoryRepository(impl: ActionHistoryRepositoryImpl): ActionHistoryRepository
   @Binds @Singleton abstract fun bindHfDownloadScheduler(impl: HfModelDownloadSchedulerImpl): HfModelDownloadScheduler
-  @Binds @Singleton abstract fun bindInstalledModelPathResolver(
+    @Binds @Singleton abstract fun bindInstalledModelPathResolver(
     impl: InstalledModelPathResolverImpl,
   ): InstalledModelPathResolver
+  @Binds @Singleton abstract fun bindModelAvailabilityGate(
+    impl: com.nibbli.nibbligo.core.storage.model.ModelAvailabilityGateImpl,
+  ): com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 }

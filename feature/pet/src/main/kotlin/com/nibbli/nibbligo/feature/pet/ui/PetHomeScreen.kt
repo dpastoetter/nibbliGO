@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -34,10 +33,7 @@ import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.ui.LoadingState
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
-import com.nibbli.nibbligo.feature.pet.ui.pixel.PetNeedIcons
-import com.nibbli.nibbligo.feature.pet.ui.pixel.PetSpriteAnimator
 import com.nibbli.nibbligo.feature.pet.ui.pixel.PixelDeviceFrame
-import com.nibbli.nibbligo.feature.pet.ui.pixel.roomColorFor
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -66,10 +62,9 @@ fun PetHomeScreen(
     Column(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("nibbliGO", style = MaterialTheme.typography.displaySmall)
             Text(
@@ -79,27 +74,31 @@ fun PetHomeScreen(
             uiState.statusMessage?.let {
                 Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
-
             NibbliCard {
-                PixelDeviceFrame(roomColor = roomColorFor(pet.roomId)) {
-                    Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                        PetSpriteAnimator(
-                            stage = pet.stage,
-                            animation = pet.animation,
-                            expression = pet.expression,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(96.dp),
-                        )
-                        PetNeedIcons(need = pet.activeNeed, modifier = Modifier.padding(top = 4.dp))
-                    }
-                }
+                PixelDeviceFrame(
+                    roomId = pet.roomId,
+                    stage = pet.stage,
+                    expression = pet.expression,
+                    animation = pet.animation,
+                    condition = pet.condition,
+                    activeNeed = pet.activeNeed,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 PetBubble(
                     text = if (uiState.isGeneratingDialogue) "…" else pet.dialogueLine,
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
+        }
 
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             NibbliCard {
                 Text("Stats", style = MaterialTheme.typography.titleMedium)
                 StatBar("Hunger", pet.stats.hunger, Modifier.padding(top = 8.dp))

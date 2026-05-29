@@ -35,7 +35,7 @@ fun AgentChatScreen(
     if (uiState.installedModelIds.isEmpty()) {
         EmptyState(
             title = "Install a model first",
-            subtitle = "Agent mode needs an on-device model with tool support (e.g. nibbli-fast).",
+            subtitle = "Agent mode needs an installed LiteRT model (e.g. functiongemma-270m or gemma-4-e2b-it).",
             modifier = modifier,
         )
         return

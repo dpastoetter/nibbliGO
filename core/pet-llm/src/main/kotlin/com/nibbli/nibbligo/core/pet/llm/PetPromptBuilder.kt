@@ -8,12 +8,12 @@ object PetPromptBuilder {
         val s = request.state
         val stats = s.stats
         val personalityHint = when (request.personality) {
-            PetPersonality.PLAYFUL -> "Playful and bouncy, like a Tamagotchi."
+            PetPersonality.PLAYFUL -> "Playful and bouncy, like a Pixel Friend."
             PetPersonality.CALM -> "Calm and gentle."
             PetPersonality.CURIOUS -> "Curious about on-device AI."
         }
         return buildString {
-            appendLine("You are ${s.name}, a Tamagotchi-style AI pet in the nibbliGO app. $personalityHint")
+            appendLine("You are ${s.name}, a Pixel Friend AI pet in the nibbliGO app. $personalityHint")
             appendLine("All processing is local on the user's phone.")
             appendLine("Stage: ${s.stage.name}, condition: ${s.condition.name}, need: ${s.activeNeed.name}")
             appendLine("Stats 0-100 — hunger: ${stats.hunger}, happiness: ${stats.happiness}, energy: ${stats.energy}")

@@ -33,25 +33,24 @@ class ModelDownloadWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val modelId = inputData.getString(KEY_MODEL_ID)
-            ?: return@withContext Result.failure()
+            ?: return@withContext failure("Missing model id in download request.")
         val info = ModelCatalog.find(modelId)
-            ?: return@withContext Result.failure()
+            ?: return@withContext failure("Unknown model: $modelId")
         val modelsDir = File(applicationContext.filesDir, "models").also { it.mkdirs() }
         val modelFile = File(modelsDir, info.localFileName())
         val url = info.resolveDownloadUrl()
-            ?: return@withContext Result.failure(
-                workDataOf(KEY_ERROR to "No download URL for $modelId"),
-            )
+            ?: return@withContext failure("No download URL for $modelId")
 
         setForeground(createForegroundInfo(modelId, 0))
+        setProgress(workDataOf(KEY_PROGRESS to 0))
 
         try {
             val token = huggingFaceAuthRepository.getAccessToken()
             try {
-                HfFileDownloader.download(url, modelFile, token)
+                downloadWithProgress(url, modelFile, token, modelId)
             } catch (first: HfDownloadException) {
                 if (first.httpCode == 401 && !token.isNullOrBlank()) {
-                    HfFileDownloader.download(url, modelFile, accessToken = null)
+                    downloadWithProgress(url, modelFile, accessToken = null, modelId = modelId)
                 } else {
                     throw first
                 }
@@ -60,9 +59,9 @@ class ModelDownloadWorker @AssistedInject constructor(
             val minBytes = (info.sizeBytes / 50).coerceAtLeast(500_000L)
             if (modelFile.length() < minBytes) {
                 modelFile.delete()
-                error(
+                return@withContext failure(
                     "Downloaded file too small (${modelFile.length()} bytes). " +
-                        "If the repo is gated, sign in or add a token in Settings.",
+                        "If the repo is gated, add a Hugging Face token in Settings.",
                 )
             }
             modelInstallDao.insert(
@@ -78,17 +77,39 @@ class ModelDownloadWorker @AssistedInject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Download failed for $modelId", e)
             modelFile.delete()
-            Result.failure(workDataOf(KEY_ERROR to (e.message ?: "download failed")))
+            failure(e.message ?: "Download failed")
         }
     }
+
+    private suspend fun downloadWithProgress(
+        url: String,
+        modelFile: File,
+        accessToken: String?,
+        modelId: String,
+    ) {
+        HfFileDownloader.download(url, modelFile, accessToken) { bytesRead, totalBytes ->
+            val percent = if (totalBytes > 0) {
+                ((bytesRead * 100) / totalBytes).toInt().coerceIn(0, 99)
+            } else {
+                0
+            }
+            setProgressAsync(workDataOf(KEY_PROGRESS to percent))
+            setForegroundAsync(createForegroundInfo(modelId, percent))
+        }
+    }
+
+    private fun failure(message: String): Result =
+        Result.failure(workDataOf(KEY_ERROR to message))
 
     private fun createForegroundInfo(modelId: String, progress: Int): ForegroundInfo {
         ensureChannel()
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle("Downloading model")
-            .setContentText(modelId)
+            .setContentText(
+                if (progress > 0) "$modelId — $progress%" else "$modelId — starting…",
+            )
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setProgress(100, progress, progress == 0)
+            .setProgress(100, progress.coerceIn(0, 100), progress == 0)
             .setOngoing(true)
             .build()
         return ForegroundInfo(
@@ -113,7 +134,9 @@ class ModelDownloadWorker @AssistedInject constructor(
         private const val TAG = "ModelDownloadWorker"
         const val KEY_MODEL_ID = "model_id"
         const val KEY_ERROR = "error"
+        const val KEY_PROGRESS = "progress"
         const val WORK_TAG = "hf_litert_download"
+
         private const val CHANNEL_ID = "model_download"
 
         fun input(modelId: String) = workDataOf(KEY_MODEL_ID to modelId)

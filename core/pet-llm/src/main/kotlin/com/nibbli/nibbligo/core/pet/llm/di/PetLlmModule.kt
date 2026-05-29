@@ -1,6 +1,6 @@
 package com.nibbli.nibbligo.core.pet.llm.di
 
-import com.nibbli.nibbligo.core.pet.llm.DelegatingPetReactionPort
+import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
 import com.nibbli.nibbligo.core.pet.llm.PetReactionPort
 import dagger.Binds
 import dagger.Module
@@ -13,5 +13,5 @@ import javax.inject.Singleton
 abstract class PetLlmModule {
     @Binds
     @Singleton
-    abstract fun bindPetReactionPort(impl: DelegatingPetReactionPort): PetReactionPort
+    abstract fun bindPetReactionPort(impl: LiteRtPetReactionGenerator): PetReactionPort
 }

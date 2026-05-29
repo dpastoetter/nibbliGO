@@ -60,9 +60,21 @@ fun ModelsScreen(
                             ModelCapabilityChip(viewModel.modalityLabel(mod))
                         }
                     }
-                    if (item.isDownloading) {
+                    if (item.isWaitingForNetwork) {
                         Text(
-                            "Downloading…",
+                            "Waiting for network…",
+                            modifier = Modifier.padding(top = 12.dp),
+                            color = MaterialTheme.colorScheme.tertiary,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    } else if (item.isDownloading) {
+                        val progressLabel = if (item.downloadProgress > 0) {
+                            "Downloading… ${item.downloadProgress}%"
+                        } else {
+                            "Downloading…"
+                        }
+                        Text(
+                            progressLabel,
                             modifier = Modifier.padding(top = 12.dp),
                             color = MaterialTheme.colorScheme.tertiary,
                             style = MaterialTheme.typography.labelLarge,

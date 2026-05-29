@@ -40,7 +40,11 @@ class ImageViewModel @Inject constructor(
                 inferenceRuntime.capabilitiesFor(it).supportsVision
             }
             _uiState.update {
-                it.copy(installedModelIds = installed, selectedModelId = visionModel ?: installed.firstOrNull())
+                it.copy(
+                    installedModelIds = installed,
+                    selectedModelId = visionModel ?: installed.firstOrNull(),
+                    unsupported = visionModel == null,
+                )
             }
         }
     }
@@ -60,7 +64,7 @@ class ImageViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, unsupported = false) }
             inferenceRuntime.ensureModelLoaded(modelId)
             when (val result = inferenceRuntime.analyzeImage(
-                VisionRequest(modelId, state.imageUri.ifBlank { "content://demo/image" }, state.question),
+                VisionRequest(modelId, state.imageUri, state.question),
             )) {
                 is RuntimeResult.Success -> _uiState.update { it.copy(result = result.data, isLoading = false) }
                 RuntimeResult.Unsupported -> _uiState.update { it.copy(unsupported = true, isLoading = false) }

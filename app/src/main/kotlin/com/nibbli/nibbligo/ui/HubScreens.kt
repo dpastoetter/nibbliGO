@@ -20,7 +20,7 @@ fun AssistHubScreen(navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Assist", style = MaterialTheme.typography.displaySmall)
-        Text("Chat and experiment with prompts — all on-device.")
+        Text("Chat and experiment with prompts — requires an installed LiteRT model.")
         Button(onClick = { navController.navigate(Routes.CHAT) }) { Text("Local Chat") }
         Button(onClick = { navController.navigate(Routes.AGENT_CHAT) }) { Text("Agent Chat") }
         Button(onClick = { navController.navigate(Routes.PROMPT_LAB) }) { Text("Prompt Lab") }
@@ -34,9 +34,10 @@ fun SenseHubScreen(navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Sense", style = MaterialTheme.typography.displaySmall)
-        Text("See and hear the world through local models.")
-        Button(onClick = { navController.navigate(Routes.ASK_IMAGE) }) { Text("Ask Image") }
-        Button(onClick = { navController.navigate(Routes.AUDIO_SCRIBE) }) { Text("Audio Scribe") }
+        Text(
+            "Multimodal vision and audio require LiteRT models that are not yet supported in this build.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -47,9 +48,8 @@ fun ManageHubScreen(navController: NavController) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("Manage", style = MaterialTheme.typography.displaySmall)
-        Text("Models, benchmarks, and privacy controls.")
+        Text("Download LiteRT models and privacy controls.")
         Button(onClick = { navController.navigate(Routes.MODELS) }) { Text("Models") }
-        Button(onClick = { navController.navigate(Routes.BENCHMARK) }) { Text("Benchmark") }
         Button(onClick = { navController.navigate(Routes.SETTINGS) }) { Text("Settings") }
     }
 }

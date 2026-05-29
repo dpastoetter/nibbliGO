@@ -1,7 +1,6 @@
 package com.nibbli.nibbligo.core.model
 
 enum class RuntimeKind {
-    FAKE,
     LITERT,
 }
 

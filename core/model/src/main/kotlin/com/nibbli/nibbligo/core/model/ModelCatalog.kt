@@ -3,30 +3,6 @@ package com.nibbli.nibbligo.core.model
 object ModelCatalog {
     val models: List<ModelInfo> = listOf(
         ModelInfo(
-            id = "nibbli-fast",
-            displayName = "nibbli Fast",
-            description = "Lightweight text model for chat and prompts. Great for everyday tasks.",
-            sizeBytes = 450_000_000L,
-            estimatedRamMb = 512,
-            modalities = setOf(Modality.TEXT),
-        ),
-        ModelInfo(
-            id = "nibbli-vision",
-            displayName = "nibbli Vision",
-            description = "Multimodal model for chat plus image understanding and description.",
-            sizeBytes = 1_200_000_000L,
-            estimatedRamMb = 1024,
-            modalities = setOf(Modality.TEXT, Modality.VISION),
-        ),
-        ModelInfo(
-            id = "nibbli-scribe",
-            displayName = "nibbli Scribe",
-            description = "Audio transcription and summarization on-device.",
-            sizeBytes = 800_000_000L,
-            estimatedRamMb = 768,
-            modalities = setOf(Modality.TEXT, Modality.AUDIO),
-        ),
-        ModelInfo(
             id = "gemma-4-e2b-it",
             displayName = "Gemma 4 E2B (LiteRT)",
             description = "Agentic chat with tool calling. ~2.4 GB download over Wi‑Fi.",

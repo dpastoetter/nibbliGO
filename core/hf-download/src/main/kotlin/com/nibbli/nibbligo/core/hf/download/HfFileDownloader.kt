@@ -21,6 +21,7 @@ object HfFileDownloader {
         url: String,
         destination: File,
         accessToken: String? = null,
+        onProgress: ((bytesRead: Long, totalBytes: Long) -> Unit)? = null,
     ) {
         val tmp = File(destination.parentFile, "${destination.name}.download")
         tmp.parentFile?.mkdirs()
@@ -42,8 +43,19 @@ object HfFileDownloader {
                 )
             }
             val body = response.body ?: error("empty response body")
+            val totalBytes = body.contentLength().coerceAtLeast(-1L)
+            var bytesRead = 0L
             body.byteStream().use { input ->
-                tmp.outputStream().use { output -> input.copyTo(output) }
+                tmp.outputStream().use { output ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read == -1) break
+                        output.write(buffer, 0, read)
+                        bytesRead += read
+                        onProgress?.invoke(bytesRead, totalBytes)
+                    }
+                }
             }
         }
         if (destination.exists()) destination.delete()

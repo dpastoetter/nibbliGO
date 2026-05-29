@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,13 +27,14 @@ class ModelInstallFlowTest {
         hiltRule.inject()
     }
 
+    @Ignore("Requires network download of functiongemma-270m (~289 MB)")
     @Test
     fun installModel_showsInstalledBadge() {
         composeRule.onNodeWithText("Manage").performClick()
         composeRule.onNodeWithText("Models").performClick()
-        composeRule.onNodeWithTag("install_nibbli-fast").performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodesWithTag("installed_nibbli-fast").fetchSemanticsNodes().isNotEmpty()
+        composeRule.onNodeWithTag("install_functiongemma-270m").performClick()
+        composeRule.waitUntil(timeoutMillis = 600_000) {
+            composeRule.onAllNodesWithTag("installed_functiongemma-270m").fetchSemanticsNodes().isNotEmpty()
         }
     }
 }

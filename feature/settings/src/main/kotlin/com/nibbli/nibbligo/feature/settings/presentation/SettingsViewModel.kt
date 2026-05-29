@@ -1,15 +1,15 @@
 package com.nibbli.nibbligo.feature.settings.presentation
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
-import com.nibbli.nibbligo.core.model.InstalledModel
-import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
-import android.content.Intent
+import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.model.PetPersonality
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,14 +22,11 @@ import javax.inject.Inject
 data class SettingsUiState(
     val installedCount: Int = 0,
     val allowDownloads: Boolean = true,
-    val useLiteRtRuntime: Boolean = false,
-    val liteRtModelPresent: Boolean = false,
     val storageSummary: String = "Calculating…",
     val hfSignedIn: Boolean = false,
     val hfConfigured: Boolean = false,
     val hfAuthMessage: String? = null,
     val hfManualTokenInput: String = "",
-    val usePetLlmReactions: Boolean = true,
     val petPersonality: PetPersonality = PetPersonality.PLAYFUL,
 )
 
@@ -51,11 +48,9 @@ class SettingsViewModel @Inject constructor(
                 combine(
                     modelRepository.observeInstalled(),
                     userPreferencesRepository.allowDownloads,
-                    userPreferencesRepository.preferredRuntimeKind,
-                    userPreferencesRepository.usePetLlmReactions,
                     userPreferencesRepository.petPersonality,
-                ) { installed, allowDownloads, runtimeKind, usePetLlm, personality ->
-                    Quintuple(installed, allowDownloads, runtimeKind, usePetLlm, personality)
+                ) { installed, allowDownloads, personality ->
+                    SettingsPrefsSlice(installed, allowDownloads, personality)
                 },
                 huggingFaceAuthRepository.accessToken,
             ) { prefs, token ->
@@ -63,11 +58,9 @@ class SettingsViewModel @Inject constructor(
                 SettingsUiState(
                     installedCount = prefs.installed.size,
                     allowDownloads = prefs.allowDownloads,
-                    useLiteRtRuntime = prefs.runtimeKind == "litert",
                     storageSummary = "~${bytes / 1_000_000} MB in models (local)",
                     hfSignedIn = !token.isNullOrBlank(),
                     hfConfigured = huggingFaceAuthRepository.isConfigured(),
-                    usePetLlmReactions = prefs.usePetLlm,
                     petPersonality = prefs.personality,
                 )
             }.collect { state -> _uiState.value = state }
@@ -76,12 +69,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setAllowDownloads(allowed: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setAllowDownloads(allowed) }
-    }
-
-    fun setUseLiteRt(enabled: Boolean) {
-        viewModelScope.launch {
-            userPreferencesRepository.setPreferredRuntimeKind(if (enabled) "litert" else "fake")
-        }
     }
 
     fun clearChatHistory() {
@@ -117,10 +104,6 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(hfManualTokenInput = value) }
     }
 
-    fun setUsePetLlmReactions(enabled: Boolean) {
-        viewModelScope.launch { userPreferencesRepository.setUsePetLlmReactions(enabled) }
-    }
-
     fun setPetPersonality(personality: PetPersonality) {
         viewModelScope.launch { userPreferencesRepository.setPetPersonality(personality) }
     }
@@ -143,10 +126,8 @@ class SettingsViewModel @Inject constructor(
     }
 }
 
-private data class Quintuple(
+private data class SettingsPrefsSlice(
     val installed: List<InstalledModel>,
     val allowDownloads: Boolean,
-    val runtimeKind: String,
-    val usePetLlm: Boolean,
     val personality: PetPersonality,
 )

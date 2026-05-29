@@ -21,50 +21,18 @@ class ToolExecutor @Inject constructor(
     private val mcpToolRegistry: McpToolRegistry,
 ) {
     suspend fun execute(call: ToolCall): ToolResult {
-        val tool = toolRegistry.findTool(call.toolId)
+        toolRegistry.findTool(call.toolId)
             ?: return ToolResult(call.toolId, false, """{"error":"unknown tool"}""")
 
-        return when (tool.id) {
-            "notes_save" -> {
-                val args = JSONObject(call.argumentsJson.ifBlank { "{}" })
-                val title = args.optString("title", "Note")
-                val body = args.optString("body", "")
-                ToolResult(
-                    tool.id,
-                    true,
-                    """{"saved":true,"title":"$title","preview":"${body.take(80)}"}""",
-                )
-            }
-            "reminder_create" -> {
-                val args = JSONObject(call.argumentsJson.ifBlank { "{}" })
-                val title = args.optString("title", "Reminder")
-                ToolResult(
-                    tool.id,
-                    true,
-                    """{"created":true,"title":"$title","stored":"local"}""",
-                )
-            }
-            "clipboard_summarize" -> ToolResult(
-                tool.id,
-                true,
-                """{"summary":"[demo] Clipboard summarized on-device."}""",
-            )
-            "open_settings" -> ToolResult(
-                tool.id,
-                true,
-                """{"opened":"settings","note":"Handled by mobile action layer when available."}""",
-            )
-            "flashlight_toggle" -> ToolResult(
-                tool.id,
-                true,
-                """{"flashlight":"toggled","note":"Demo mobile action — wire torch API for production."}""",
-            )
-            "read_clipboard" -> ToolResult(
-                tool.id,
-                true,
-                """{"clipboard":"[demo] Sample clipboard text for agent."}""",
-            )
-            else -> executeSkillOrGeneric(tool.id, call)
+        return when (call.toolId) {
+            "notes_save",
+            "reminder_create",
+            "clipboard_summarize",
+            "open_settings",
+            "flashlight_toggle",
+            "read_clipboard",
+            -> notImplemented(call.toolId)
+            else -> executeSkillOrGeneric(call.toolId, call)
         }.also { result ->
             actionHistoryRepository.log(
                 call.toolId,
@@ -73,6 +41,9 @@ class ToolExecutor @Inject constructor(
             )
         }
     }
+
+    private fun notImplemented(toolId: String): ToolResult =
+        ToolResult(toolId, false, """{"error":"$toolId is not implemented on this device yet."}""")
 
     private suspend fun executeSkillOrGeneric(toolId: String, call: ToolCall): ToolResult {
         val tool = toolRegistry.findTool(toolId) ?: return ToolResult(toolId, false, """{"error":"unknown"}""")
@@ -101,8 +72,8 @@ class ToolExecutor @Inject constructor(
         } else {
             ToolResult(
                 toolId,
-                true,
-                """{"skill":"$skillId","tool":"${tool.name}","output":"Native skill executed on-device."}""",
+                false,
+                """{"error":"Native skill runtime not available for $skillId"}""",
             )
         }
     }

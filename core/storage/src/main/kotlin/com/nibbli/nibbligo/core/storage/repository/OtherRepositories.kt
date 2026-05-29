@@ -121,7 +121,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     context.dataStore.data.map { it[Keys.allowDownloads] ?: true }
 
   override val preferredRuntimeKind: Flow<String> =
-    context.dataStore.data.map { it[Keys.preferredRuntime] ?: "fake" }
+    context.dataStore.data.map { it[Keys.preferredRuntime] ?: "litert" }
 
   override val petPersonality: Flow<PetPersonality> =
     context.dataStore.data.map { prefs ->

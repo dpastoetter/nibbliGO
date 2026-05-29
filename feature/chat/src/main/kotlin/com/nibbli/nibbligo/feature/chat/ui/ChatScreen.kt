@@ -39,7 +39,7 @@ fun ChatScreen(
         if (uiState.installedModelIds.isEmpty()) {
             EmptyState(
                 title = "No models installed",
-                subtitle = "Install nibbli Fast from Manage → Models to start chatting offline.",
+                subtitle = "Download FunctionGemma or Gemma from Manage → Models to start chatting.",
             )
             return
         }

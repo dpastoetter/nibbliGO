@@ -2,7 +2,7 @@
 
 A playful, local-first Android companion that pairs an evolving AI pet with on-device assistant tools — chat, prompt lab, image Q&A, audio scribe, safe actions, models, and benchmarks.
 
-**Privacy:** This build uses a **fake on-device runtime** for demos. No cloud inference. Replace with LiteRT / Google AI Edge–compatible execution when ready.
+**Privacy:** On-device only — LiteRT inference and Hugging Face model downloads. No cloud inference.
 
 ## Requirements
 
@@ -54,12 +54,12 @@ core/designsystem/    → Theme, colors, components
 core/ui/              → Loading, empty, error states
 core/domain/          → Repository contracts, PetEventBus
 core/storage/         → Room, DataStore, repositories
-core/runtime/         → InferenceRuntime + FakeInferenceRuntime
+core/runtime/         → InferenceRuntime interface
+core/runtime-litert/  → LiteRT-LM inference (required for chat/agent/pet Talk)
+core/pet-llm/         → Local LLM pet reactions (LiteRT only)
 core/agent/           → Agent orchestrator, tool registry, SKILL.md loader
-core/runtime-litert/  → LiteRT-LM bridge + runtime preference
 feature/agent/        → Agent Chat (tool calling UI)
-feature/pet/          → Tamagotchi-style pixel pet + care loop
-core/pet-llm/         → Local LLM pet reactions (templates + LiteRT)
+feature/pet/          → Pixel Friend pixel pet + care loop
 feature/chat/         → Local chat with streaming
 feature/promptlab/    → Prompt playground
 feature/image/        → Ask Image (placeholder URI flow)
@@ -72,23 +72,21 @@ feature/settings/     → Privacy & storage
 
 ## End-to-end demo flow
 
-1. **Manage → Models** → Install `nibbli-fast`
-2. **Assist → Agent Chat** → Send `remind me to stretch` → confirm tool → see result
-3. **Home** → Tamagotchi pet: feed, play, clean, medicine, sleep; Talk uses on-device LLM when enabled
+1. **Manage → Models** → Download `functiongemma-270m` (~289 MB) or `gemma-4-e2b-it` (~2.6 GB)
+2. **Assist → Local Chat** or **Agent Chat** — requires installed LiteRT model
+3. **Home** → Pixel Friend: feed, play, clean, medicine, sleep; Talk uses installed LiteRT model
 4. Pet gains trust/mood from `PetEvent.AgentStepCompleted` (toast on Home)
 
-Or use **Local Chat** for non-agent streaming.
-
-## Tamagotchi pixel pet
+## Pixel Friend
 
 - **Simulation** (`PetSimulationEngine`): hunger, hygiene, energy, sickness, evolution, death → new egg with optional `memorySummary`
 - **Background ticks** (`PetTickWorker`, ~15 min): decay while away; notifications when needs stay critical
-- **Voice** (`core:pet-llm`): care and Talk lines via `PetReactionPort`; templates when LLM is off or model missing
-- **Settings**: toggle **LLM pet reactions** and **personality** (Playful / Calm / Curious)
+- **Voice** (`core:pet-llm`): care and Talk lines via LiteRT when a model is installed
+- **Settings**: **personality** (Playful / Calm / Curious)
 - **Export**: Home overflow → share pet diary (text)
 - **Widget**: add **nibbliGO Pet** from the launcher widget picker (name + life stage)
 
-Install a small on-device model (`nibbli-fast` or `functiongemma-270m`) for varied Talk replies; Phase 1 care loop works fully with templates only.
+Download **functiongemma-270m** first for faster emulator testing. Care mechanics work without a model; Talk and LLM reactions require an installed LiteRT model.
 
 
 
@@ -97,8 +95,8 @@ Install a small on-device model (`nibbli-fast` or `functiongemma-270m`) for vari
 - **Agent Chat** (`Assist → Agent Chat`): ReAct-style loop with confirm-gated tools
 - **Tool registry**: Built-in tools (notes, reminders, clipboard, mobile actions) + imported skills
 - **SKILL.md packages**: Gallery-compatible layout under `assets/skills/`; bundled `nibbli_tasks` and `nibbli_clipboard`
-- **LiteRT runtime** (Settings): Prefer LiteRT when a `.litertlm` file exists in `files/models/`
-- **Models**: `gemma-4-e2b-it` and `functiongemma-270m` catalog entries for future LiteRT downloads
+- **LiteRT runtime**: bound directly — all inference requires a downloaded `.litertlm` model
+- **Models**: `functiongemma-270m` and `gemma-4-e2b-it` from Hugging Face
 
 ### Authoring a skill package
 
@@ -122,28 +120,11 @@ permissions: local_storage
 
 Import via **Do →** installed packages list (bundled skills load at app start).
 
-## Plugging in a real on-device runtime
+## On-device runtime
 
-1. Implement `InferenceRuntime` in a new module (e.g. `core:runtime-litert`).
-2. Load model files from `context.filesDir/models/`.
-3. Bind your implementation in a Hilt module instead of `FakeInferenceRuntime`:
+LiteRT-LM loads models from `files/models/*.litertlm`. Chat, Agent, Prompt Lab, and Pixel Friend Talk show install prompts until a model is downloaded.
 
-```kotlin
-@Binds @Singleton
-abstract fun bindInferenceRuntime(impl: LiteRTInferenceRuntime): InferenceRuntime
-```
-
-4. Gate features with `capabilitiesFor(modelId)` (vision/audio flags).
-
-Feature modules depend only on `InferenceRuntime` — no UI changes required.
-
-## Fake runtime behavior
-
-- Simulated model load (300–800 ms)
-- Word-by-word streaming for chat
-- Template completions for Prompt Lab presets
-- Vision/audio gated by catalog modalities
-- Synthetic benchmark metrics
+Vision, audio, and benchmarks are not yet supported with LiteRT in this build.
 
 ## Tests
 
@@ -152,8 +133,8 @@ Feature modules depend only on `InferenceRuntime` — no UI changes required.
 ./gradlew connectedAndroidTest   # device/emulator required
 ```
 
-- Unit: `PetSimulationEngine`, `ModelCatalog`, `FakeInferenceRuntime`, `SkillManifestParser`, `AgentOrchestrator`
-- UI: model install, chat send (instrumented)
+- Unit: `PetSimulationEngine`, `ModelCatalog`, `SkillManifestParser`, `AgentOrchestrator`
+- UI: instrumented flows require network + LiteRT download (marked `@Ignore` by default)
 
 ## Google AI Edge Gallery integration
 

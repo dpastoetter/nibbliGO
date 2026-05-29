@@ -26,6 +26,8 @@ data class ModelItemUi(
     val info: ModelInfo,
     val isInstalled: Boolean,
     val isDownloading: Boolean = false,
+    val isWaitingForNetwork: Boolean = false,
+    val downloadProgress: Int = 0,
 )
 
 data class ModelsUiState(
@@ -55,28 +57,50 @@ class ModelsViewModel @Inject constructor(
                 workManager.getWorkInfosByTagFlow(ModelDownloadWorker.WORK_TAG),
             ) { catalog, installed, workInfos ->
                 val installedIds = installed.map { it.modelId }.toSet()
-                val downloadingIds = workInfos
-                    .filter { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+                val activeWorks = workInfos.filter {
+                    it.state in ACTIVE_DOWNLOAD_STATES
+                }
+                val downloadingIds = activeWorks.mapNotNull { work ->
+                    work.tags.find { it.startsWith("hf_download_") }
+                        ?.removePrefix("hf_download_")
+                }.toSet()
+                val blockedIds = workInfos
+                    .filter { it.state == WorkInfo.State.BLOCKED }
                     .mapNotNull { work ->
                         work.tags.find { it.startsWith("hf_download_") }
                             ?.removePrefix("hf_download_")
                     }
                     .toSet()
+                val progressByModel = activeWorks.associate { work ->
+                    val modelId = work.tags.find { it.startsWith("hf_download_") }
+                        ?.removePrefix("hf_download_") ?: ""
+                    modelId to work.progress.getInt(ModelDownloadWorker.KEY_PROGRESS, 0)
+                }
                 val failed = workInfos
                     .filter { it.state == WorkInfo.State.FAILED }
                     .maxByOrNull { it.id }
-                val failMsg = failed?.outputData?.getString(ModelDownloadWorker.KEY_ERROR)
+                val cancelled = workInfos.any { it.state == WorkInfo.State.CANCELLED }
+                val failMsg = failed?.outputData?.getString(ModelDownloadWorker.KEY_ERROR)?.let {
+                    "Download failed: $it"
+                }
                 ModelsUiState(
                     models = catalog.map { info ->
                         ModelItemUi(
                             info = info,
                             isInstalled = info.id in installedIds,
                             isDownloading = info.id in downloadingIds,
+                            isWaitingForNetwork = info.id in blockedIds,
+                            downloadProgress = progressByModel[info.id] ?: 0,
                         )
                     },
                     installed = installed,
                     isLoading = false,
-                    message = failMsg?.let { "Download failed: $it" } ?: _uiState.value.message,
+                    message = when {
+                        failMsg != null -> failMsg
+                        cancelled -> "Download cancelled"
+                        activeWorks.isNotEmpty() -> _uiState.value.message
+                        else -> null
+                    },
                 )
             }.collect { state -> _uiState.value = state }
         }
@@ -87,13 +111,9 @@ class ModelsViewModel @Inject constructor(
             modelRepository.install(modelId)
                 .onSuccess {
                     petEventBus.emit(PetEvent.NewModelTried(modelId))
-                    val info = modelRepository.getCatalog().find { it.id == modelId }
-                    val msg = if (info?.requiresLiteRt == true) {
-                        "Downloading $modelId… watch the notification; use Wi‑Fi for large files."
-                    } else {
-                        "Installed $modelId"
+                    _uiState.update {
+                        it.copy(message = "Downloading $modelId… check the notification for progress.")
                     }
-                    _uiState.update { it.copy(message = msg) }
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(message = e.message) }
@@ -108,9 +128,20 @@ class ModelsViewModel @Inject constructor(
         }
     }
 
+    fun clearMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
     fun modalityLabel(modality: Modality): String = when (modality) {
         Modality.TEXT -> "Text"
         Modality.VISION -> "Vision"
         Modality.AUDIO -> "Audio"
+    }
+
+    companion object {
+        private val ACTIVE_DOWNLOAD_STATES = setOf(
+            WorkInfo.State.RUNNING,
+            WorkInfo.State.ENQUEUED,
+        )
     }
 }

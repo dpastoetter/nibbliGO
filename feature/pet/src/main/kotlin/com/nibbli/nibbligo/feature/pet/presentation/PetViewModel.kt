@@ -48,24 +48,28 @@ class PetViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            var state = petRepository.getPetState()
-            val tick = engine.tick(state, System.currentTimeMillis())
-            state = tick.state
-            tick.templateDialogue?.let { state = state.copy(dialogueLine = it) }
-            petRepository.savePetState(state)
-            _uiState.update { it.copy(petState = state, isLoading = false) }
-            if (tick.welcomeBack) {
-                generateReaction(state, lastAction = "returning after a while")
-            }
-
-            petEventBus.events.collect { event ->
-                val updated = engine.onPetEvent(_uiState.value.petState, event)
-                persist(updated)
-                val toast = when {
-                    event.javaClass.simpleName.contains("Agent") -> "nibbli noticed your agent work!"
-                    else -> null
+            try {
+                var state = petRepository.getPetState()
+                val tick = engine.tick(state, System.currentTimeMillis())
+                state = tick.state
+                tick.templateDialogue?.let { state = state.copy(dialogueLine = it) }
+                petRepository.savePetState(state)
+                _uiState.update { it.copy(petState = state) }
+                if (tick.welcomeBack) {
+                    generateReaction(state, lastAction = "returning after a while")
                 }
-                _uiState.update { it.copy(agentToast = toast) }
+
+                petEventBus.events.collect { event ->
+                    val updated = engine.onPetEvent(_uiState.value.petState, event)
+                    persist(updated)
+                    val toast = when {
+                        event.javaClass.simpleName.contains("Agent") -> "nibbli noticed your agent work!"
+                        else -> null
+                    }
+                    _uiState.update { it.copy(agentToast = toast) }
+                }
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }

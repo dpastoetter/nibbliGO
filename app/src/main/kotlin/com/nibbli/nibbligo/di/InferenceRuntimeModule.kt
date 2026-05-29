@@ -12,5 +12,5 @@ import javax.inject.Singleton
 abstract class InferenceRuntimeModule {
     @Binds
     @Singleton
-    abstract fun bindInferenceRuntime(impl: SwitchingInferenceRuntime): InferenceRuntime
+    abstract fun bindInferenceRuntime(impl: com.nibbli.nibbligo.core.runtime.litert.LiteRTInferenceRuntime): InferenceRuntime
 }

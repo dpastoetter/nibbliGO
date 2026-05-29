@@ -16,7 +16,7 @@ import kotlin.math.max
 import kotlin.random.Random
 
 /**
- * Pure Tamagotchi-style pet reducer — no Android dependencies.
+ * Pure Pixel Friend pet reducer — no Android dependencies.
  */
 class PetSimulationEngine {
 
