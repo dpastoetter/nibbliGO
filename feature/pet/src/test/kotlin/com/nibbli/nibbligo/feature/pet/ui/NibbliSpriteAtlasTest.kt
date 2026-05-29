@@ -40,7 +40,9 @@ class NibbliSpriteAtlasTest {
     @Test
     fun sickUsesSickFrame() {
         val pet = basePet.copy(condition = PetCondition.SICK)
-        assertEquals(NibbliSpriteAtlas.Frame.SICK, pet.resolveSprite().primary)
+        val selection = pet.resolveSprite()
+        assertEquals(NibbliSpriteAtlas.Frame.SICK, selection.primary)
+        assertEquals(NibbliSpriteAtlas.Frame.IDLE_A, selection.alternate)
     }
 
     @Test
@@ -60,7 +62,9 @@ class NibbliSpriteAtlasTest {
     @Test
     fun activeNeedUsesAttentionFrame() {
         val pet = basePet.copy(activeNeed = PetNeed.HUNGRY)
-        assertEquals(NibbliSpriteAtlas.Frame.ATTENTION, pet.resolveSprite().primary)
+        val selection = pet.resolveSprite()
+        assertEquals(NibbliSpriteAtlas.Frame.ATTENTION, selection.primary)
+        assertEquals(NibbliSpriteAtlas.Frame.IDLE_A, selection.alternate)
     }
 
     @Test
@@ -70,24 +74,46 @@ class NibbliSpriteAtlasTest {
             stats = PetStats(hunger = 20),
             activeNeed = PetNeed.NONE,
         )
-        assertEquals(NibbliSpriteAtlas.Frame.HUNGRY, pet.resolveSprite().primary)
+        val selection = pet.resolveSprite()
+        assertEquals(NibbliSpriteAtlas.Frame.HUNGRY, selection.primary)
+        assertEquals(NibbliSpriteAtlas.Frame.IDLE_A, selection.alternate)
     }
 
     @Test
     fun playfulUsesPlayfulFrame() {
         val pet = basePet.copy(animation = PetAnimation.PLAY)
-        assertEquals(NibbliSpriteAtlas.Frame.PLAYFUL, pet.resolveSprite().primary)
+        val selection = pet.resolveSprite()
+        assertEquals(NibbliSpriteAtlas.Frame.PLAYFUL, selection.primary)
+        assertEquals(NibbliSpriteAtlas.Frame.HAPPY, selection.alternate)
     }
 
     @Test
     fun happyUsesHappyFrame() {
         val pet = basePet.copy(expression = PetExpression.HAPPY)
-        assertEquals(NibbliSpriteAtlas.Frame.HAPPY, pet.resolveSprite().primary)
+        val selection = pet.resolveSprite()
+        assertEquals(NibbliSpriteAtlas.Frame.HAPPY, selection.primary)
+        assertEquals(NibbliSpriteAtlas.Frame.PLAYFUL, selection.alternate)
+    }
+
+    @Test
+    fun highMoodUsesLivelyIdleFrames() {
+        val pet = basePet.copy(stats = PetStats(mood = 85))
+        val selection = pet.resolveSprite()
+        assertEquals(NibbliSpriteAtlas.Frame.HAPPY, selection.primary)
+        assertEquals(NibbliSpriteAtlas.Frame.IDLE_B, selection.alternate)
+    }
+
+    @Test
+    fun mediumMoodUsesIdleHappyFrames() {
+        val pet = basePet.copy(stats = PetStats(mood = 60))
+        val selection = pet.resolveSprite()
+        assertEquals(NibbliSpriteAtlas.Frame.IDLE_A, selection.primary)
+        assertEquals(NibbliSpriteAtlas.Frame.HAPPY, selection.alternate)
     }
 
     @Test
     fun idleUsesAnimatedBlinkFrames() {
-        val pet = basePet
+        val pet = basePet.copy(stats = PetStats(mood = 50))
         val selection = pet.resolveSprite()
         assertEquals(NibbliSpriteAtlas.Frame.IDLE_A, selection.primary)
         assertEquals(NibbliSpriteAtlas.Frame.IDLE_B, selection.alternate)

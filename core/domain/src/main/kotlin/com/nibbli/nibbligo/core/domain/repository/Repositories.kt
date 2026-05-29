@@ -8,6 +8,7 @@ import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.ModelInfo
+import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.SavedPrompt
@@ -63,6 +64,8 @@ interface UserPreferencesRepository {
     val preferredRuntimeKind: Flow<String>
     val petPersonality: Flow<PetPersonality>
     val usePetLlmReactions: Flow<Boolean>
+    val petCommentOnAgentWork: Flow<Boolean>
+    val petMoodPulseMode: Flow<PetMoodPulseMode>
     val themeMode: Flow<AppThemeMode>
     val showDoTab: Flow<Boolean>
     suspend fun setDefaultModelId(modelId: String?)
@@ -71,6 +74,8 @@ interface UserPreferencesRepository {
     suspend fun setPreferredRuntimeKind(kind: String)
     suspend fun setPetPersonality(personality: PetPersonality)
     suspend fun setUsePetLlmReactions(enabled: Boolean)
+    suspend fun setPetCommentOnAgentWork(enabled: Boolean)
+    suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode)
     suspend fun setThemeMode(mode: AppThemeMode)
     suspend fun setShowDoTab(show: Boolean)
 }

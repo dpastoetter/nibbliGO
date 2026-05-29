@@ -1,9 +1,12 @@
 package com.nibbli.nibbligo.core.pet.llm
 
+import com.nibbli.nibbligo.core.model.PetExpression
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
 
 object PetPromptBuilder {
+    private val expressionNames = PetExpression.entries.joinToString(", ") { it.name }
+
     fun build(request: PetReactionRequest): String {
         val s = request.state
         val stats = s.stats
@@ -18,7 +21,15 @@ object PetPromptBuilder {
             appendLine("Stage: ${s.stage.name}, condition: ${s.condition.name}, need: ${s.activeNeed.name}")
             appendLine("Stats 0-100 — hunger: ${stats.hunger}, happiness: ${stats.happiness}, energy: ${stats.energy}")
             appendLine("hygiene: ${stats.hygiene}, health: ${stats.health}, trust: ${stats.trust}")
-            if (s.memorySummary.isNotBlank()) appendLine("Memory: ${s.memorySummary}")
+            if (s.memorySummary.isNotBlank()) {
+                appendLine("Memory (facts you remember about this caretaker and your life): ${s.memorySummary}")
+            }
+            val recent = request.recentLines.filter { it.isNotBlank() }.distinct().takeLast(2)
+            if (recent.isNotEmpty()) {
+                appendLine("You recently said:")
+                recent.forEach { appendLine("- $it") }
+            }
+            request.activityHint?.let { appendLine("Context: $it") }
             if (request.moodPulse) {
                 appendLine("Spontaneous thought while the user watches you on their home screen.")
                 appendLine("Mood right now: ${PetMoodDescriber.describe(s)}")
@@ -45,7 +56,22 @@ object PetPromptBuilder {
                     }
                 }
                 appendLine("Reply in 1-2 short sentences. No markdown. Max 120 characters.")
+                appendLine(
+                    "Format: your dialogue line|$expressionNames " +
+                        "(pick one expression that matches your face; example: So cozy!|HAPPY)",
+                )
             }
         }
+    }
+
+    /** Shorter prompt when the full talk prompt returns an empty model response. */
+    fun buildCompactTalk(request: PetReactionRequest): String = buildString {
+        appendLine("You are ${request.state.name}, a Pixel Friend pet. All on-device.")
+        appendLine(PetStatusSnapshot.format(request.state))
+        appendLine("User says: ${request.userMessage}")
+        appendLine(
+            "Reply in one short in-character sentence about how you feel and what you need. " +
+                "Max 100 characters. Format: words|HAPPY (or NEUTRAL, HUNGRY, etc.)",
+        )
     }
 }

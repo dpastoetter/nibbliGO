@@ -38,17 +38,19 @@ fun P1DeviceShell(
     val current = menu[safeIndex]
 
     var flash by remember { mutableStateOf(false) }
+    var motionBoost by remember { mutableStateOf(false) }
     var frameIndex by remember { mutableIntStateOf(0) }
     val selection = pet.resolveSprite()
+    val spriteSequence = selection.toSequence()
 
-    LaunchedEffect(selection.primary, selection.alternate, pet.animation) {
-        if (selection.alternate == null) {
+    LaunchedEffect(pet.isAlive, selection.primary, selection.alternate, pet.animation) {
+        if (!pet.isAlive) {
             frameIndex = 0
             return@LaunchedEffect
         }
         while (true) {
-            delay(400)
-            frameIndex = (frameIndex + 1) % 2
+            delay(spriteSequence.stepMs)
+            frameIndex += 1
         }
     }
 
@@ -57,6 +59,17 @@ fun P1DeviceShell(
             delay(100)
             flash = false
         }
+    }
+
+    LaunchedEffect(motionBoost) {
+        if (motionBoost) {
+            delay(600)
+            motionBoost = false
+        }
+    }
+
+    fun triggerMotionBoost() {
+        motionBoost = true
     }
 
     val canCycle = pet.isAlive
@@ -81,7 +94,10 @@ fun P1DeviceShell(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     enabled = pet.isAlive,
-                    onClick = onPetTap,
+                    onClick = {
+                        triggerMotionBoost()
+                        onPetTap()
+                    },
                 ),
         ) {
             P1LcdCanvas(
@@ -89,6 +105,7 @@ fun P1DeviceShell(
                 menuLabel = current.label,
                 frameIndex = frameIndex,
                 flash = flash,
+                tapBoost = motionBoost,
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -98,6 +115,7 @@ fun P1DeviceShell(
             onButtonCenter = {
                 if (canConfirm) {
                     flash = true
+                    triggerMotionBoost()
                     onCareAction(current.interaction)
                 }
             },

@@ -20,7 +20,7 @@ Regenerate after UI changes:
 
 ### Home — Pixel Friend
 
-- Tamagotchi-style **P1 LCD** pet with care actions (feed, play, clean, medicine, sleep).
+- Retro **P1 LCD** pet with care actions (feed, play, clean, medicine, sleep).
 - **Talk** sheet and quick chips; **Talk to me** sends voice to **Agent Chat**.
 - **Looks** — unlock cosmetic overlays (collar, star patch, aurora aura) and equip them on the sprite.
 - On-device **mood lines** about once per minute while Home is visible, the app is in the foreground, and nibbli is awake (requires an installed LiteRT model).

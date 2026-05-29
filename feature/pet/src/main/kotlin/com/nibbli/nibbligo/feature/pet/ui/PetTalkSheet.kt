@@ -11,13 +11,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -27,11 +31,21 @@ fun PetTalkSheet(
     onDismiss: () -> Unit,
     onSend: (String) -> Unit,
 ) {
-    if (!visible) return
     var text by remember { mutableStateOf("") }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
     val chips = listOf("How are you?", "I'm back!", "Good night", "Let's play!")
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    LaunchedEffect(visible) {
+        if (!visible) text = ""
+    }
+
+    if (!visible) return
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -55,9 +69,12 @@ fun PetTalkSheet(
             }
             Button(
                 onClick = {
-                    if (text.isNotBlank()) {
-                        onSend(text.trim())
-                        text = ""
+                    val message = text.trim()
+                    if (message.isEmpty() || isGenerating) return@Button
+                    text = ""
+                    scope.launch {
+                        onSend(message)
+                        sheetState.hide()
                         onDismiss()
                     }
                 },

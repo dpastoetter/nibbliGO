@@ -15,18 +15,13 @@ import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.nibbli.nibbligo.core.designsystem.component.NibbliActionTile
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
-import com.nibbli.nibbligo.feature.settings.presentation.SettingsViewModel
-import com.nibbli.nibbligo.feature.settings.ui.AppearanceCard
 import com.nibbli.nibbligo.navigation.Routes
 
 @Composable
@@ -99,19 +94,11 @@ fun SenseHubScreen(navController: NavController) {
 }
 
 @Composable
-fun ManageHubScreen(
-    navController: NavController,
-    viewModel: SettingsViewModel = hiltViewModel(),
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+fun ManageHubScreen(navController: NavController) {
     NibbliScreen {
         NibbliScreenHeader(
             title = "Manage",
             subtitle = "Download LiteRT models and privacy controls.",
-        )
-        AppearanceCard(
-            themeMode = uiState.themeMode,
-            onThemeModeChange = viewModel::setThemeMode,
         )
         Row(
             modifier = Modifier

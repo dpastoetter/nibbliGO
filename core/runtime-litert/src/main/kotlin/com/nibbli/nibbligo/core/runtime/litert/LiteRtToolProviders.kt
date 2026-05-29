@@ -64,7 +64,10 @@ class NibbliMobileActionsToolSet(
         @ToolParam(description = "The subject of the email.") subject: String,
         @ToolParam(description = "The body of the email.") body: String,
     ): Map<String, String> {
-        performer.sendEmail(EmailParams(to = to, subject = subject, body = body))
+        val error = performer.sendEmail(EmailParams(to = to, subject = subject, body = body))
+        if (error.isNotBlank()) {
+            return mapOf("result" to "error", "message" to error)
+        }
         return mapOf("result" to "success", "to" to to, "subject" to subject, "body" to body)
     }
 

@@ -100,6 +100,13 @@ enum class PetPersonality {
     CURIOUS,
 }
 
+/** Home-screen ambient LLM line frequency. */
+enum class PetMoodPulseMode(val intervalMs: Long) {
+    OFF(0L),
+    NORMAL(60_000L),
+    QUIET(120_000L),
+}
+
 data class PetState(
     val name: String = "nibbli",
     val stats: PetStats = PetStats(),

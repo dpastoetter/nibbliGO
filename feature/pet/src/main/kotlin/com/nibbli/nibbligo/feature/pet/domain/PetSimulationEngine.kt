@@ -21,6 +21,16 @@ import kotlin.random.Random
  */
 class PetSimulationEngine {
 
+    private companion object {
+        const val ACTION_ANIMATION_HOLD_MS = 3_500L
+        val ACTION_HOLD_ANIMATIONS = setOf(
+            PetAnimation.EAT,
+            PetAnimation.PLAY,
+            PetAnimation.HAPPY,
+            PetAnimation.EVOLVE,
+        )
+    }
+
     fun applyTimeDecay(state: PetState, nowMillis: Long): PetState =
         tick(state, nowMillis).state
 
@@ -34,7 +44,13 @@ class PetSimulationEngine {
             val refreshed = state.copy(
                 activeNeed = need,
                 expression = deriveExpression(state.stats, state.condition, need),
-                animation = deriveAnimation(state.condition, need, state.animation),
+                animation = deriveAnimation(
+                    condition = state.condition,
+                    need = need,
+                    current = state.animation,
+                    lastInteractionAtMillis = state.lastInteractionAtMillis,
+                    nowMillis = nowMillis,
+                ),
             )
             return PetTickResult(refreshed)
         }
@@ -96,6 +112,7 @@ class PetSimulationEngine {
                 animation = PetAnimation.EVOLVE,
                 expression = PetExpression.HAPPY,
                 dialogueLine = evolutionLine(evolution),
+                lastInteractionAtMillis = nowMillis,
             )
             evolved = true
         }
@@ -113,7 +130,13 @@ class PetSimulationEngine {
         updated = updated.copy(
             activeNeed = need,
             expression = deriveExpression(updated.stats, updated.condition, need),
-            animation = deriveAnimation(updated.condition, need, updated.animation),
+            animation = deriveAnimation(
+                condition = updated.condition,
+                need = need,
+                current = updated.animation,
+                lastInteractionAtMillis = updated.lastInteractionAtMillis,
+                nowMillis = nowMillis,
+            ),
         )
 
         val hoursAway = (nowMillis - state.lastInteractionAtMillis) / (1000 * 60 * 60f)
@@ -373,12 +396,19 @@ class PetSimulationEngine {
         condition: PetCondition,
         need: PetNeed,
         current: PetAnimation,
-    ): PetAnimation = when {
-        current == PetAnimation.EVOLVE -> current
-        condition == PetCondition.SLEEPING -> PetAnimation.SLEEP
-        condition == PetCondition.SICK -> PetAnimation.SICK
-        need != PetNeed.NONE -> PetAnimation.ATTENTION
-        else -> PetAnimation.IDLE
+        lastInteractionAtMillis: Long,
+        nowMillis: Long,
+    ): PetAnimation {
+        val withinActionHold =
+            nowMillis - lastInteractionAtMillis < ACTION_ANIMATION_HOLD_MS &&
+                current in ACTION_HOLD_ANIMATIONS
+        return when {
+            condition == PetCondition.SLEEPING -> PetAnimation.SLEEP
+            condition == PetCondition.SICK -> PetAnimation.SICK
+            withinActionHold -> current
+            need != PetNeed.NONE -> PetAnimation.ATTENTION
+            else -> PetAnimation.IDLE
+        }
     }
 
     private fun attentionLine(need: PetNeed): String = when (need) {

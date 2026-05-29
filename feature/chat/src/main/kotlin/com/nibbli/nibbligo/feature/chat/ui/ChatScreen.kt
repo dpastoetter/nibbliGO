@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -78,11 +80,23 @@ fun ChatScreen(
                 .padding(bottom = 8.dp),
         )
 
+        val listState = rememberLazyListState()
+        val messageCount = uiState.messages.size + if (uiState.streamingText != null) 1 else 0
+        LaunchedEffect(messageCount, uiState.streamingText) {
+            if (messageCount > 0) {
+                listState.animateScrollToItem(messageCount - 1)
+            }
+        }
+
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(uiState.messages) { msg ->
+            items(
+                items = uiState.messages,
+                key = { msg -> "${msg.id}_${msg.timestampMillis}_${msg.role}" },
+            ) { msg ->
                 val role = when (msg.role) {
                     MessageRole.USER -> NibbliMessageRole.USER
                     MessageRole.ASSISTANT -> NibbliMessageRole.ASSISTANT

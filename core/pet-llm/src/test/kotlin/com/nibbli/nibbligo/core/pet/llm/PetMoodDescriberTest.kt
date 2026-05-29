@@ -32,4 +32,19 @@ class PetMoodDescriberTest {
         val line = PetMoodDescriber.templateLine(PetState())
         assertTrue(line.isNotBlank())
     }
+
+    @Test
+    fun prompt_includes_recent_lines_and_activity_hint() {
+        val prompt = PetPromptBuilder.build(
+            PetReactionRequest(
+                state = PetState(memorySummary = "Likes snacks."),
+                recentLines = listOf("Earlier beep.", "Second line."),
+                activityHint = "They finished an agent task.",
+            ),
+        )
+        assertTrue(prompt.contains("You recently said:"))
+        assertTrue(prompt.contains("Earlier beep."))
+        assertTrue(prompt.contains("Context: They finished an agent task."))
+        assertTrue(prompt.contains("Memory (facts"))
+    }
 }

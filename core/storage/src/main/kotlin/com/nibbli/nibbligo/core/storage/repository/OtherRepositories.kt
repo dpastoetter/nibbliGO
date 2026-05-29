@@ -17,6 +17,7 @@ import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.GenerationParams
+import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.SavedPrompt
 import com.nibbli.nibbligo.core.storage.local.dao.BenchmarkRunDao
@@ -101,6 +102,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val preferredRuntime = stringPreferencesKey("preferred_runtime")
     val petPersonality = stringPreferencesKey("pet_personality")
     val usePetLlm = booleanPreferencesKey("use_pet_llm")
+    val petCommentOnAgent = booleanPreferencesKey("pet_comment_on_agent")
+    val petMoodPulseMode = stringPreferencesKey("pet_mood_pulse_mode")
     val themeMode = stringPreferencesKey("theme_mode")
     val showDoTab = booleanPreferencesKey("show_do_tab")
   }
@@ -135,6 +138,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override val usePetLlmReactions: Flow<Boolean> =
     context.dataStore.data.map { it[Keys.usePetLlm] ?: true }
+
+  override val petCommentOnAgentWork: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.petCommentOnAgent] ?: true }
+
+  override val petMoodPulseMode: Flow<PetMoodPulseMode> =
+    context.dataStore.data.map { prefs ->
+      runCatching {
+        PetMoodPulseMode.valueOf(prefs[Keys.petMoodPulseMode] ?: PetMoodPulseMode.NORMAL.name)
+      }.getOrDefault(PetMoodPulseMode.NORMAL)
+    }
 
   override val themeMode: Flow<AppThemeMode> =
     context.dataStore.data.map { prefs ->
@@ -177,6 +190,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override suspend fun setUsePetLlmReactions(enabled: Boolean) {
     context.dataStore.edit { it[Keys.usePetLlm] = enabled }
+  }
+
+  override suspend fun setPetCommentOnAgentWork(enabled: Boolean) {
+    context.dataStore.edit { it[Keys.petCommentOnAgent] = enabled }
+  }
+
+  override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) {
+    context.dataStore.edit { it[Keys.petMoodPulseMode] = mode.name }
   }
 
   override suspend fun setThemeMode(mode: AppThemeMode) {

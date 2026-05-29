@@ -24,6 +24,7 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
+import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.feature.settings.presentation.SettingsViewModel
 
@@ -150,6 +151,41 @@ fun SettingsScreen(
                         label = p.name.lowercase(),
                         selected = uiState.petPersonality == p,
                         onClick = { viewModel.setPetPersonality(p) },
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Comment on agent work",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Switch(
+                    checked = uiState.petCommentOnAgentWork,
+                    onCheckedChange = viewModel::setPetCommentOnAgentWork,
+                )
+            }
+            Text(
+                "Mood pulse",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                PetMoodPulseMode.entries.forEach { mode ->
+                    NibbliSuggestionChip(
+                        label = when (mode) {
+                            PetMoodPulseMode.OFF -> "off"
+                            PetMoodPulseMode.NORMAL -> "normal"
+                            PetMoodPulseMode.QUIET -> "quiet"
+                        },
+                        selected = uiState.petMoodPulseMode == mode,
+                        onClick = { viewModel.setPetMoodPulseMode(mode) },
                     )
                 }
             }

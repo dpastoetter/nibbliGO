@@ -23,7 +23,6 @@ class LiteRtPetReactionGenerator @Inject constructor(
         val modelId = resolvePetModelId()
         val personality = userPreferencesRepository.petPersonality.first()
         val enriched = request.copy(personality = personality)
-        val prompt = PetPromptBuilder.build(enriched)
         when (val load = inferenceRuntime.ensureModelLoaded(modelId, includeTools = false)) {
             is RuntimeResult.Success -> Unit
             is RuntimeResult.Error -> return PetReaction(
@@ -39,30 +38,32 @@ class LiteRtPetReactionGenerator @Inject constructor(
                 suggestedExpression = null,
             )
         }
+
+        val primaryText = completeText(modelId, PetPromptBuilder.build(enriched))
+        if (!primaryText.isNullOrBlank()) {
+            return PetReactionParser.parse(primaryText)
+        }
+
+        if (enriched.userMessage != null) {
+            val retryText = completeText(modelId, PetPromptBuilder.buildCompactTalk(enriched))
+            if (!retryText.isNullOrBlank()) {
+                return PetReactionParser.parse(retryText)
+            }
+        }
+
+        return PetReactionParser.fallback(enriched)
+    }
+
+    private suspend fun completeText(modelId: String, prompt: String): String? {
         return when (
             val result = inferenceRuntime.complete(
                 CompletionRequest(modelId = modelId, prompt = prompt, includeTools = false),
             )
         ) {
-            is RuntimeResult.Success -> {
-                if (result.data.isBlank()) {
-                    PetReactionParser.fallback(enriched)
-                } else {
-                    PetReactionParser.parse(result.data)
-                }
-            }
-            is RuntimeResult.Error -> PetReaction(
-                dialogue = "I couldn't think of a reply: ${result.message}",
-                suggestedExpression = null,
-            )
-            RuntimeResult.LowMemory -> PetReaction(
-                dialogue = "I'm too low on memory to reply right now.",
-                suggestedExpression = null,
-            )
-            RuntimeResult.Unsupported -> PetReaction(
-                dialogue = "Talk isn't supported with this model.",
-                suggestedExpression = null,
-            )
+            is RuntimeResult.Success -> result.data.trim().takeIf { it.isNotEmpty() }
+            is RuntimeResult.Error -> null
+            RuntimeResult.LowMemory -> null
+            RuntimeResult.Unsupported -> null
         }
     }
 

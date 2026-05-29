@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo.feature.pet.domain
 
 import com.nibbli.nibbligo.core.model.LifeStage
+import com.nibbli.nibbligo.core.model.PetAnimation
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetEvent
@@ -114,5 +115,39 @@ class PetSimulationEngineTest {
         val egg = engine.hatchNewEgg(old)
         assertEquals(LifeStage.EGG, egg.stage)
         assertTrue(egg.memorySummary.contains("Loved"))
+    }
+
+    @Test
+    fun eat_animation_holds_for_a_few_seconds_after_feed() {
+        val state = PetState(
+            stats = PetStats(hunger = 40),
+            lastInteractionAtMillis = 0L,
+            lastTickAtMillis = 0L,
+        )
+        val fed = engine.interact(state, PetInteraction.FEED_SNACK, nowMillis = 1_000L)
+        assertEquals(PetAnimation.EAT, fed.state.animation)
+
+        val tickSoon = engine.tick(fed.state, nowMillis = 2_000L)
+        assertEquals(PetAnimation.EAT, tickSoon.state.animation)
+
+        val tickLater = engine.tick(fed.state, nowMillis = 5_000L)
+        assertEquals(PetAnimation.IDLE, tickLater.state.animation)
+    }
+
+    @Test
+    fun play_animation_holds_for_a_few_seconds_after_play() {
+        val state = PetState(
+            stats = PetStats(hunger = 60, energy = 80),
+            lastInteractionAtMillis = 0L,
+            lastTickAtMillis = 0L,
+        )
+        val played = engine.interact(state, PetInteraction.PLAY, nowMillis = 1_000L)
+        assertEquals(PetAnimation.PLAY, played.state.animation)
+
+        val tickSoon = engine.tick(played.state, nowMillis = 2_000L)
+        assertEquals(PetAnimation.PLAY, tickSoon.state.animation)
+
+        val tickLater = engine.tick(played.state, nowMillis = 5_000L)
+        assertEquals(PetAnimation.IDLE, tickLater.state.animation)
     }
 }

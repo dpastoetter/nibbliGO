@@ -17,7 +17,7 @@ fun PetTalkQuickChips(
     onTalkToMeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val chips = listOf("How are you?", "Let's play!")
+    val chips = listOf("How are you?")
 
     FlowRow(
         modifier = modifier.fillMaxWidth(),

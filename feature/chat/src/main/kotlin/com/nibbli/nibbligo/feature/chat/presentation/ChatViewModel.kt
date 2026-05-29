@@ -11,12 +11,16 @@ import com.nibbli.nibbligo.core.model.ChatMessage
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.PetEvent
+import com.nibbli.nibbligo.core.model.RuntimeResult
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -35,6 +39,7 @@ data class ChatUiState(
     val error: String? = null,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
@@ -46,6 +51,8 @@ class ChatViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    private val conversationIdFlow = MutableStateFlow<Long?>(null)
 
     init {
         viewModelScope.launch {
@@ -60,6 +67,19 @@ class ChatViewModel @Inject constructor(
                 )
             }
         }
+        viewModelScope.launch {
+            conversationIdFlow
+                .flatMapLatest { id ->
+                    if (id == null) {
+                        flowOf(emptyList())
+                    } else {
+                        chatRepository.observeMessages(id)
+                    }
+                }
+                .collect { messages ->
+                    _uiState.update { it.copy(messages = messages) }
+                }
+        }
     }
 
     fun updateInput(value: String) = _uiState.update { it.copy(input = value) }
@@ -72,10 +92,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val modelId = _uiState.value.selectedModelId ?: return@launch
             val id = chatRepository.createConversation(modelId, "New chat")
-            _uiState.update { it.copy(conversationId = id, messages = emptyList(), error = null) }
-            chatRepository.observeMessages(id).collect { messages ->
-                _uiState.update { it.copy(messages = messages) }
-            }
+            setActiveConversation(id)
+            _uiState.update { it.copy(streamingText = null, input = "") }
         }
     }
 
@@ -89,7 +107,7 @@ class ChatViewModel @Inject constructor(
             var conversationId = state.conversationId
             if (conversationId == null) {
                 conversationId = chatRepository.createConversation(modelId, text.take(32))
-                _uiState.update { it.copy(conversationId = conversationId) }
+                setActiveConversation(conversationId)
             }
 
             val now = System.currentTimeMillis()
@@ -105,17 +123,17 @@ class ChatViewModel @Inject constructor(
             _uiState.update { it.copy(input = "", isStreaming = true, streamingText = "", error = null) }
 
             when (val load = inferenceRuntime.ensureModelLoaded(modelId)) {
-                is com.nibbli.nibbligo.core.model.RuntimeResult.Error -> {
+                is RuntimeResult.Error -> {
                     _uiState.update { it.copy(isStreaming = false, error = load.message) }
                     return@launch
                 }
-                com.nibbli.nibbligo.core.model.RuntimeResult.LowMemory -> {
+                RuntimeResult.LowMemory -> {
                     _uiState.update {
                         it.copy(isStreaming = false, error = "Not enough memory to load the model.")
                     }
                     return@launch
                 }
-                com.nibbli.nibbligo.core.model.RuntimeResult.Unsupported -> {
+                RuntimeResult.Unsupported -> {
                     _uiState.update {
                         it.copy(isStreaming = false, error = "This model isn't supported here.")
                     }
@@ -124,7 +142,7 @@ class ChatViewModel @Inject constructor(
                 else -> Unit
             }
 
-            val allMessages = chatRepository.observeMessages(conversationId).first() + userMessage
+            val allMessages = chatRepository.observeMessages(conversationId).first()
             var assistantContent = ""
             inferenceRuntime.streamChat(
                 ChatInferenceRequest(modelId, allMessages, state.generationParams),
@@ -153,5 +171,10 @@ class ChatViewModel @Inject constructor(
             petEventBus.emit(PetEvent.AssistantSuccess)
             _uiState.update { it.copy(isStreaming = false, streamingText = null) }
         }
+    }
+
+    private fun setActiveConversation(id: Long?) {
+        conversationIdFlow.value = id
+        _uiState.update { it.copy(conversationId = id, error = null) }
     }
 }

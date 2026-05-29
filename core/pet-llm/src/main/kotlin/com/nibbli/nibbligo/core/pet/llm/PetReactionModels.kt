@@ -11,6 +11,10 @@ data class PetReactionRequest(
     val personality: PetPersonality = PetPersonality.PLAYFUL,
     /** Spontaneous ambient line while the user watches the pet home screen. */
     val moodPulse: Boolean = false,
+    /** Recent lines the pet already said (for continuity). */
+    val recentLines: List<String> = emptyList(),
+    /** Context when reacting to app activity (agent, models, etc.). */
+    val activityHint: String? = null,
 )
 
 data class PetReaction(

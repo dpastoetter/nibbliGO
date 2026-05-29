@@ -48,17 +48,21 @@ fun PetState.resolveSprite(): SpriteSelection = when {
     condition == PetCondition.SLEEPING || animation == PetAnimation.SLEEP ->
         SpriteSelection(NibbliSpriteAtlas.Frame.SLEEPING)
     condition == PetCondition.SICK || stats.health < 30 ->
-        SpriteSelection(NibbliSpriteAtlas.Frame.SICK)
+        SpriteSelection(NibbliSpriteAtlas.Frame.SICK, NibbliSpriteAtlas.Frame.IDLE_A)
     animation == PetAnimation.EAT ->
         SpriteSelection(NibbliSpriteAtlas.Frame.EATING_A, NibbliSpriteAtlas.Frame.EATING_B)
     animation == PetAnimation.ATTENTION || activeNeed != PetNeed.NONE ->
-        SpriteSelection(NibbliSpriteAtlas.Frame.ATTENTION)
+        SpriteSelection(NibbliSpriteAtlas.Frame.ATTENTION, NibbliSpriteAtlas.Frame.IDLE_A)
     expression == PetExpression.HUNGRY || stats.hunger < 35 ->
-        SpriteSelection(NibbliSpriteAtlas.Frame.HUNGRY)
+        SpriteSelection(NibbliSpriteAtlas.Frame.HUNGRY, NibbliSpriteAtlas.Frame.IDLE_A)
     animation == PetAnimation.PLAY || animation == PetAnimation.HAPPY ->
-        SpriteSelection(NibbliSpriteAtlas.Frame.PLAYFUL)
+        SpriteSelection(NibbliSpriteAtlas.Frame.PLAYFUL, NibbliSpriteAtlas.Frame.HAPPY)
     expression == PetExpression.HAPPY || expression == PetExpression.PROUD ->
-        SpriteSelection(NibbliSpriteAtlas.Frame.HAPPY)
+        SpriteSelection(NibbliSpriteAtlas.Frame.HAPPY, NibbliSpriteAtlas.Frame.PLAYFUL)
+    stats.mood >= 75 ->
+        SpriteSelection(NibbliSpriteAtlas.Frame.HAPPY, NibbliSpriteAtlas.Frame.IDLE_B)
+    stats.mood >= 55 ->
+        SpriteSelection(NibbliSpriteAtlas.Frame.IDLE_A, NibbliSpriteAtlas.Frame.HAPPY)
     else -> SpriteSelection(NibbliSpriteAtlas.Frame.IDLE_A, NibbliSpriteAtlas.Frame.IDLE_B)
 }
 

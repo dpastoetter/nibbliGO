@@ -140,7 +140,7 @@ fun PetHomeScreen(
                         stats = pet.stats,
                         talkEnabled = talkEnabled,
                         isVoiceListening = uiState.isVoiceListening,
-                        onChipSelected = { viewModel.onTalkSend(it) },
+                        onChipSelected = { viewModel.onQuickChip(it) },
                         onTalkToMeClick = launchVoiceAssist,
                         modifier = Modifier.padding(top = 8.dp),
                     )

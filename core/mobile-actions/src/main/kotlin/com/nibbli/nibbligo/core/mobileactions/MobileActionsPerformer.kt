@@ -50,29 +50,20 @@ class MobileActionsPerformer @Inject constructor(
     }
 
     fun sendEmail(params: EmailParams): String {
-        val uriText = buildString {
-            append("mailto:")
+        // Match Google AI Edge Gallery MobileActionsViewModel.sendEmail (ACTION_SEND + mailto extras).
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            data = "mailto:".toUri()
+            type = "text/plain"
             if (params.to.isNotBlank()) {
-                append(Uri.encode(params.to))
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(params.to))
             }
-            val queryParts = buildList {
-                if (params.subject.isNotBlank()) {
-                    add("subject=${Uri.encode(params.subject)}")
-                }
-                if (params.body.isNotBlank()) {
-                    add("body=${Uri.encode(params.body)}")
-                }
-            }
-            if (queryParts.isNotEmpty()) {
-                append('?')
-                append(queryParts.joinToString("&"))
-            }
+            putExtra(Intent.EXTRA_SUBJECT, params.subject)
+            putExtra(Intent.EXTRA_TEXT, params.body)
         }
-        val intent = Intent(Intent.ACTION_SENDTO, uriText.toUri())
-        if (intent.resolveActivity(appContext.packageManager) == null) {
-            return "No email app found on this device"
-        }
-        return launchActivity(intent, "send email")
+        return launchActivity(
+            Intent.createChooser(intent, "Send email"),
+            "send email",
+        )
     }
 
     fun showLocationOnMap(params: MapParams): String {

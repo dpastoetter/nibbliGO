@@ -10,6 +10,7 @@ import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.AppThemeMode
+import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,8 @@ data class SettingsUiState(
     val hfAuthMessage: String? = null,
     val hfManualTokenInput: String = "",
     val petPersonality: PetPersonality = PetPersonality.PLAYFUL,
+    val petCommentOnAgentWork: Boolean = true,
+    val petMoodPulseMode: PetMoodPulseMode = PetMoodPulseMode.NORMAL,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
 )
 
@@ -51,12 +54,20 @@ class SettingsViewModel @Inject constructor(
                     modelRepository.observeInstalled(),
                     userPreferencesRepository.allowDownloads,
                     userPreferencesRepository.petPersonality,
-                    userPreferencesRepository.themeMode,
-                ) { installed, allowDownloads, personality, themeMode ->
-                    SettingsPrefsSlice(installed, allowDownloads, personality, themeMode)
+                    userPreferencesRepository.petCommentOnAgentWork,
+                    userPreferencesRepository.petMoodPulseMode,
+                ) { installed, allowDownloads, personality, commentOnAgent, moodPulse ->
+                    SettingsPrefsSlicePartial(
+                        installed = installed,
+                        allowDownloads = allowDownloads,
+                        personality = personality,
+                        commentOnAgent = commentOnAgent,
+                        moodPulse = moodPulse,
+                    )
                 },
+                userPreferencesRepository.themeMode,
                 huggingFaceAuthRepository.accessToken,
-            ) { prefs, token ->
+            ) { prefs, themeMode, token ->
                 val bytes = prefs.installed.sumOf { it.sizeBytes }
                 SettingsUiState(
                     installedCount = prefs.installed.size,
@@ -65,7 +76,9 @@ class SettingsViewModel @Inject constructor(
                     hfSignedIn = !token.isNullOrBlank(),
                     hfConfigured = huggingFaceAuthRepository.isConfigured(),
                     petPersonality = prefs.personality,
-                    themeMode = prefs.themeMode,
+                    petCommentOnAgentWork = prefs.commentOnAgent,
+                    petMoodPulseMode = prefs.moodPulse,
+                    themeMode = themeMode,
                 )
             }.collect { state -> _uiState.value = state }
         }
@@ -112,6 +125,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { userPreferencesRepository.setPetPersonality(personality) }
     }
 
+    fun setPetCommentOnAgentWork(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setPetCommentOnAgentWork(enabled) }
+    }
+
+    fun setPetMoodPulseMode(mode: PetMoodPulseMode) {
+        viewModelScope.launch { userPreferencesRepository.setPetMoodPulseMode(mode) }
+    }
+
     fun setThemeMode(mode: AppThemeMode) {
         viewModelScope.launch { userPreferencesRepository.setThemeMode(mode) }
     }
@@ -134,9 +155,10 @@ class SettingsViewModel @Inject constructor(
     }
 }
 
-private data class SettingsPrefsSlice(
+private data class SettingsPrefsSlicePartial(
     val installed: List<InstalledModel>,
     val allowDownloads: Boolean,
     val personality: PetPersonality,
-    val themeMode: AppThemeMode,
+    val commentOnAgent: Boolean,
+    val moodPulse: PetMoodPulseMode,
 )
