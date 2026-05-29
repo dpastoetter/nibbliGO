@@ -56,9 +56,13 @@ class ModelDownloadWorker @AssistedInject constructor(
                 }
             }
 
+            setProgress(workDataOf(KEY_PROGRESS to 100))
+            setForeground(createForegroundInfo(modelId, 100))
+
             val minBytes = (info.sizeBytes / 50).coerceAtLeast(500_000L)
             if (modelFile.length() < minBytes) {
                 modelFile.delete()
+                File(modelFile.parentFile, "${modelFile.name}.download").delete()
                 return@withContext failure(
                     "Downloaded file too small (${modelFile.length()} bytes). " +
                         "If the repo is gated, add a Hugging Face token in Settings.",
@@ -87,14 +91,34 @@ class ModelDownloadWorker @AssistedInject constructor(
         accessToken: String?,
         modelId: String,
     ) {
+        var lastReportedPercent = -1
+        var lastForegroundPercent = -1
+        var lastReportTimeMs = 0L
+
         HfFileDownloader.download(url, modelFile, accessToken) { bytesRead, totalBytes ->
-            val percent = if (totalBytes > 0) {
+            val percent = if (totalBytes > 0L) {
                 ((bytesRead * 100) / totalBytes).toInt().coerceIn(0, 99)
             } else {
-                0
+                -1
             }
-            setProgressAsync(workDataOf(KEY_PROGRESS to percent))
-            setForegroundAsync(createForegroundInfo(modelId, percent))
+            val now = System.currentTimeMillis()
+            val percentChanged = percent >= 0 && percent != lastReportedPercent
+            val timeElapsed = now - lastReportTimeMs >= PROGRESS_MIN_INTERVAL_MS
+            if (!percentChanged && !timeElapsed) return@download
+
+            lastReportTimeMs = now
+            if (percent >= 0) {
+                lastReportedPercent = percent
+            }
+            val progressValue = percent.coerceAtLeast(0)
+            setProgressAsync(workDataOf(KEY_PROGRESS to progressValue))
+
+            if (percent >= 0 && percent != lastForegroundPercent) {
+                lastForegroundPercent = percent
+                setForegroundAsync(createForegroundInfo(modelId, percent))
+            } else if (percent < 0 && timeElapsed) {
+                setForegroundAsync(createForegroundInfo(modelId, 0))
+            }
         }
     }
 
@@ -132,6 +156,7 @@ class ModelDownloadWorker @AssistedInject constructor(
 
     companion object {
         private const val TAG = "ModelDownloadWorker"
+        private const val PROGRESS_MIN_INTERVAL_MS = 500L
         const val KEY_MODEL_ID = "model_id"
         const val KEY_ERROR = "error"
         const val KEY_PROGRESS = "progress"

@@ -97,6 +97,22 @@ class PetViewModel @Inject constructor(
         }
     }
 
+    fun onPetTapped() {
+        val pet = _uiState.value.petState
+        if (!pet.isAlive) return
+        viewModelScope.launch {
+            val lines = listOf("That tickles!", "Hehe!", "Nice pets!", "*happy wiggle*")
+            val updated = pet.copy(
+                stats = pet.stats.copy(
+                    mood = (pet.stats.mood + 3).coerceAtMost(100),
+                    trust = (pet.stats.trust + 2).coerceAtMost(100),
+                ).clamped(),
+                dialogueLine = lines.random(),
+            )
+            persist(updated)
+        }
+    }
+
     fun dismissTalkSheet() {
         _uiState.update { it.copy(showTalkSheet = false) }
     }

@@ -19,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.theme.OnDeviceGreen
@@ -44,6 +45,7 @@ fun StatBar(
     label: String,
     value: Int,
     modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -55,6 +57,8 @@ fun StatBar(
         }
         LinearProgressIndicator(
             progress = { value / 100f },
+            color = color,
+            trackColor = color.copy(alpha = 0.2f),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 4.dp)

@@ -27,13 +27,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
 import com.nibbli.nibbligo.core.designsystem.component.PetBubble
-import com.nibbli.nibbligo.core.designsystem.component.StatBar
 import com.nibbli.nibbligo.core.model.LifeStage
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.ui.LoadingState
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
-import com.nibbli.nibbligo.feature.pet.ui.pixel.PixelDeviceFrame
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -75,13 +73,9 @@ fun PetHomeScreen(
                 Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             }
             NibbliCard {
-                PixelDeviceFrame(
-                    roomId = pet.roomId,
-                    stage = pet.stage,
-                    expression = pet.expression,
-                    animation = pet.animation,
-                    condition = pet.condition,
-                    activeNeed = pet.activeNeed,
+                PetCharacterCard(
+                    pet = pet,
+                    onPetTap = { viewModel.onPetTapped() },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 PetBubble(
@@ -99,22 +93,6 @@ fun PetHomeScreen(
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            NibbliCard {
-                Text("Stats", style = MaterialTheme.typography.titleMedium)
-                StatBar("Hunger", pet.stats.hunger, Modifier.padding(top = 8.dp))
-                StatBar("Happy", pet.stats.happiness, Modifier.padding(top = 6.dp))
-                StatBar("Energy", pet.stats.energy, Modifier.padding(top = 6.dp))
-                StatBar("Hygiene", pet.stats.hygiene, Modifier.padding(top = 6.dp))
-                StatBar("Health", pet.stats.health, Modifier.padding(top = 6.dp))
-                StatBar("Trust", pet.stats.trust, Modifier.padding(top = 6.dp))
-                StatBar("Skill", pet.stats.skill, Modifier.padding(top = 6.dp))
-                Text(
-                    "Care ${pet.careScore} · Age ${pet.ageMinutes}m",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-
             NibbliCard {
                 Text("Care", style = MaterialTheme.typography.titleMedium)
                 FlowRow(
