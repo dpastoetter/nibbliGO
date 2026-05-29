@@ -15,6 +15,7 @@ import com.nibbli.nibbligo.core.domain.repository.RecordingRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
+import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.SavedPrompt
@@ -100,6 +101,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val preferredRuntime = stringPreferencesKey("preferred_runtime")
     val petPersonality = stringPreferencesKey("pet_personality")
     val usePetLlm = booleanPreferencesKey("use_pet_llm")
+    val themeMode = stringPreferencesKey("theme_mode")
+    val showDoTab = booleanPreferencesKey("show_do_tab")
   }
 
   override val defaultModelId: Flow<String?> =
@@ -133,6 +136,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
   override val usePetLlmReactions: Flow<Boolean> =
     context.dataStore.data.map { it[Keys.usePetLlm] ?: true }
 
+  override val themeMode: Flow<AppThemeMode> =
+    context.dataStore.data.map { prefs ->
+      runCatching {
+        AppThemeMode.valueOf(prefs[Keys.themeMode] ?: AppThemeMode.SYSTEM.name)
+      }.getOrDefault(AppThemeMode.SYSTEM)
+    }
+
+  override val showDoTab: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.showDoTab] ?: false }
+
   override suspend fun setDefaultModelId(modelId: String?) {
     context.dataStore.edit { prefs ->
       if (modelId == null) prefs.remove(Keys.defaultModel)
@@ -164,5 +177,13 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override suspend fun setUsePetLlmReactions(enabled: Boolean) {
     context.dataStore.edit { it[Keys.usePetLlm] = enabled }
+  }
+
+  override suspend fun setThemeMode(mode: AppThemeMode) {
+    context.dataStore.edit { it[Keys.themeMode] = mode.name }
+  }
+
+  override suspend fun setShowDoTab(show: Boolean) {
+    context.dataStore.edit { it[Keys.showDoTab] = show }
   }
 }

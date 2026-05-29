@@ -18,6 +18,7 @@ import com.nibbli.nibbligo.core.model.SkillDefinition
 import com.nibbli.nibbligo.core.model.SkillRequest
 import com.nibbli.nibbligo.feature.actions.domain.ActionExecutor
 import com.nibbli.nibbligo.feature.actions.domain.ActionRegistry
+import com.nibbli.nibbligo.feature.actions.domain.PhoneActionInput
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ActionsUiState(
-    val actions: List<SafeAction> = ActionRegistry.actions,
+    val phoneActions: List<SafeAction> = ActionRegistry.phoneActions,
+    val productivityActions: List<SafeAction> = ActionRegistry.productivityActions,
     val builtinSkills: List<SkillDefinition> = listOf(
         SkillDefinition(
             SkillRequest.NotesSkillRequest.SKILL_ID,
@@ -51,6 +53,8 @@ data class ActionsUiState(
     val installedSkillPackages: List<InstalledSkillPackage> = emptyList(),
     val petTaskMode: Boolean = false,
     val pendingDraft: ActionDraft? = null,
+    val pendingPhoneInput: PhoneActionInput = PhoneActionInput(),
+    val paramActionId: String? = null,
     val pendingSkillSummary: String? = null,
     val resultMessage: String? = null,
     val mcpServers: List<McpServerConfig> = emptyList(),
@@ -62,6 +66,7 @@ class ActionsViewModel @Inject constructor(
     private val petEventBus: PetEventBus,
     private val skillPackageRepository: SkillPackageRepository,
     private val actionHistoryRepository: ActionHistoryRepository,
+    private val actionExecutor: ActionExecutor,
     private val toolRegistry: ToolRegistry,
     private val skillPackageLoader: SkillPackageLoader,
     private val mcpServerStore: McpServerStore,
@@ -105,9 +110,35 @@ class ActionsViewModel @Inject constructor(
     fun togglePetTaskMode() = _uiState.update { it.copy(petTaskMode = !it.petTaskMode) }
 
     fun requestAction(actionId: String) {
-        val draft = ActionExecutor.buildDraft(actionId, _uiState.value.petTaskMode) ?: return
-        _uiState.update { it.copy(pendingDraft = draft, pendingSkillSummary = null) }
+        if (ActionRegistry.requiresParams(actionId)) {
+            _uiState.update { it.copy(paramActionId = actionId) }
+            return
+        }
+        val draft = actionExecutor.buildDraft(actionId, _uiState.value.petTaskMode) ?: return
+        _uiState.update {
+            it.copy(pendingDraft = draft, pendingSkillSummary = null, pendingPhoneInput = PhoneActionInput())
+        }
     }
+
+    fun updatePhoneInput(input: PhoneActionInput) = _uiState.update { it.copy(pendingPhoneInput = input) }
+
+    fun submitPhoneParams() {
+        val actionId = _uiState.value.paramActionId ?: return
+        val draft = actionExecutor.buildDraft(
+            actionId,
+            _uiState.value.petTaskMode,
+            _uiState.value.pendingPhoneInput,
+        ) ?: return
+        _uiState.update {
+            it.copy(
+                paramActionId = null,
+                pendingDraft = draft,
+                pendingSkillSummary = null,
+            )
+        }
+    }
+
+    fun dismissPhoneParams() = _uiState.update { it.copy(paramActionId = null) }
 
     fun requestSkill(skillId: String) {
         val summary = when (skillId) {
@@ -138,7 +169,11 @@ class ActionsViewModel @Inject constructor(
             val message = when {
                 draft != null -> {
                     actionHistoryRepository.log(draft.actionId, "COMPLETED", draft.title)
-                    ActionExecutor.executeConfirmed(draft.actionId, _uiState.value.petTaskMode)
+                    actionExecutor.executeConfirmed(
+                        draft.actionId,
+                        _uiState.value.petTaskMode,
+                        _uiState.value.pendingPhoneInput,
+                    )
                 }
                 skill != null -> {
                     actionHistoryRepository.log("skill", "COMPLETED", skill)
@@ -148,7 +183,12 @@ class ActionsViewModel @Inject constructor(
             }
             petEventBus.emit(PetEvent.ActionCompleted)
             _uiState.update {
-                it.copy(pendingDraft = null, pendingSkillSummary = null, resultMessage = message)
+                it.copy(
+                    pendingDraft = null,
+                    pendingSkillSummary = null,
+                    pendingPhoneInput = PhoneActionInput(),
+                    resultMessage = message,
+                )
             }
         }
     }

@@ -9,6 +9,8 @@ data class PetReactionRequest(
     val lastAction: String? = null,
     val userMessage: String? = null,
     val personality: PetPersonality = PetPersonality.PLAYFUL,
+    /** Spontaneous ambient line while the user watches the pet home screen. */
+    val moodPulse: Boolean = false,
 )
 
 data class PetReaction(

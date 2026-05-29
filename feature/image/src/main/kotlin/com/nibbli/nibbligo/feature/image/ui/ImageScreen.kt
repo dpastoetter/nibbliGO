@@ -1,11 +1,7 @@
 package com.nibbli.nibbligo.feature.image.ui
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +11,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
+import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.core.ui.LoadingState
 import com.nibbli.nibbligo.core.ui.UnsupportedState
 import com.nibbli.nibbligo.feature.image.presentation.ImageViewModel
@@ -26,19 +25,23 @@ fun AskImageScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     if (uiState.unsupported) {
-        UnsupportedState("image understanding", modifier)
+        NibbliScreen(modifier = modifier) {
+            NibbliScreenHeader(title = "Ask Image")
+            UnsupportedState("image understanding", modifier = Modifier.weight(1f))
+        }
         return
     }
     if (uiState.isLoading) {
-        LoadingState(modifier, "Analyzing on-device…")
+        NibbliScreen(modifier = modifier) {
+            LoadingState(message = "Analyzing on-device…")
+        }
         return
     }
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        Text("Ask Image", style = MaterialTheme.typography.displaySmall)
-        Text(
-            "Pick a photo from gallery or enter a URI. Requires a vision-capable model.",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(vertical = 8.dp),
+    NibbliScreen(modifier = modifier, scrollable = true) {
+        NibbliScreenHeader(
+            title = "Ask Image",
+            subtitle = "Pick a photo from gallery or enter a URI. Requires a vision-capable model.",
+            showOnDeviceBadge = true,
         )
         OutlinedTextField(
             value = uiState.imageUri,
@@ -50,12 +53,18 @@ fun AskImageScreen(
         OutlinedTextField(
             value = uiState.question,
             onValueChange = viewModel::setQuestion,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
             label = { Text("Question") },
         )
-        Button(onClick = { viewModel.analyze() }, modifier = Modifier.padding(top = 8.dp)) {
-            Text("Analyze on-device")
-        }
+        NibbliPrimaryButton(
+            text = "Analyze on-device",
+            onClick = { viewModel.analyze() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        )
         uiState.result?.let {
             NibbliCard(modifier = Modifier.padding(top = 16.dp)) {
                 Text(it)

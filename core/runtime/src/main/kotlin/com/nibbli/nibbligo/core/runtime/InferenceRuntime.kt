@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
 interface InferenceRuntime {
     val runtimeKind: RuntimeKind
 
-    suspend fun ensureModelLoaded(modelId: String): RuntimeResult<Unit>
+    suspend fun ensureModelLoaded(modelId: String, includeTools: Boolean = true): RuntimeResult<Unit>
 
     fun unloadModel(modelId: String)
 

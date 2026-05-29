@@ -9,6 +9,7 @@ import com.nibbli.nibbligo.core.model.PetExpression
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetInteractionResult
 import com.nibbli.nibbligo.core.model.PetNeed
+import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.PetStats
 import com.nibbli.nibbligo.core.model.PetTickResult
@@ -28,8 +29,14 @@ class PetSimulationEngine {
             return PetTickResult(state)
         }
         val minutesElapsed = ((nowMillis - state.lastTickAtMillis) / 60_000L).coerceAtLeast(0)
-        if (minutesElapsed == 0L && state.lastTickAtMillis == nowMillis) {
-            return PetTickResult(state)
+        if (minutesElapsed == 0L) {
+            val need = PetNeedRules.deriveNeed(state, nowMillis)
+            val refreshed = state.copy(
+                activeNeed = need,
+                expression = deriveExpression(state.stats, state.condition, need),
+                animation = deriveAnimation(state.condition, need, state.animation),
+            )
+            return PetTickResult(refreshed)
         }
 
         var stats = state.stats
@@ -102,7 +109,7 @@ class PetSimulationEngine {
             )
         }
 
-        val need = deriveNeed(updated)
+        val need = PetNeedRules.deriveNeed(updated, nowMillis)
         updated = updated.copy(
             activeNeed = need,
             expression = deriveExpression(updated.stats, updated.condition, need),
@@ -220,9 +227,11 @@ class PetSimulationEngine {
         }
 
         stats = stats.clamped()
-        val need = deriveNeed(
+        val need = PetNeedRules.deriveNeed(
             state.copy(stats = stats, condition = condition, hasMess = hasMess),
+            nowMillis,
         )
+        val cosmetics = applyCosmeticUnlocks(state, stats)
         val updated = state.copy(
             stats = stats,
             condition = condition,
@@ -234,7 +243,8 @@ class PetSimulationEngine {
             lastTickAtMillis = nowMillis,
             careScore = careScore,
             criticalNeglectSinceMillis = null,
-            unlockedCosmetics = unlockCosmetics(stats, state.unlockedCosmetics),
+            unlockedCosmetics = cosmetics.unlockedCosmetics,
+            equippedCosmetic = cosmetics.equippedCosmetic,
         )
         return PetInteractionResult(updated, templateDialogue)
     }
@@ -287,14 +297,16 @@ class PetSimulationEngine {
         var condition = state.condition
         if (becameSick) condition = PetCondition.SICK
 
-        val need = deriveNeed(state.copy(stats = stats, condition = condition))
+        val need = PetNeedRules.deriveNeed(state.copy(stats = stats, condition = condition))
+        val cosmetics = applyCosmeticUnlocks(state, stats)
         return state.copy(
             stats = stats,
             condition = condition,
             expression = deriveExpression(stats, condition, need),
             activeNeed = need,
             dialogueLine = line,
-            unlockedCosmetics = unlockCosmetics(stats, state.unlockedCosmetics),
+            unlockedCosmetics = cosmetics.unlockedCosmetics,
+            equippedCosmetic = cosmetics.equippedCosmetic,
         )
     }
 
@@ -344,19 +356,6 @@ class PetSimulationEngine {
         LifeStage.EGG -> "…"
     }
 
-    private fun deriveNeed(state: PetState): PetNeed {
-        if (state.condition == PetCondition.DEAD) return PetNeed.NONE
-        if (state.condition == PetCondition.SICK) return PetNeed.SICK
-        if (state.stats.hunger < 25) return PetNeed.HUNGRY
-        if (state.hasMess || state.stats.hygiene < 25) return PetNeed.DIRTY
-        if (state.condition == PetCondition.SLEEPING) return PetNeed.NONE
-        if (state.stats.energy < 20) return PetNeed.TIRED
-        if (state.stats.mood < 30) return PetNeed.UNHAPPY
-        val hoursSince = (System.currentTimeMillis() - state.lastInteractionAtMillis) / (1000 * 60 * 60f)
-        if (hoursSince > 8) return PetNeed.LONELY
-        return PetNeed.NONE
-    }
-
     private fun deriveExpression(stats: PetStats, condition: PetCondition, need: PetNeed): PetExpression =
         when {
             condition == PetCondition.DEAD -> PetExpression.NEUTRAL
@@ -390,6 +389,22 @@ class PetSimulationEngine {
         PetNeed.UNHAPPY -> "I'm feeling blue."
         PetNeed.LONELY -> "Come say hi?"
         else -> "Beep! I need you!"
+    }
+
+    private data class CosmeticUnlockResult(
+        val unlockedCosmetics: Set<PetCosmetic>,
+        val equippedCosmetic: PetCosmetic?,
+    )
+
+    private fun applyCosmeticUnlocks(state: PetState, stats: PetStats): CosmeticUnlockResult {
+        val unlocked = unlockCosmetics(stats, state.unlockedCosmetics)
+        val newlyUnlocked = unlocked - state.unlockedCosmetics
+        val equipped = when {
+            newlyUnlocked.isNotEmpty() && state.equippedCosmetic == null ->
+                newlyUnlocked.maxBy { it.ordinal }
+            else -> state.equippedCosmetic
+        }
+        return CosmeticUnlockResult(unlockedCosmetics = unlocked, equippedCosmetic = equipped)
     }
 
     private fun unlockCosmetics(stats: PetStats, current: Set<PetCosmetic>): Set<PetCosmetic> {

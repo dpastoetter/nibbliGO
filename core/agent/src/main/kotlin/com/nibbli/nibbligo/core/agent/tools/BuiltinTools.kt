@@ -31,22 +31,6 @@ object BuiltinTools {
             source = ToolSource.BUILTIN,
         ),
         AgentTool(
-            id = "open_settings",
-            name = "open_settings",
-            description = "Open a system settings screen (mobile action).",
-            parametersJsonSchema = """{"type":"object","properties":{"screen":{"type":"string"}}}""",
-            riskLevel = ToolRiskLevel.SAFE,
-            source = ToolSource.BUILTIN,
-        ),
-        AgentTool(
-            id = "flashlight_toggle",
-            name = "toggle_flashlight",
-            description = "Toggle flashlight (FunctionGemma mobile action, demo).",
-            parametersJsonSchema = """{"type":"object","properties":{"on":{"type":"boolean"}}}""",
-            riskLevel = ToolRiskLevel.SAFE,
-            source = ToolSource.BUILTIN,
-        ),
-        AgentTool(
             id = "read_clipboard",
             name = "read_clipboard",
             description = "Read clipboard for agent context (requires confirmation).",

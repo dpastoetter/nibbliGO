@@ -16,4 +16,10 @@ class ModelCatalogTest {
     fun litert_models_require_download() {
         assertTrue(ModelCatalog.models.all { it.requiresLiteRt })
     }
+
+    @Test
+    fun functiongemma_requires_hf_auth() {
+        val model = ModelCatalog.find("functiongemma-270m")
+        assertTrue(model?.requiresHfAuth == true)
+    }
 }

@@ -1,21 +1,17 @@
 package com.nibbli.nibbligo.feature.settings.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -24,7 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
-import com.nibbli.nibbligo.core.designsystem.component.OnDeviceBadge
+import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
+import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.feature.settings.presentation.SettingsViewModel
 
@@ -38,15 +37,17 @@ fun SettingsScreen(
     val hfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         viewModel.onHuggingFaceAuthResult(result.data)
     }
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-    ) {
-        Text("Settings & Privacy", style = MaterialTheme.typography.displaySmall)
-        OnDeviceBadge(Modifier.padding(vertical = 12.dp))
-        NibbliCard {
+    NibbliScreen(modifier = modifier, scrollable = true) {
+        NibbliScreenHeader(
+            title = "Settings & Privacy",
+            subtitle = "Local storage, models, and on-device AI preferences.",
+            showOnDeviceBadge = true,
+        )
+        AppearanceCard(
+            themeMode = uiState.themeMode,
+            onThemeModeChange = viewModel::setThemeMode,
+        )
+        NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("Local-first promise", style = MaterialTheme.typography.titleMedium)
             Text(
                 "nibbliGO processes AI on your device. No hidden cloud inference in this build. " +
@@ -82,24 +83,33 @@ fun SettingsScreen(
                     label = { Text("HF access token (hf_…)") },
                     singleLine = true,
                 )
-                Button(
+                NibbliPrimaryButton(
+                    text = "Save token",
                     onClick = { viewModel.saveManualHuggingFaceToken() },
-                    modifier = Modifier.padding(top = 8.dp),
-                ) { Text("Save token") }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
             }
             if (uiState.hfConfigured && !uiState.hfSignedIn) {
-                Button(
+                NibbliPrimaryButton(
+                    text = "Sign in to Hugging Face",
                     onClick = {
                         viewModel.createHuggingFaceAuthIntent()?.let { hfLauncher.launch(it) }
                     },
-                    modifier = Modifier.padding(top = 8.dp),
-                ) { Text("Sign in to Hugging Face") }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
             }
             if (uiState.hfSignedIn) {
-                Button(
+                NibbliPrimaryButton(
+                    text = "Sign out",
                     onClick = { viewModel.signOutHuggingFace() },
-                    modifier = Modifier.padding(top = 8.dp),
-                ) { Text("Sign out") }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
             }
             uiState.hfAuthMessage?.let { msg ->
                 Text(
@@ -112,7 +122,7 @@ fun SettingsScreen(
         }
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("Downloads", style = MaterialTheme.typography.titleMedium)
-            androidx.compose.foundation.layout.Row(
+            Row(
                 modifier = Modifier.padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -131,27 +141,25 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text("Personality", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-            androidx.compose.foundation.layout.FlowRow(
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 4.dp),
             ) {
                 PetPersonality.entries.forEach { p ->
-                    val selected = uiState.petPersonality == p
-                    if (selected) {
-                        Button(onClick = { viewModel.setPetPersonality(p) }) {
-                            Text(p.name.lowercase())
-                        }
-                    } else {
-                        OutlinedButton(onClick = { viewModel.setPetPersonality(p) }) {
-                            Text(p.name.lowercase())
-                        }
-                    }
+                    NibbliSuggestionChip(
+                        label = p.name.lowercase(),
+                        selected = uiState.petPersonality == p,
+                        onClick = { viewModel.setPetPersonality(p) },
+                    )
                 }
             }
         }
-        Button(
+        NibbliPrimaryButton(
+            text = "Delete all chat history",
             onClick = { viewModel.clearChatHistory() },
-            modifier = Modifier.padding(top = 16.dp),
-        ) { Text("Delete all chat history") }
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, bottom = 16.dp),
+        )
     }
 }

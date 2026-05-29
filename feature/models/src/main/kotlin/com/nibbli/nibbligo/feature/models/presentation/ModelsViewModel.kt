@@ -7,6 +7,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
+import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.model.Modality
@@ -34,6 +35,7 @@ data class ModelsUiState(
     val models: List<ModelItemUi> = emptyList(),
     val installed: List<InstalledModel> = emptyList(),
     val isLoading: Boolean = true,
+    val hfSignedIn: Boolean = false,
     val message: String? = null,
 )
 
@@ -42,6 +44,7 @@ class ModelsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val modelRepository: ModelRepository,
     private val petEventBus: PetEventBus,
+    private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ModelsUiState())
@@ -54,8 +57,9 @@ class ModelsViewModel @Inject constructor(
             combine(
                 modelRepository.observeCatalog(),
                 modelRepository.observeInstalled(),
+                huggingFaceAuthRepository.accessToken,
                 workManager.getWorkInfosByTagFlow(ModelDownloadWorker.WORK_TAG),
-            ) { catalog, installed, workInfos ->
+            ) { catalog, installed, hfToken, workInfos ->
                 val installedIds = installed.map { it.modelId }.toSet()
                 val activeWorks = workInfos.filter {
                     it.state in ACTIVE_DOWNLOAD_STATES
@@ -95,6 +99,7 @@ class ModelsViewModel @Inject constructor(
                     },
                     installed = installed,
                     isLoading = false,
+                    hfSignedIn = !hfToken.isNullOrBlank(),
                     message = when {
                         failMsg != null -> failMsg
                         cancelled -> "Download cancelled"

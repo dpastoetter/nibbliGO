@@ -11,10 +11,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.hf.download.HfDownloadException
 import com.nibbli.nibbligo.core.hf.download.HfFileDownloader
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
 import com.nibbli.nibbligo.core.model.ModelCatalog
+import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.storage.local.dao.ModelInstallDao
 import com.nibbli.nibbligo.core.storage.local.entity.ModelInstallEntity
 import dagger.assisted.Assisted
@@ -29,6 +31,7 @@ class ModelDownloadWorker @AssistedInject constructor(
     @Assisted params: WorkerParameters,
     private val modelInstallDao: ModelInstallDao,
     private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -49,10 +52,10 @@ class ModelDownloadWorker @AssistedInject constructor(
             try {
                 downloadWithProgress(url, modelFile, token, modelId)
             } catch (first: HfDownloadException) {
-                if (first.httpCode == 401 && !token.isNullOrBlank()) {
+                if (first.httpCode == 401 && !token.isNullOrBlank() && !info.requiresHfAuth) {
                     downloadWithProgress(url, modelFile, accessToken = null, modelId = modelId)
                 } else {
-                    throw first
+                    throw gatedDownloadError(first, info)
                 }
             }
 
@@ -76,6 +79,7 @@ class ModelDownloadWorker @AssistedInject constructor(
                     sizeBytes = modelFile.length(),
                 ),
             )
+            userPreferencesRepository.setDefaultModelId(modelId)
             Log.i(TAG, "Installed $modelId (${modelFile.length()} bytes)")
             Result.success()
         } catch (e: Exception) {
@@ -124,6 +128,23 @@ class ModelDownloadWorker @AssistedInject constructor(
 
     private fun failure(message: String): Result =
         Result.failure(workDataOf(KEY_ERROR to message))
+
+    private fun gatedDownloadError(error: HfDownloadException, info: ModelInfo): HfDownloadException {
+        if (!info.requiresHfAuth) return error
+        val repo = info.hfRepoUrl() ?: "huggingface.co/${info.hfRepoId.orEmpty()}"
+        return when (error.httpCode) {
+            401 -> HfDownloadException(
+                httpCode = 401,
+                message = "Hugging Face sign-in required. Open Settings to sign in or paste a token, " +
+                    "accept the license at $repo, then retry.",
+            )
+            403 -> HfDownloadException(
+                httpCode = 403,
+                message = "Access denied. Accept the model license at $repo and use a token with read + gated-repos scope.",
+            )
+            else -> error
+        }
+    }
 
     private fun createForegroundInfo(modelId: String, progress: Int): ForegroundInfo {
         ensureChannel()

@@ -11,9 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.nibbli.nibbligo.core.designsystem.theme.NibbliTheme
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
-import com.nibbli.nibbligo.navigation.NibbliApp
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,9 +30,7 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         enableEdgeToEdge()
         setContent {
-            NibbliTheme {
-                NibbliApp()
-            }
+            NibbliAppWithTheme()
         }
         handleHuggingFaceRedirect(intent)
     }

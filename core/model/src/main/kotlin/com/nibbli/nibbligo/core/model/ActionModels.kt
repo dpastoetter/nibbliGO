@@ -16,6 +16,7 @@ data class SafeAction(
 )
 
 enum class ActionCategory {
+    PHONE,
     CLIPBOARD,
     NOTES,
     FILES,

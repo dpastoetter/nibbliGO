@@ -9,6 +9,7 @@ import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
 import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ data class SettingsUiState(
     val hfAuthMessage: String? = null,
     val hfManualTokenInput: String = "",
     val petPersonality: PetPersonality = PetPersonality.PLAYFUL,
+    val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
 )
 
 @HiltViewModel
@@ -49,8 +51,9 @@ class SettingsViewModel @Inject constructor(
                     modelRepository.observeInstalled(),
                     userPreferencesRepository.allowDownloads,
                     userPreferencesRepository.petPersonality,
-                ) { installed, allowDownloads, personality ->
-                    SettingsPrefsSlice(installed, allowDownloads, personality)
+                    userPreferencesRepository.themeMode,
+                ) { installed, allowDownloads, personality, themeMode ->
+                    SettingsPrefsSlice(installed, allowDownloads, personality, themeMode)
                 },
                 huggingFaceAuthRepository.accessToken,
             ) { prefs, token ->
@@ -62,6 +65,7 @@ class SettingsViewModel @Inject constructor(
                     hfSignedIn = !token.isNullOrBlank(),
                     hfConfigured = huggingFaceAuthRepository.isConfigured(),
                     petPersonality = prefs.personality,
+                    themeMode = prefs.themeMode,
                 )
             }.collect { state -> _uiState.value = state }
         }
@@ -108,6 +112,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { userPreferencesRepository.setPetPersonality(personality) }
     }
 
+    fun setThemeMode(mode: AppThemeMode) {
+        viewModelScope.launch { userPreferencesRepository.setThemeMode(mode) }
+    }
+
     fun saveManualHuggingFaceToken() {
         val token = _uiState.value.hfManualTokenInput.trim()
         if (token.isEmpty()) {
@@ -130,4 +138,5 @@ private data class SettingsPrefsSlice(
     val installed: List<InstalledModel>,
     val allowDownloads: Boolean,
     val personality: PetPersonality,
+    val themeMode: AppThemeMode,
 )

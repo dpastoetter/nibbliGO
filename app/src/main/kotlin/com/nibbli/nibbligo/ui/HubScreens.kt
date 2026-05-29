@@ -1,55 +1,136 @@
 package com.nibbli.nibbligo.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Chat
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.nibbli.nibbligo.core.designsystem.component.NibbliActionTile
+import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
+import com.nibbli.nibbligo.feature.settings.presentation.SettingsViewModel
+import com.nibbli.nibbligo.feature.settings.ui.AppearanceCard
 import com.nibbli.nibbligo.navigation.Routes
 
 @Composable
 fun AssistHubScreen(navController: NavController) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Assist", style = MaterialTheme.typography.displaySmall)
-        Text("Chat and experiment with prompts — requires an installed LiteRT model.")
-        Button(onClick = { navController.navigate(Routes.CHAT) }) { Text("Local Chat") }
-        Button(onClick = { navController.navigate(Routes.AGENT_CHAT) }) { Text("Agent Chat") }
-        Button(onClick = { navController.navigate(Routes.PROMPT_LAB) }) { Text("Prompt Lab") }
+    NibbliScreen {
+        NibbliScreenHeader(
+            title = "Assist",
+            subtitle = "Chat and experiment with prompts — requires an installed LiteRT model.",
+            showOnDeviceBadge = true,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            NibbliActionTile(
+                icon = Icons.Outlined.Chat,
+                label = "Local Chat",
+                onClick = { navController.navigate(Routes.CHAT) },
+                modifier = Modifier.weight(1f),
+            )
+            NibbliActionTile(
+                icon = Icons.Outlined.SmartToy,
+                label = "Agent Chat",
+                onClick = { navController.navigate(Routes.AGENT_CHAT) },
+                modifier = Modifier.weight(1f),
+            )
+            NibbliActionTile(
+                icon = Icons.Outlined.Science,
+                label = "Prompt Lab",
+                onClick = { navController.navigate(Routes.PROMPT_LAB) },
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
 @Composable
 fun SenseHubScreen(navController: NavController) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Sense", style = MaterialTheme.typography.displaySmall)
-        Text(
-            "Multimodal vision and audio require LiteRT models that are not yet supported in this build.",
-            style = MaterialTheme.typography.bodyMedium,
+    NibbliScreen {
+        NibbliScreenHeader(
+            title = "Sense",
+            subtitle = "Multimodal vision and audio on-device.",
         )
+        NibbliCard {
+            Text(
+                "Vision and audio scribe use installed LiteRT models when available.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            NibbliActionTile(
+                icon = Icons.Outlined.Image,
+                label = "Ask Image",
+                onClick = { navController.navigate(Routes.ASK_IMAGE) },
+                modifier = Modifier.weight(1f),
+            )
+            NibbliActionTile(
+                icon = Icons.Outlined.Mic,
+                label = "Audio Scribe",
+                onClick = { navController.navigate(Routes.AUDIO_SCRIBE) },
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
 @Composable
-fun ManageHubScreen(navController: NavController) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Manage", style = MaterialTheme.typography.displaySmall)
-        Text("Download LiteRT models and privacy controls.")
-        Button(onClick = { navController.navigate(Routes.MODELS) }) { Text("Models") }
-        Button(onClick = { navController.navigate(Routes.SETTINGS) }) { Text("Settings") }
+fun ManageHubScreen(
+    navController: NavController,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    NibbliScreen {
+        NibbliScreenHeader(
+            title = "Manage",
+            subtitle = "Download LiteRT models and privacy controls.",
+        )
+        AppearanceCard(
+            themeMode = uiState.themeMode,
+            onThemeModeChange = viewModel::setThemeMode,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            NibbliActionTile(
+                icon = Icons.Outlined.Storage,
+                label = "Models",
+                onClick = { navController.navigate(Routes.MODELS) },
+                modifier = Modifier.weight(1f),
+            )
+            NibbliActionTile(
+                icon = Icons.Outlined.Settings,
+                label = "Settings",
+                onClick = { navController.navigate(Routes.SETTINGS) },
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }

@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":core:designsystem"))
     implementation(project(":core:ui"))
     implementation(project(":core:storage"))
+    implementation(project(":core:hf-download"))
     implementation(project(":core:runtime"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

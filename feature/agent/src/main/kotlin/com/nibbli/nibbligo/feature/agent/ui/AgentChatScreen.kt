@@ -1,14 +1,12 @@
 package com.nibbli.nibbligo.feature.agent.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,11 +19,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.ConfirmActionDialog
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
-import com.nibbli.nibbligo.core.designsystem.component.OnDeviceBadge
+import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageBubble
+import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageRole
+import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
+import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
+import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
 import com.nibbli.nibbligo.core.model.AgentMessageRole
 import com.nibbli.nibbligo.core.ui.EmptyState
 import com.nibbli.nibbligo.feature.agent.presentation.AgentChatViewModel
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AgentChatScreen(
     modifier: Modifier = Modifier,
@@ -33,39 +37,49 @@ fun AgentChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     if (uiState.installedModelIds.isEmpty()) {
-        EmptyState(
-            title = "Install a model first",
-            subtitle = "Agent mode needs an installed LiteRT model (e.g. functiongemma-270m or gemma-4-e2b-it).",
-            modifier = modifier,
-        )
+        NibbliScreen(modifier = modifier) {
+            NibbliScreenHeader(
+                title = "Agent Chat",
+                showOnDeviceBadge = true,
+            )
+            EmptyState(
+                title = "Install a model first",
+                subtitle = "Agent mode needs an installed LiteRT model (e.g. functiongemma-270m or gemma-4-e2b-it).",
+            )
+        }
         return
     }
-    Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        Text("Agent Chat", style = MaterialTheme.typography.displaySmall)
-        OnDeviceBadge(Modifier.padding(vertical = 8.dp))
-        Text(
-            "nibbli can propose tools — you approve sensitive steps.",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(bottom = 8.dp),
+
+    NibbliScreen(modifier = modifier) {
+        NibbliScreenHeader(
+            title = "Agent Chat",
+            subtitle = "nibbli can propose tools — you approve sensitive steps.",
+            showOnDeviceBadge = true,
         )
-        uiState.installedModelIds.forEach { id ->
-            FilterChip(
-                selected = uiState.session.modelId == id,
-                onClick = { viewModel.selectModel(id) },
-                label = { Text(id) },
-                modifier = Modifier.padding(end = 8.dp),
-            )
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 8.dp),
+        ) {
+            uiState.installedModelIds.forEach { id ->
+                NibbliSuggestionChip(
+                    label = id,
+                    selected = uiState.session.modelId == id,
+                    onClick = { viewModel.selectModel(id) },
+                )
+            }
+            if (uiState.supportsThinking) {
+                NibbliSuggestionChip(
+                    label = "Thinking trace",
+                    selected = uiState.showThinkingTrace,
+                    onClick = { viewModel.toggleThinking() },
+                )
+            }
         }
-        if (uiState.supportsThinking) {
-            FilterChip(
-                selected = uiState.showThinkingTrace,
-                onClick = { viewModel.toggleThinking() },
-                label = { Text("Thinking trace") },
-            )
-        }
+
         LazyColumn(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (uiState.showThinkingTrace) {
                 items(uiState.session.steps) { step ->
@@ -79,34 +93,54 @@ fun AgentChatScreen(
                 }
             }
             items(uiState.session.messages) { msg ->
-                NibbliCard {
-                    val who = when (msg.role) {
-                        AgentMessageRole.USER -> "You"
-                        AgentMessageRole.ASSISTANT -> "nibbli"
-                        AgentMessageRole.TOOL -> "Tool"
-                        AgentMessageRole.SYSTEM -> "System"
-                    }
-                    Text(who, style = MaterialTheme.typography.labelLarge)
-                    Text(msg.content, modifier = Modifier.padding(top = 4.dp).testTag("agent_message"))
+                val role = when (msg.role) {
+                    AgentMessageRole.USER -> NibbliMessageRole.USER
+                    AgentMessageRole.ASSISTANT -> NibbliMessageRole.ASSISTANT
+                    AgentMessageRole.TOOL -> NibbliMessageRole.TOOL
+                    AgentMessageRole.SYSTEM -> NibbliMessageRole.SYSTEM
                 }
+                val who = when (msg.role) {
+                    AgentMessageRole.USER -> "You"
+                    AgentMessageRole.ASSISTANT -> "nibbli"
+                    AgentMessageRole.TOOL -> "Tool"
+                    AgentMessageRole.SYSTEM -> "System"
+                }
+                NibbliMessageBubble(
+                    text = msg.content,
+                    role = role,
+                    label = who,
+                    modifier = Modifier.testTag("agent_message"),
+                )
             }
         }
+
         OutlinedTextField(
             value = uiState.input,
             onValueChange = viewModel::updateInput,
-            modifier = Modifier.fillMaxWidth().testTag("agent_input"),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("agent_input"),
             label = { Text("Ask nibbli to help…") },
-            placeholder = { Text("Try: remind me to test the agent") },
+            placeholder = { Text("Try: send an email to me about lunch") },
         )
-        Button(
+        NibbliPrimaryButton(
+            text = if (uiState.session.isRunning) "Thinking…" else "Send",
             onClick = { viewModel.send() },
-            modifier = Modifier.padding(top = 8.dp).testTag("agent_send"),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+                .testTag("agent_send"),
             enabled = !uiState.session.isRunning,
-        ) { Text("Send") }
+        )
         uiState.error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+            Text(
+                it,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 8.dp),
+            )
         }
     }
+
     if (uiState.pendingConfirmation != null) {
         ConfirmActionDialog(
             title = uiState.pendingToolTitle,

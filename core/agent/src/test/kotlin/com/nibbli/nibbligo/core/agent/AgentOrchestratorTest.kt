@@ -13,6 +13,7 @@ import com.nibbli.nibbligo.core.model.AgentTurn
 import com.nibbli.nibbligo.core.model.RuntimeKind
 import com.nibbli.nibbligo.core.model.RuntimeResult
 import com.nibbli.nibbligo.core.model.ToolCall
+import com.nibbli.nibbligo.core.mobileactions.MobileActionsPerformer
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import io.mockk.coEvery
 import io.mockk.every
@@ -58,7 +59,8 @@ class AgentOrchestratorTest {
             }
         }
         coEvery { actionHistory.log(any(), any(), any()) } returns Unit
-        val executor = ToolExecutor(toolRegistry, actionHistory, skillPackages, galleryBridge, mcpRegistry)
+        val mobileActions: MobileActionsPerformer = mockk(relaxed = true)
+        val executor = ToolExecutor(toolRegistry, actionHistory, skillPackages, galleryBridge, mcpRegistry, mobileActions)
         orchestrator = AgentOrchestrator(runtime, toolRegistry, executor, petBus)
     }
 

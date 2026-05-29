@@ -15,6 +15,7 @@ data class ModelInfo(
     /** File name inside the repo, e.g. gemma-4-E2B-it.litertlm */
     val hfModelFile: String? = null,
     val hfCommitHash: String? = null,
+    /** Requires Hugging Face sign-in and accepting the repo license before download. */
     val requiresHfAuth: Boolean = false,
 ) {
     fun resolveDownloadUrl(): String? {
@@ -24,6 +25,8 @@ data class ModelInfo(
         val version = hfCommitHash ?: "main"
         return "https://huggingface.co/$repo/resolve/$version/$file?download=true"
     }
+
+    fun hfRepoUrl(): String? = hfRepoId?.let { "https://huggingface.co/$it" }
 
     fun localFileName(): String = hfModelFile ?: "$id.litertlm"
 }

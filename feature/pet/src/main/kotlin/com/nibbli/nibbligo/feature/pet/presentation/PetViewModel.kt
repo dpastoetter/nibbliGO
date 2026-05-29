@@ -2,26 +2,39 @@ package com.nibbli.nibbligo.feature.pet.presentation
 
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.model.PetCondition
+import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.pet.llm.PetReactionPort
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
+import com.nibbli.nibbligo.core.pet.llm.PetStatusSnapshot
+import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.feature.pet.domain.PetDiaryExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 data class PetUiState(
@@ -32,8 +45,11 @@ data class PetUiState(
     val showMinigame: Boolean = false,
     val agentToast: String? = null,
     val statusMessage: String? = null,
+    val recentDialogue: List<String> = emptyList(),
+    val isVoiceListening: Boolean = false,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PetViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -41,10 +57,12 @@ class PetViewModel @Inject constructor(
     private val petEventBus: PetEventBus,
     private val petReactionPort: PetReactionPort,
     private val engine: PetSimulationEngine,
+    private val assistVoiceRequestBus: AssistVoiceRequestBus,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PetUiState())
     val uiState: StateFlow<PetUiState> = _uiState.asStateFlow()
+    private val homeActive = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
@@ -73,6 +91,61 @@ class PetViewModel @Inject constructor(
                 _uiState.update { it.copy(agentToast = toast) }
             }
         }
+        startMoodPulseLoop()
+    }
+
+    /** Called from PetHomeScreen when the tab is visible and lifecycle is resumed. */
+    fun setHomeActive(active: Boolean) {
+        homeActive.value = active
+    }
+
+    private fun startMoodPulseLoop() {
+        viewModelScope.launch {
+            combine(
+                homeActive,
+                _uiState.map { it.petState.isAwakeForMoodPulse }.distinctUntilChanged(),
+            ) { home, awake -> home && awake }
+                .flatMapLatest { active ->
+                    if (!active) {
+                        flow { }
+                    } else {
+                        flow {
+                            delay(MOOD_PULSE_INTERVAL_MS)
+                            while (true) {
+                                emit(Unit)
+                                delay(MOOD_PULSE_INTERVAL_MS)
+                            }
+                        }
+                    }
+                }
+                .collect {
+                    maybeGenerateMoodPulse()
+                }
+        }
+    }
+
+    private suspend fun maybeGenerateMoodPulse() {
+        val ui = _uiState.value
+        if (!homeActive.value || !isScreenInteractive()) return
+        if (!ui.petState.isAwakeForMoodPulse) return
+        if (ui.isLoading || ui.isGeneratingDialogue || ui.isVoiceListening ||
+            ui.showTalkSheet || ui.showMinigame
+        ) {
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val tick = engine.tick(ui.petState, now)
+        val state = tick.state
+        if (tick.state != ui.petState) {
+            persist(state)
+        }
+        generateReaction(state, moodPulse = true)
+    }
+
+    private fun isScreenInteractive(): Boolean {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return powerManager.isInteractive
     }
 
     fun onInteraction(interaction: PetInteraction) {
@@ -91,9 +164,21 @@ class PetViewModel @Inject constructor(
     fun onTalkSend(message: String) {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
-            val talkResult = engine.interact(_uiState.value.petState, PetInteraction.TALK, now)
-            persist(talkResult.state)
-            generateReaction(talkResult.state, userMessage = message)
+            val tick = engine.tick(_uiState.value.petState, now)
+            val freshState = tick.state
+            if (freshState != _uiState.value.petState) {
+                persist(freshState)
+            }
+            if (PetStatusSnapshot.isStatusQuestion(message)) {
+                val reply = PetNeedRules.statusReply(freshState, now)
+                val talkResult = engine.interact(freshState, PetInteraction.TALK, now)
+                persist(talkResult.state.copy(dialogueLine = reply))
+                return@launch
+            }
+            generateReaction(freshState, userMessage = message)
+            val talkResult = engine.interact(freshState, PetInteraction.TALK, now)
+            val reply = _uiState.value.petState.dialogueLine
+            persist(talkResult.state.copy(dialogueLine = reply))
         }
     }
 
@@ -115,6 +200,14 @@ class PetViewModel @Inject constructor(
 
     fun dismissTalkSheet() {
         _uiState.update { it.copy(showTalkSheet = false) }
+    }
+
+    fun onEquipCosmetic(cosmetic: PetCosmetic?) {
+        viewModelScope.launch {
+            val pet = _uiState.value.petState
+            if (cosmetic != null && cosmetic !in pet.unlockedCosmetics) return@launch
+            persist(pet.copy(equippedCosmetic = cosmetic))
+        }
     }
 
     fun openMinigame() {
@@ -158,33 +251,87 @@ class PetViewModel @Inject constructor(
         _uiState.update { it.copy(statusMessage = null) }
     }
 
+    fun setVoiceListening(listening: Boolean) {
+        _uiState.update { it.copy(isVoiceListening = listening) }
+    }
+
+    fun submitVoiceToAssist(transcript: String) {
+        val trimmed = transcript.trim()
+        if (trimmed.isEmpty()) return
+        assistVoiceRequestBus.submitVoiceMessage(trimmed)
+        _uiState.update {
+            it.copy(statusMessage = "Sent to Assist — on-device agent is thinking…")
+        }
+    }
+
+    fun onVoiceAssistError(message: String) {
+        _uiState.update {
+            it.copy(
+                isVoiceListening = false,
+                statusMessage = message,
+            )
+        }
+    }
+
     private suspend fun generateReaction(
         state: PetState,
         lastAction: String? = null,
         userMessage: String? = null,
+        moodPulse: Boolean = false,
     ) {
         if (state.condition == PetCondition.DEAD) return
         _uiState.update { it.copy(isGeneratingDialogue = true) }
-        val reaction = petReactionPort.generate(
-            PetReactionRequest(
-                state = state,
-                lastAction = lastAction,
-                userMessage = userMessage,
-            ),
-        )
-        val expression = reaction.suggestedExpression ?: state.expression
-        val updated = state.copy(
-            dialogueLine = reaction.dialogue,
-            expression = expression,
-        )
-        persist(updated)
-        _uiState.update { it.copy(isGeneratingDialogue = false) }
+        val timeoutMs = if (moodPulse) MOOD_PULSE_TIMEOUT_MS else GENERATION_TIMEOUT_MS
+        try {
+            val reaction = withTimeoutOrNull(timeoutMs) {
+                petReactionPort.generate(
+                    PetReactionRequest(
+                        state = state,
+                        lastAction = lastAction,
+                        userMessage = userMessage,
+                        moodPulse = moodPulse,
+                    ),
+                )
+            }
+            if (reaction == null) {
+                if (!moodPulse) {
+                    persist(state.copy(dialogueLine = "I got distracted… try talking again?"))
+                }
+                return
+            }
+            val expression = reaction.suggestedExpression ?: state.expression
+            val updated = state.copy(
+                dialogueLine = reaction.dialogue,
+                expression = expression,
+            )
+            persist(updated)
+        } finally {
+            _uiState.update { it.copy(isGeneratingDialogue = false) }
+        }
+    }
+
+    private companion object {
+        private const val GENERATION_TIMEOUT_MS = 90_000L
+        private const val MOOD_PULSE_TIMEOUT_MS = 45_000L
+        private const val MOOD_PULSE_INTERVAL_MS = 60_000L
     }
 
     private suspend fun persist(state: PetState) {
         petRepository.savePetState(state)
         PetWidgetSnapshot.write(context, state)
         PetWidgetUpdater.refresh(context)
-        _uiState.update { it.copy(petState = state) }
+        _uiState.update { current ->
+            val dialogueChanged = state.dialogueLine != current.petState.dialogueLine &&
+                state.dialogueLine.isNotBlank()
+            val recent = if (dialogueChanged) {
+                (listOf(current.petState.dialogueLine) + current.recentDialogue)
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .take(2)
+            } else {
+                current.recentDialogue
+            }
+            current.copy(petState = state, recentDialogue = recent)
+        }
     }
 }

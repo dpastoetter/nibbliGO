@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:runtime"))
     implementation(project(":core:mcp"))
+    implementation(project(":core:mobile-actions"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.webkit)
     implementation(libs.kotlinx.coroutines.core)

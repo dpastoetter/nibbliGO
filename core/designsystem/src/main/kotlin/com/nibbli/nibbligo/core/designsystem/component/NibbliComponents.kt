@@ -8,36 +8,39 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.theme.OnDeviceGreen
+import kotlinx.coroutines.delay
 
 @Composable
 fun NibbliCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Card(
+    Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        content = { Column(Modifier.padding(20.dp)) { content() } },
-    )
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        shadowElevation = 1.dp,
+    ) {
+        Column(Modifier.padding(16.dp)) { content() }
+    }
 }
 
 @Composable
@@ -69,43 +72,73 @@ fun StatBar(
 }
 
 @Composable
-fun OnDeviceBadge(modifier: Modifier = Modifier) {
+fun OnDeviceBadge(
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         color = OnDeviceGreen.copy(alpha = 0.2f),
     ) {
         Text(
-            text = "Processed on-device",
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.labelMedium,
+            text = if (compact) "On-device" else "Processed on-device",
+            modifier = Modifier.padding(
+                horizontal = if (compact) 8.dp else 10.dp,
+                vertical = if (compact) 2.dp else 4.dp,
+            ),
+            style = if (compact) {
+                MaterialTheme.typography.labelSmall
+            } else {
+                MaterialTheme.typography.labelMedium
+            },
             color = OnDeviceGreen,
         )
     }
 }
 
 @Composable
-fun PetBubble(text: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium,
-        )
+fun PetBubble(
+    text: String,
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") bubbleColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    applyHorizontalInset: Boolean = true,
+) {
+    val displayText = if (isLoading) LoadingDots() else text
+    val insetModifier = if (applyHorizontalInset) Modifier.padding(horizontal = 16.dp) else Modifier
+    NibbliMessageBubble(
+        text = displayText,
+        role = NibbliMessageRole.ASSISTANT,
+        modifier = modifier.then(insetModifier),
+        maxLines = 3,
+    )
+}
+
+@Composable
+private fun LoadingDots(): String {
+    var frame by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(400)
+            frame = (frame + 1) % 4
+        }
+    }
+    return when (frame) {
+        0 -> "…"
+        1 -> ".  "
+        2 -> ".. "
+        else -> "..."
     }
 }
 
 @Composable
 fun ModelCapabilityChip(label: String, modifier: Modifier = Modifier) {
-    AssistChip(
+    NibbliSuggestionChip(
+        label = label,
         onClick = {},
-        enabled = false,
         modifier = modifier,
-        label = { Text(label) },
+        enabled = false,
     )
 }
 

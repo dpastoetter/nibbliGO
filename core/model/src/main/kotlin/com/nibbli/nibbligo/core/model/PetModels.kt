@@ -122,6 +122,12 @@ data class PetState(
     val criticalNeglectSinceMillis: Long? = null,
 ) {
     val isAlive: Boolean get() = condition != PetCondition.DEAD
+
+    /** Awake enough for periodic home-screen LLM mood lines (not sleeping). */
+    val isAwakeForMoodPulse: Boolean
+        get() = isAlive &&
+            condition != PetCondition.SLEEPING &&
+            animation != PetAnimation.SLEEP
 }
 
 data class PetTickResult(

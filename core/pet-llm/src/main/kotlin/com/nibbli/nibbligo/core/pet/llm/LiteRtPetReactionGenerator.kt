@@ -20,33 +20,61 @@ class LiteRtPetReactionGenerator @Inject constructor(
         if (!modelAvailabilityGate.hasUsableModel()) {
             return installRequiredReaction()
         }
-        val modelId = userPreferencesRepository.defaultModelId.first()
-            ?: modelAvailabilityGate.firstUsableModelId()
-            ?: DEFAULT_MODEL
+        val modelId = resolvePetModelId()
         val personality = userPreferencesRepository.petPersonality.first()
         val enriched = request.copy(personality = personality)
         val prompt = PetPromptBuilder.build(enriched)
-        when (inferenceRuntime.ensureModelLoaded(modelId)) {
+        when (val load = inferenceRuntime.ensureModelLoaded(modelId, includeTools = false)) {
             is RuntimeResult.Success -> Unit
-            is RuntimeResult.Error,
-            RuntimeResult.LowMemory,
-            RuntimeResult.Unsupported,
-            -> return installRequiredReaction()
-        }
-        return when (
-            val result = inferenceRuntime.complete(
-                CompletionRequest(modelId = modelId, prompt = prompt),
+            is RuntimeResult.Error -> return PetReaction(
+                dialogue = "Model load failed: ${load.message}",
+                suggestedExpression = null,
             )
-        ) {
-            is RuntimeResult.Success -> PetReactionParser.parse(result.data)
-            is RuntimeResult.Error,
-            RuntimeResult.LowMemory,
-            RuntimeResult.Unsupported,
-            -> PetReaction(
-                dialogue = "I couldn't think of a reply right now. Try again in a moment.",
+            RuntimeResult.LowMemory -> return PetReaction(
+                dialogue = "Not enough memory to load the model right now.",
+                suggestedExpression = null,
+            )
+            RuntimeResult.Unsupported -> return PetReaction(
+                dialogue = "This model isn't supported on this device.",
                 suggestedExpression = null,
             )
         }
+        return when (
+            val result = inferenceRuntime.complete(
+                CompletionRequest(modelId = modelId, prompt = prompt, includeTools = false),
+            )
+        ) {
+            is RuntimeResult.Success -> {
+                if (result.data.isBlank()) {
+                    PetReactionParser.fallback(enriched)
+                } else {
+                    PetReactionParser.parse(result.data)
+                }
+            }
+            is RuntimeResult.Error -> PetReaction(
+                dialogue = "I couldn't think of a reply: ${result.message}",
+                suggestedExpression = null,
+            )
+            RuntimeResult.LowMemory -> PetReaction(
+                dialogue = "I'm too low on memory to reply right now.",
+                suggestedExpression = null,
+            )
+            RuntimeResult.Unsupported -> PetReaction(
+                dialogue = "Talk isn't supported with this model.",
+                suggestedExpression = null,
+            )
+        }
+    }
+
+    private suspend fun resolvePetModelId(): String {
+        val default = userPreferencesRepository.defaultModelId.first()
+        if (default != null && inferenceRuntime.capabilitiesFor(default).supportsChat) {
+            return default
+        }
+        for (modelId in PET_MODEL_PREFERENCE) {
+            if (inferenceRuntime.capabilitiesFor(modelId).supportsChat) return modelId
+        }
+        return modelAvailabilityGate.firstUsableModelId() ?: DEFAULT_MODEL
     }
 
     private fun installRequiredReaction() = PetReaction(
@@ -56,5 +84,6 @@ class LiteRtPetReactionGenerator @Inject constructor(
 
     companion object {
         private const val DEFAULT_MODEL = "functiongemma-270m"
+        private val PET_MODEL_PREFERENCE = listOf("gemma-4-e2b-it", "functiongemma-270m")
     }
 }

@@ -7,6 +7,7 @@ import com.nibbli.nibbligo.core.domain.download.HfModelDownloadScheduler
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
 import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.storage.local.dao.ModelInstallDao
@@ -27,6 +28,7 @@ class ModelRepositoryImpl @Inject constructor(
     private val modelInstallDao: ModelInstallDao,
     private val hfDownloadScheduler: HfModelDownloadScheduler,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
 ) : ModelRepository {
 
     override fun observeCatalog(): Flow<List<ModelInfo>> =
@@ -59,6 +61,18 @@ class ModelRepositoryImpl @Inject constructor(
             return@withContext Result.failure(
                 IllegalStateException("No network connection. Connect to download models."),
             )
+        }
+        if (info.requiresHfAuth) {
+            val token = huggingFaceAuthRepository.getAccessToken()
+            if (token.isNullOrBlank()) {
+                val repo = info.hfRepoUrl() ?: info.hfRepoId.orEmpty()
+                return@withContext Result.failure(
+                    IllegalStateException(
+                        "Sign in to Hugging Face under Settings (or paste an access token), " +
+                            "accept the model license at $repo, then try again.",
+                    ),
+                )
+            }
         }
         hfDownloadScheduler.enqueueLiteRtModelDownload(modelId)
         Result.success(Unit)

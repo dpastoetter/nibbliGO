@@ -1,47 +1,86 @@
 package com.nibbli.nibbligo.feature.pet.ui
 
 import android.content.Intent
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
-import com.nibbli.nibbligo.core.designsystem.component.PetBubble
-import com.nibbli.nibbligo.core.model.LifeStage
+import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
 import com.nibbli.nibbligo.core.model.PetCondition
-import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.ui.LoadingState
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
+import com.nibbli.nibbligo.feature.pet.ui.voice.rememberVoiceAssistLauncher
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PetHomeScreen(
     modifier: Modifier = Modifier,
     viewModel: PetViewModel = hiltViewModel(),
+    onNavigateToAssist: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var showCosmeticsSheet by remember { mutableStateOf(false) }
+
+    val launchVoiceAssist = rememberVoiceAssistLauncher(
+        onListening = { viewModel.setVoiceListening(true) },
+        onResult = { transcript ->
+            viewModel.setVoiceListening(false)
+            viewModel.submitVoiceToAssist(transcript)
+            onNavigateToAssist()
+        },
+        onError = { viewModel.onVoiceAssistError(it) },
+        onStopped = { viewModel.setVoiceListening(false) },
+    )
+
+    // Home is "active" only while this screen is composed (Home tab) and the app is in the foreground.
+    DisposableEffect(lifecycleOwner) {
+        var foreground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        fun syncHomeActive() {
+            viewModel.setHomeActive(foreground)
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> {
+                    foreground = true
+                    syncHomeActive()
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    foreground = false
+                    syncHomeActive()
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        syncHomeActive()
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.setHomeActive(false)
+        }
+    }
 
     LaunchedEffect(uiState.agentToast) {
         uiState.agentToast?.let {
@@ -56,99 +95,82 @@ fun PetHomeScreen(
     }
 
     val pet = uiState.petState
+    val talkEnabled = pet.isAlive && !uiState.isGeneratingDialogue && !uiState.isVoiceListening
 
-    Column(modifier = modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("nibbliGO", style = MaterialTheme.typography.displaySmall)
-            Text(
-                "${pet.name} · ${pet.stage.name.lowercase()} · on-device",
-                style = MaterialTheme.typography.bodyMedium,
+    Box(modifier = modifier.fillMaxSize()) {
+        NibbliAmbientBackground()
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            PetHomeHeader(
+                pet = pet,
+                statusMessage = uiState.statusMessage,
+                onLooksClick = { showCosmeticsSheet = true },
             )
-            uiState.statusMessage?.let {
-                Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            }
-            NibbliCard {
-                PetCharacterCard(
-                    pet = pet,
-                    onPetTap = { viewModel.onPetTapped() },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                PetBubble(
-                    text = if (uiState.isGeneratingDialogue) "…" else pet.dialogueLine,
-                    modifier = Modifier.padding(top = 12.dp),
-                )
-            }
-        }
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            NibbliCard {
-                Text("Care", style = MaterialTheme.typography.titleMedium)
-                FlowRow(
-                    modifier = Modifier.padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 8.dp),
                 ) {
-                    careButton("Meal", PetInteraction.FEED_MEAL, pet, viewModel)
-                    careButton("Snack", PetInteraction.FEED_SNACK, pet, viewModel)
-                    careButton("Play", PetInteraction.PLAY, pet, viewModel)
-                    careButton("Clean", PetInteraction.CLEAN, pet, viewModel)
-                    careButton("Meds", PetInteraction.MEDICINE, pet, viewModel)
-                    if (pet.condition == PetCondition.SLEEPING) {
-                        careButton("Wake", PetInteraction.WAKE, pet, viewModel)
-                    } else {
-                        careButton("Sleep", PetInteraction.SLEEP, pet, viewModel)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PetCharacterCard(
+                            pet = pet,
+                            onPetTap = { viewModel.onPetTapped() },
+                            onCareAction = { viewModel.onInteraction(it) },
+                            modifier = Modifier.fillMaxWidth(0.94f),
+                        )
                     }
-                    careButton("Talk", PetInteraction.TALK, pet, viewModel)
-                    careButton("Train", PetInteraction.TRAIN, pet, viewModel)
+
+                    PetCompanionPanel(
+                        dialogueLine = pet.dialogueLine,
+                        isGeneratingDialogue = uiState.isGeneratingDialogue,
+                        previousLines = uiState.recentDialogue,
+                        stats = pet.stats,
+                        talkEnabled = talkEnabled,
+                        isVoiceListening = uiState.isVoiceListening,
+                        onChipSelected = { viewModel.onTalkSend(it) },
+                        onTalkToMeClick = launchVoiceAssist,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
                 }
-                OutlinedButton(
-                    onClick = { viewModel.openMinigame() },
-                    modifier = Modifier.padding(top = 8.dp),
-                    enabled = pet.isAlive,
-                ) { Text("Catch game") }
             }
 
             if (pet.condition == PetCondition.DEAD) {
-                NibbliCard {
-                    Text("nibbli needs a fresh start", style = MaterialTheme.typography.titleMedium)
-                    Button(
-                        onClick = { viewModel.hatchNewEgg() },
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) { Text("Hatch new egg") }
-                }
+                PetDeadBanner(onHatch = { viewModel.hatchNewEgg() })
             }
 
-            if (pet.unlockedCosmetics.isNotEmpty()) {
-                NibbliCard {
-                    Text("Unlocked looks", style = MaterialTheme.typography.titleMedium)
-                    pet.unlockedCosmetics.forEach { cosmetic ->
-                        Text("• ${cosmetic.name.replace('_', ' ')}", modifier = Modifier.padding(top = 4.dp))
-                    }
-                }
-            }
-
-            OutlinedButton(
-                onClick = {
+            PetQuickActionStrip(
+                cosmeticsCount = pet.unlockedCosmetics.size,
+                catchEnabled = pet.isAlive,
+                onCatch = { viewModel.openMinigame() },
+                onDiary = {
                     context.startActivity(Intent.createChooser(viewModel.exportDiary(), "Export diary"))
                 },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Export pet diary") }
+                onLooks = { showCosmeticsSheet = true },
+            )
+
+            SnackbarHost(hostState = snackbar, modifier = Modifier.padding(8.dp))
         }
-        SnackbarHost(hostState = snackbar, modifier = Modifier.padding(8.dp))
     }
 
+    PetCosmeticsSheet(
+        visible = showCosmeticsSheet,
+        pet = pet,
+        onDismiss = { showCosmeticsSheet = false },
+        onEquip = { viewModel.onEquipCosmetic(it) },
+    )
     PetTalkSheet(
         visible = uiState.showTalkSheet,
         isGenerating = uiState.isGeneratingDialogue,
@@ -160,18 +182,4 @@ fun PetHomeScreen(
         onDismiss = { viewModel.dismissMinigame() },
         onWin = { viewModel.onMinigameWin() },
     )
-}
-
-@Composable
-private fun careButton(
-    label: String,
-    interaction: PetInteraction,
-    pet: com.nibbli.nibbligo.core.model.PetState,
-    viewModel: PetViewModel,
-) {
-    val enabled = pet.isAlive || interaction == PetInteraction.WAKE
-    Button(
-        onClick = { viewModel.onInteraction(interaction) },
-        enabled = enabled && !(pet.stage == LifeStage.EGG && interaction != PetInteraction.TALK),
-    ) { Text(label) }
 }

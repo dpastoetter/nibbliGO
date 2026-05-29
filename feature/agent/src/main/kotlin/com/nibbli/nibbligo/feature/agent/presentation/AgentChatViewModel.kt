@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.agent.AgentOrchestrator
 import com.nibbli.nibbligo.core.agent.PendingConfirmation
+import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
 import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
@@ -39,12 +40,19 @@ class AgentChatViewModel @Inject constructor(
     private val skillPackageRepository: SkillPackageRepository,
     private val actionHistoryRepository: ActionHistoryRepository,
     private val inferenceRuntime: InferenceRuntime,
+    private val assistVoiceRequestBus: AssistVoiceRequestBus,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AgentChatUiState())
     val uiState: StateFlow<AgentChatUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            assistVoiceRequestBus.voiceMessages.collect { transcript ->
+                _uiState.update { it.copy(input = transcript, error = null) }
+                send()
+            }
+        }
         viewModelScope.launch {
             val installed = modelRepository.getInstalledModelIds()
             val modelId = installed.firstOrNull { inferenceRuntime.capabilitiesFor(it).supportsToolCalling }

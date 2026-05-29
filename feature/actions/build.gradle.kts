@@ -18,6 +18,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:mobile-actions"))
     implementation(project(":core:model"))
     implementation(project(":core:domain"))
     implementation(project(":core:designsystem"))

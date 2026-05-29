@@ -13,7 +13,7 @@ import javax.inject.Singleton
 @Singleton
 class ToolRegistry @Inject constructor() {
 
-    private val _tools = MutableStateFlow(BuiltinTools.all.toList())
+    private val _tools = MutableStateFlow((BuiltinTools.all + PhoneActionAgentTools.all).toList())
     val tools: StateFlow<List<AgentTool>> = _tools.asStateFlow()
 
     fun allTools(): List<AgentTool> = _tools.value

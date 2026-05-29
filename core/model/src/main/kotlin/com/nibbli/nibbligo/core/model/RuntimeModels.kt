@@ -27,6 +27,7 @@ data class CompletionRequest(
     val prompt: String,
     val preset: PromptPreset? = null,
     val params: GenerationParams = GenerationParams(),
+    val includeTools: Boolean = true,
 )
 
 data class VisionRequest(

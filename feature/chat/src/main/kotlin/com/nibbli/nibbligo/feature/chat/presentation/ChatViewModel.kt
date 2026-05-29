@@ -109,6 +109,18 @@ class ChatViewModel @Inject constructor(
                     _uiState.update { it.copy(isStreaming = false, error = load.message) }
                     return@launch
                 }
+                com.nibbli.nibbligo.core.model.RuntimeResult.LowMemory -> {
+                    _uiState.update {
+                        it.copy(isStreaming = false, error = "Not enough memory to load the model.")
+                    }
+                    return@launch
+                }
+                com.nibbli.nibbligo.core.model.RuntimeResult.Unsupported -> {
+                    _uiState.update {
+                        it.copy(isStreaming = false, error = "This model isn't supported here.")
+                    }
+                    return@launch
+                }
                 else -> Unit
             }
 
@@ -121,6 +133,13 @@ class ChatViewModel @Inject constructor(
                     assistantContent += chunk.token
                     _uiState.update { it.copy(streamingText = assistantContent) }
                 }
+            }
+
+            if (assistantContent.isBlank()) {
+                _uiState.update {
+                    it.copy(isStreaming = false, streamingText = null, error = "Model returned an empty reply.")
+                }
+                return@launch
             }
 
             val assistantMessage = ChatMessage(

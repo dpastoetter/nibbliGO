@@ -1,5 +1,6 @@
 package com.nibbli.nibbligo.core.domain.repository
 
+import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.ChatMessage
@@ -62,10 +63,14 @@ interface UserPreferencesRepository {
     val preferredRuntimeKind: Flow<String>
     val petPersonality: Flow<PetPersonality>
     val usePetLlmReactions: Flow<Boolean>
+    val themeMode: Flow<AppThemeMode>
+    val showDoTab: Flow<Boolean>
     suspend fun setDefaultModelId(modelId: String?)
     suspend fun setGenerationParams(params: GenerationParams)
     suspend fun setAllowDownloads(allowed: Boolean)
     suspend fun setPreferredRuntimeKind(kind: String)
     suspend fun setPetPersonality(personality: PetPersonality)
     suspend fun setUsePetLlmReactions(enabled: Boolean)
+    suspend fun setThemeMode(mode: AppThemeMode)
+    suspend fun setShowDoTab(show: Boolean)
 }

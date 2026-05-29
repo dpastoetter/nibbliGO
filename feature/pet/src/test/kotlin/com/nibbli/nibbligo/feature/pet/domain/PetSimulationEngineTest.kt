@@ -79,6 +79,28 @@ class PetSimulationEngineTest {
     }
 
     @Test
+    fun auto_equips_highest_tier_on_first_unlock() {
+        val state = PetState(stats = PetStats(skill = 14, trust = 19))
+        val result = engine.onPetEvent(state, PetEvent.ActionCompleted)
+        assertTrue(result.unlockedCosmetics.contains(PetCosmetic.SPARKLE_COLLAR))
+        assertEquals(PetCosmetic.SPARKLE_COLLAR, result.equippedCosmetic)
+    }
+
+    @Test
+    fun does_not_override_existing_equipped_cosmetic_on_new_unlock() {
+        val state = PetState(
+            stats = PetStats(skill = 50, trust = 60),
+            equippedCosmetic = PetCosmetic.SPARKLE_COLLAR,
+            unlockedCosmetics = setOf(PetCosmetic.SPARKLE_COLLAR),
+        )
+        val result = engine.onPetEvent(
+            state.copy(stats = PetStats(skill = 55, trust = 65)),
+            PetEvent.ActionCompleted,
+        )
+        assertEquals(PetCosmetic.SPARKLE_COLLAR, result.equippedCosmetic)
+    }
+
+    @Test
     fun hungry_need_when_hunger_low() {
         val state = PetState(stats = PetStats(hunger = 10, energy = 80, mood = 50))
         val result = engine.interact(state, PetInteraction.PLAY, 1000L)

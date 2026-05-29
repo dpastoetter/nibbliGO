@@ -139,7 +139,7 @@ object HfFileDownloader {
         HfDownloadException(
             httpCode = code,
             message = when (code) {
-                401 -> "Hugging Face authorization failed. Sign in or paste an access token in Settings."
+                401 -> "Hugging Face sign-in required. Open Settings to sign in or paste an access token."
                 403 -> "Access denied. Accept the model license on huggingface.co and use a token with gated-repos scope."
                 else -> "HTTP $code: $message"
             },
