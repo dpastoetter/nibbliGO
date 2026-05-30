@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,6 +26,9 @@ fun PetTalkHistory(
     if (talkHistory.isEmpty() && !talkLcdMode) return
 
     val scrollState = rememberScrollState()
+    LaunchedEffect(talkHistory.size, streamingDialogue) {
+        scrollState.animateScrollTo(scrollState.maxValue)
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()

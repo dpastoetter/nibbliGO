@@ -3,7 +3,6 @@ package com.nibbli.nibbligo.feature.pet.ui
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -112,11 +111,11 @@ fun PetHomeScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .fillMaxSize(),
+                    .fillMaxWidth(),
             ) {
                 Column(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = 8.dp),
@@ -158,17 +157,14 @@ fun PetHomeScreen(
                     PetDeadBanner(onHatch = { viewModel.hatchNewEgg() })
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
                 PetTalkInputBar(
                     enabled = talkEnabled,
                     isGeneratingDialogue = uiState.isGeneratingDialogue,
                     isWarmingModel = uiState.isWarmingModel,
                     onSend = { viewModel.onTalkSend(it) },
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
-
-                Spacer(modifier = Modifier.weight(1f))
             }
 
             PetQuickActionStrip(
