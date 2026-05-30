@@ -111,7 +111,7 @@ fun PetBubble(
         text = displayText,
         role = NibbliMessageRole.ASSISTANT,
         modifier = modifier.then(insetModifier),
-        maxLines = 3,
+        maxLines = 5,
     )
 }
 

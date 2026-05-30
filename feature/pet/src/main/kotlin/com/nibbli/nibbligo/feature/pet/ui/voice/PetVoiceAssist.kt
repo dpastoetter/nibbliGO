@@ -116,7 +116,7 @@ fun rememberVoiceAssistLauncher(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk to nibbli Assist…")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk to your Pixel Friend…")
         }
         speechRecognizer.startListening(intent)
     }
@@ -165,7 +165,7 @@ fun rememberVoiceAssistLauncher(
 internal fun buildRecognizeSpeechLaunchIntent(context: Context): Intent? {
     val base = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk to nibbli Assist…")
+        putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk to your Pixel Friend…")
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
     }

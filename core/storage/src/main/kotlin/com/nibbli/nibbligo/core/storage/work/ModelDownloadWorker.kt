@@ -22,6 +22,7 @@ import com.nibbli.nibbligo.core.storage.local.entity.ModelInstallEntity
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -79,7 +80,14 @@ class ModelDownloadWorker @AssistedInject constructor(
                     sizeBytes = modelFile.length(),
                 ),
             )
-            userPreferencesRepository.setDefaultModelId(modelId)
+            if (userPreferencesRepository.defaultModelId.first() == null) {
+                userPreferencesRepository.setDefaultModelId(modelId)
+            }
+            if (userPreferencesRepository.petModelId.first() == null &&
+                modelId != "functiongemma-270m"
+            ) {
+                userPreferencesRepository.setPetModelId(modelId)
+            }
             Log.i(TAG, "Installed $modelId (${modelFile.length()} bytes)")
             Result.success()
         } catch (e: Exception) {
@@ -130,7 +138,7 @@ class ModelDownloadWorker @AssistedInject constructor(
         Result.failure(workDataOf(KEY_ERROR to message))
 
     private fun gatedDownloadError(error: HfDownloadException, info: ModelInfo): HfDownloadException {
-        if (!info.requiresHfAuth) return error
+        if (error.httpCode != 401 && error.httpCode != 403) return error
         val repo = info.hfRepoUrl() ?: "huggingface.co/${info.hfRepoId.orEmpty()}"
         return when (error.httpCode) {
             401 -> HfDownloadException(

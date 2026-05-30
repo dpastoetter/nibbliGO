@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.core.pet.llm
 import com.nibbli.nibbligo.core.model.PetExpression
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
+import kotlinx.coroutines.flow.Flow
 
 data class PetReactionRequest(
     val state: PetState,
@@ -22,6 +23,15 @@ data class PetReaction(
     val suggestedExpression: PetExpression? = null,
 )
 
+sealed interface PetReactionStreamEvent {
+    data class Token(val text: String) : PetReactionStreamEvent
+    data class Done(val reaction: PetReaction) : PetReactionStreamEvent
+}
+
 interface PetReactionPort {
     suspend fun generate(request: PetReactionRequest): PetReaction
+
+    fun generateStream(request: PetReactionRequest): Flow<PetReactionStreamEvent>
+
+    suspend fun warmLoad()
 }

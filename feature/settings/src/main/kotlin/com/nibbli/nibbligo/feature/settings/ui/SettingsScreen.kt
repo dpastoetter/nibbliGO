@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.feature.settings.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,8 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
+import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
+import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.feature.settings.presentation.SettingsViewModel
@@ -135,9 +138,61 @@ fun SettingsScreen(
             }
         }
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
+            Text("On-device models", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Choose which installed LiteRT model powers chat, Assist, and Prompt Lab versus " +
+                    "your Pixel Friend. Download more under Manage → Models.",
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            ModelPreferencePicker(
+                label = "Default app model",
+                hint = "Chat, Prompt Lab, and Assist when no per-screen override is set.",
+                selectedModelId = uiState.defaultModelId,
+                installedModelIds = uiState.installedModelIds,
+                onSelect = viewModel::setDefaultModelId,
+            )
+            ModelPreferencePicker(
+                label = "Pixel Friend model",
+                hint = "Home talk, chips, and mood lines. Auto picks a small chat model if installed.",
+                selectedModelId = uiState.petModelId,
+                installedModelIds = uiState.installedModelIds,
+                onSelect = viewModel::setPetModelId,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            Text(
+                "LiteRT accelerator",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+            Text(
+                "Auto uses per-model defaults (GPU when available). Emulators usually run on CPU.",
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(top = 8.dp),
+            ) {
+                LiteRtAcceleratorPreference.entries.forEach { pref ->
+                    NibbliSuggestionChip(
+                        label = when (pref) {
+                            LiteRtAcceleratorPreference.AUTO -> "auto (recommended)"
+                            LiteRtAcceleratorPreference.GPU -> "gpu"
+                            LiteRtAcceleratorPreference.CPU -> "cpu"
+                            LiteRtAcceleratorPreference.NPU -> "npu"
+                        },
+                        selected = uiState.litertAccelerator == pref,
+                        onClick = { viewModel.setLitertAccelerator(pref) },
+                    )
+                }
+            }
+        }
+        NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("Pixel Friend", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Talk and care reactions use your installed LiteRT model.",
+                "Personality and ambient behavior. Talk uses the Pixel Friend model above.",
                 modifier = Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -197,5 +252,52 @@ fun SettingsScreen(
                 .fillMaxWidth()
                 .padding(top = 16.dp, bottom = 16.dp),
         )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ModelPreferencePicker(
+    label: String,
+    hint: String,
+    selectedModelId: String?,
+    installedModelIds: List<String>,
+    onSelect: (String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        Text(
+            hint,
+            modifier = Modifier.padding(top = 4.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (installedModelIds.isEmpty()) {
+            Text(
+                "No models installed yet.",
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+            return@Column
+        }
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp),
+        ) {
+            NibbliSuggestionChip(
+                label = "Auto",
+                selected = selectedModelId == null,
+                onClick = { onSelect(null) },
+            )
+            installedModelIds.forEach { modelId ->
+                NibbliSuggestionChip(
+                    label = ModelCatalog.displayName(modelId),
+                    selected = selectedModelId == modelId,
+                    onClick = { onSelect(modelId) },
+                )
+            }
+        }
     }
 }

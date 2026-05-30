@@ -45,8 +45,9 @@ fun ModelsScreen(
         )
         if (uiState.models.any { it.info.requiresHfAuth } && !uiState.hfSignedIn) {
             Text(
-                "FunctionGemma is gated on Hugging Face. Sign in or paste a token in Settings, " +
-                    "accept the model license on huggingface.co, then install.",
+                "SmolLM2 360M installs without sign-in and is a great Pixel Friend model. " +
+                    "Gemma 3 and FunctionGemma are gated — sign in or paste a token in Settings, " +
+                    "accept each model license on huggingface.co, then install.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.padding(bottom = 8.dp),

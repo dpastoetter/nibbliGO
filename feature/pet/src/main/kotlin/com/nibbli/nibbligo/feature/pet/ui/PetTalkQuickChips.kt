@@ -1,40 +1,47 @@
 package com.nibbli.nibbligo.feature.pet.ui
 
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PetTalkQuickChips(
     enabled: Boolean,
+    isGeneratingDialogue: Boolean,
     isVoiceListening: Boolean,
     onChipSelected: (String) -> Unit,
+    onStopClick: () -> Unit,
     onTalkToMeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val chips = listOf("How are you?")
-
-    FlowRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         PetTalkToMeButton(
             enabled = enabled,
             isListening = isVoiceListening,
             onClick = onTalkToMeClick,
         )
-        chips.forEach { phrase ->
-            NibbliSuggestionChip(
-                label = phrase,
-                onClick = { if (enabled) onChipSelected(phrase) },
-                enabled = enabled,
-            )
-        }
+        PetTalkActionChip(
+            label = "How are you?",
+            onClick = { if (enabled) onChipSelected("How are you?") },
+            enabled = enabled,
+        )
+        PetTalkActionChip(
+            label = "Stop",
+            onClick = onStopClick,
+            enabled = isGeneratingDialogue,
+            selected = isGeneratingDialogue,
+        )
     }
 }

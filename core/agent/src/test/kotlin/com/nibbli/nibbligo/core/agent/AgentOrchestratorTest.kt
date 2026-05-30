@@ -46,16 +46,22 @@ class AgentOrchestratorTest {
         every { runtime.runtimeKind } returns RuntimeKind.LITERT
         every { runtime.streamChat(any()) } returns emptyFlow()
         coEvery { runtime.ensureModelLoaded(any()) } returns RuntimeResult.Success(Unit)
+        coEvery { runtime.ensureAgentModelLoaded(any()) } returns RuntimeResult.Success(Unit)
         coEvery { runtime.generateWithTools(any()) } answers {
             val request = firstArg<AgentRequest>()
             if (request.toolResults.isEmpty()) {
                 RuntimeResult.Success(
                     AgentTurn.ToolCalls(
-                        calls = listOf(ToolCall("reminder_create", """{"title":"stretch"}""")),
+                        calls = listOf(
+                            ToolCall(
+                                "phone_send_email",
+                                """{"to":"me@example.com","subject":"Lunch","body":"Let's meet at noon"}""",
+                            ),
+                        ),
                     ),
                 )
             } else {
-                RuntimeResult.Success(AgentTurn.FinalText("Reminder set."))
+                RuntimeResult.Success(AgentTurn.FinalText("Email draft opened."))
             }
         }
         coEvery { actionHistory.log(any(), any(), any()) } returns Unit
@@ -65,13 +71,13 @@ class AgentOrchestratorTest {
     }
 
     @Test
-    fun runTurn_reminder_proposes_tool_then_completes_after_confirm() = runTest {
+    fun runTurn_email_proposes_tool_then_completes_after_confirm() = runTest {
         val modelId = "functiongemma-270m"
-        runtime.ensureModelLoaded(modelId)
+        runtime.ensureAgentModelLoaded(modelId)
         val session = AgentSessionState(modelId = modelId)
         val first = orchestrator.runTurn(
             modelId = modelId,
-            userMessage = "remind me to stretch",
+            userMessage = "email me about lunch",
             session = session,
             autoApproveSafeTools = false,
         )

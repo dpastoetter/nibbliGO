@@ -147,12 +147,28 @@ class NibbliMobileActionsToolSetDeferred : ToolSet {
     ): Map<String, String> = mapOf("result" to "pending")
 }
 
+fun buildStaticMobileActionsSystemInstruction(): String =
+    "You are a model that can do function calling with the following functions."
+
+/** Prepends Gallery-style date/time context to each agent user turn (keeps LiteRT session stable). */
+fun formatAgentUserMessage(userText: String): String {
+    val now = LocalDateTime.now()
+    val dateTime = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
+    val dayOfWeek = now.format(DateTimeFormatter.ofPattern("EEEE"))
+    return buildString {
+        appendLine("Current date and time (YYYY-MM-DDTHH:MM:SS): $dateTime")
+        appendLine("Day of week: $dayOfWeek")
+        appendLine()
+        append(userText.trim())
+    }
+}
+
 fun mobileActionsSystemInstruction(): String {
     val now = LocalDateTime.now()
     val dateTime = now.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"))
     val dayOfWeek = now.format(DateTimeFormatter.ofPattern("EEEE"))
     return buildString {
-        appendLine("You are a model that can do function calling with the following functions.")
+        appendLine(buildStaticMobileActionsSystemInstruction())
         append("Current date and time (YYYY-MM-DDTHH:MM:SS): ")
         appendLine(dateTime)
         append("Day of week: ")
@@ -187,7 +203,7 @@ fun agentToolProvidersForModel(modelId: String): List<ToolProvider> = when (mode
 }
 
 fun agentSystemInstructionForModel(modelId: String): String? = when (modelId) {
-    "functiongemma-270m" -> mobileActionsSystemInstruction()
+    "functiongemma-270m" -> buildStaticMobileActionsSystemInstruction()
     else -> null
 }
 

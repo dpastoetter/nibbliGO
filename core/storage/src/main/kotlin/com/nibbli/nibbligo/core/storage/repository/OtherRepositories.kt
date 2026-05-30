@@ -17,6 +17,7 @@ import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.GenerationParams
+import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.SavedPrompt
@@ -93,6 +94,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   private object Keys {
     val defaultModel = stringPreferencesKey("default_model")
+    val petModel = stringPreferencesKey("pet_model")
     val temperature = floatPreferencesKey("temperature")
     val topK = intPreferencesKey("top_k")
     val topP = floatPreferencesKey("top_p")
@@ -106,10 +108,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val petMoodPulseMode = stringPreferencesKey("pet_mood_pulse_mode")
     val themeMode = stringPreferencesKey("theme_mode")
     val showDoTab = booleanPreferencesKey("show_do_tab")
+    val litertAccelerator = stringPreferencesKey("litert_accelerator")
   }
 
   override val defaultModelId: Flow<String?> =
     context.dataStore.data.map { it[Keys.defaultModel] }
+
+  override val petModelId: Flow<String?> =
+    context.dataStore.data.map { it[Keys.petModel] }
 
   override val generationParams: Flow<GenerationParams> =
     context.dataStore.data.map { prefs ->
@@ -145,8 +151,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
   override val petMoodPulseMode: Flow<PetMoodPulseMode> =
     context.dataStore.data.map { prefs ->
       runCatching {
-        PetMoodPulseMode.valueOf(prefs[Keys.petMoodPulseMode] ?: PetMoodPulseMode.NORMAL.name)
-      }.getOrDefault(PetMoodPulseMode.NORMAL)
+        PetMoodPulseMode.valueOf(prefs[Keys.petMoodPulseMode] ?: PetMoodPulseMode.QUIET.name)
+      }.getOrDefault(PetMoodPulseMode.QUIET)
     }
 
   override val themeMode: Flow<AppThemeMode> =
@@ -159,10 +165,26 @@ class UserPreferencesRepositoryImpl @Inject constructor(
   override val showDoTab: Flow<Boolean> =
     context.dataStore.data.map { it[Keys.showDoTab] ?: false }
 
+  override val litertAccelerator: Flow<LiteRtAcceleratorPreference> =
+    context.dataStore.data.map { prefs ->
+      runCatching {
+        LiteRtAcceleratorPreference.valueOf(
+          prefs[Keys.litertAccelerator] ?: LiteRtAcceleratorPreference.AUTO.name,
+        )
+      }.getOrDefault(LiteRtAcceleratorPreference.AUTO)
+    }
+
   override suspend fun setDefaultModelId(modelId: String?) {
     context.dataStore.edit { prefs ->
       if (modelId == null) prefs.remove(Keys.defaultModel)
       else prefs[Keys.defaultModel] = modelId
+    }
+  }
+
+  override suspend fun setPetModelId(modelId: String?) {
+    context.dataStore.edit { prefs ->
+      if (modelId == null) prefs.remove(Keys.petModel)
+      else prefs[Keys.petModel] = modelId
     }
   }
 
@@ -206,5 +228,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override suspend fun setShowDoTab(show: Boolean) {
     context.dataStore.edit { it[Keys.showDoTab] = show }
+  }
+
+  override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) {
+    context.dataStore.edit { it[Keys.litertAccelerator] = preference.name }
   }
 }

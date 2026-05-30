@@ -30,6 +30,12 @@ data class CompletionRequest(
     val includeTools: Boolean = true,
 )
 
+data class PetTurnRequest(
+    val modelId: String,
+    val systemInstruction: String,
+    val userMessage: String,
+)
+
 data class VisionRequest(
     val modelId: String,
     val imageUri: String,

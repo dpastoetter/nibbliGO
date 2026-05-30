@@ -11,6 +11,7 @@ import com.nibbli.nibbligo.core.model.BenchmarkMetrics
 import com.nibbli.nibbligo.core.model.ChatInferenceRequest
 import com.nibbli.nibbligo.core.model.CompletionRequest
 import com.nibbli.nibbligo.core.model.InferenceChunk
+import com.nibbli.nibbligo.core.model.PetTurnRequest
 import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.ModelCapabilities
 import com.nibbli.nibbligo.core.model.RuntimeKind
@@ -42,13 +43,53 @@ class LiteRTInferenceRuntime @Inject constructor(
 
     override suspend fun ensureModelLoaded(modelId: String, includeTools: Boolean): RuntimeResult<Unit> {
         if (!useLiteRt(modelId)) return modelNotInstalled(modelId)
-        val tools = if (includeTools) agentToolProvidersForModel(modelId) else emptyList()
-        val systemInstruction = agentSystemInstructionForModel(modelId)
+        val tools = if (includeTools) mobileTools(modelId) else emptyList()
+        val systemInstruction = if (tools.isNotEmpty()) buildStaticMobileActionsSystemInstruction() else null
         return try {
             enginePool.ensureSession(modelId, tools, systemInstruction)
             RuntimeResult.Success(Unit)
         } catch (e: Exception) {
             RuntimeResult.Error(e.message ?: "LiteRT load failed", e)
+        }
+    }
+
+    override suspend fun ensureAgentModelLoaded(modelId: String): RuntimeResult<Unit> {
+        if (!useLiteRt(modelId)) return modelNotInstalled(modelId)
+        val tools = agentToolProvidersForModel(modelId)
+        if (tools.isEmpty()) {
+            return RuntimeResult.Error(
+                "Agent mobile actions need FunctionGemma 270M. Install it under Manage → Models.",
+            )
+        }
+        val systemInstruction = agentSystemInstructionForModel(modelId)
+        return try {
+            enginePool.ensureSession(
+                modelId = modelId,
+                tools = tools,
+                systemInstruction = systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_MOBILE_ACTIONS,
+            )
+            RuntimeResult.Success(Unit)
+        } catch (e: Exception) {
+            RuntimeResult.Error(e.message ?: "LiteRT agent load failed", e)
+        }
+    }
+
+    override suspend fun ensurePetModelLoaded(
+        modelId: String,
+        systemInstruction: String,
+    ): RuntimeResult<Unit> {
+        if (!useLiteRt(modelId)) return modelNotInstalled(modelId)
+        return try {
+            enginePool.ensureSession(
+                modelId = modelId,
+                tools = emptyList(),
+                systemInstruction = systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_PET_CHAT,
+            )
+            RuntimeResult.Success(Unit)
+        } catch (e: Exception) {
+            RuntimeResult.Error(e.message ?: "LiteRT pet load failed", e)
         }
     }
 
@@ -94,6 +135,52 @@ class LiteRTInferenceRuntime @Inject constructor(
         }
     }
 
+    override suspend fun completePetTurn(request: PetTurnRequest): RuntimeResult<String> {
+        if (!useLiteRt(request.modelId)) return modelNotInstalled(request.modelId)
+        return try {
+            val result = enginePool.sendTurn(
+                modelId = request.modelId,
+                userText = request.userMessage,
+                tools = emptyList(),
+                systemInstruction = request.systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_PET_CHAT,
+            )
+            RuntimeResult.Success(result.text)
+        } catch (e: Exception) {
+            RuntimeResult.Error(e.message ?: "LiteRT pet turn failed", e)
+        }
+    }
+
+    override fun streamPetTurn(request: PetTurnRequest): Flow<InferenceChunk> = flow {
+        if (!useLiteRt(request.modelId)) {
+            emit(
+                InferenceChunk(
+                    "Install a LiteRT model under Manage → Models to use chat.",
+                    isComplete = true,
+                ),
+            )
+            return@flow
+        }
+        try {
+            enginePool.streamMessage(
+                modelId = request.modelId,
+                userText = request.userMessage,
+                tools = emptyList(),
+                systemInstruction = request.systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_PET_CHAT,
+            ).collect { event ->
+                when (event) {
+                    is StreamEvent.Token -> emit(InferenceChunk(event.text))
+                    is StreamEvent.Done -> emit(InferenceChunk("", isComplete = true))
+                }
+            }
+        } catch (e: Exception) {
+            val message = e.message?.takeIf { it.isNotBlank() } ?: "LiteRT pet error"
+            emit(InferenceChunk(message))
+            emit(InferenceChunk("", isComplete = true))
+        }
+    }
+
     override suspend fun analyzeImage(request: VisionRequest): RuntimeResult<String> =
         RuntimeResult.Unsupported
 
@@ -112,27 +199,40 @@ class LiteRTInferenceRuntime @Inject constructor(
             supportsAudio = false,
             supportsStreaming = installed,
             supportsToolCalling = installed && modelId == FUNCTION_GEMMA_MODEL_ID,
-            supportsThinkingTrace = modelId == "gemma-4-e2b-it" && installed,
+            supportsThinkingTrace = installed && (
+                modelId == "gemma-4-e2b-it" || modelId == "deepseek-r1-distill-qwen-1.5b"
+                ),
         )
     }
 
     override suspend fun generateWithTools(request: AgentRequest): RuntimeResult<AgentTurn> {
         if (!useLiteRt(request.modelId)) return modelNotInstalled(request.modelId)
         val tools = agentToolProvidersForModel(request.modelId)
+        if (tools.isEmpty()) {
+            return RuntimeResult.Error(
+                "This model cannot call phone tools. Select FunctionGemma 270M for email and calendar actions.",
+            )
+        }
         val systemInstruction = agentSystemInstructionForModel(request.modelId)
         return try {
             val result = if (request.toolResults.isNotEmpty()) {
                 val last = request.toolResults.last()
                 val toolMeta = request.tools.find { it.id == last.toolId || it.name == last.toolId }
                 val toolName = toolMeta?.name ?: last.toolId
-                val prompt =
+                val prompt = formatAgentUserMessage(
                     "The user approved $toolName. Execution result: ${last.outputJson}. " +
-                        "Reply briefly to confirm what happened."
+                        "Reply briefly to confirm what happened.",
+                )
                 enginePool.sendAgentTurn(request.modelId, prompt, tools, systemInstruction)
             } else {
                 val lastUser =
                     request.messages.lastOrNull { it.role == AgentMessageRole.USER }?.content.orEmpty()
-                enginePool.sendAgentTurn(request.modelId, lastUser, tools, systemInstruction)
+                enginePool.sendAgentTurn(
+                    request.modelId,
+                    formatAgentUserMessage(lastUser),
+                    tools,
+                    systemInstruction,
+                )
             }
             RuntimeResult.Success(parseAgentTurn(result))
         } catch (e: Exception) {

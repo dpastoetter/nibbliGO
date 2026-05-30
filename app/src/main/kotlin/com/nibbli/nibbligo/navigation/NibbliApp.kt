@@ -87,17 +87,7 @@ fun NibbliApp() {
             modifier = Modifier.padding(padding),
         ) {
             composable(Routes.PET) {
-                PetHomeScreen(
-                    onNavigateToAssist = {
-                        navController.navigate(Routes.AGENT_CHAT) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                )
+                PetHomeScreen()
             }
             composable(Routes.ASSIST) { AssistHubScreen(navController) }
             composable(Routes.CHAT) { ChatScreen() }

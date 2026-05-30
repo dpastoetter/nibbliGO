@@ -17,6 +17,11 @@ data class ModelInfo(
     val hfCommitHash: String? = null,
     /** Requires Hugging Face sign-in and accepting the repo license before download. */
     val requiresHfAuth: Boolean = false,
+    /** Ordered LiteRT backends to try when accelerator preference is Auto. */
+    val preferredAccelerators: List<LiteRtAccelerator> = listOf(
+        LiteRtAccelerator.GPU,
+        LiteRtAccelerator.CPU,
+    ),
 ) {
     fun resolveDownloadUrl(): String? {
         downloadUrl?.let { return it }

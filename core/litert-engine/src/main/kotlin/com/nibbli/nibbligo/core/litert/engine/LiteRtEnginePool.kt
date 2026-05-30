@@ -15,10 +15,15 @@ import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import com.nibbli.nibbligo.core.domain.model.InstalledModelPathResolver
+import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.io.File
 import java.util.concurrent.CancellationException
@@ -34,23 +39,33 @@ data class LiteRtSession(
     val engine: Engine,
     var conversation: Conversation,
     val backendName: String,
+    val petSystemInstruction: String? = null,
+    val petTools: List<ToolProvider> = emptyList(),
 )
 
 @Singleton
 class LiteRtEnginePool @Inject constructor(
     @ApplicationContext private val context: Context,
     private val installedModelPathResolver: InstalledModelPathResolver,
+    private val userPreferencesRepository: UserPreferencesRepository,
 ) {
     private val sessions = ConcurrentHashMap<String, LiteRtSession>()
+    private val initMutex = Mutex()
+    private val petTurnMutex = Mutex()
 
     private fun sessionKey(
         modelId: String,
         tools: List<ToolProvider>,
         systemInstruction: String? = null,
+        profile: String = SESSION_PROFILE_DEFAULT,
     ): String {
         val toolsPart = if (tools.isEmpty()) "plain" else "tools"
-        val sysPart = systemInstruction?.hashCode()?.toString() ?: "nosys"
-        return "$modelId@$toolsPart@$sysPart"
+        val sysPart = when {
+            profile == SESSION_PROFILE_PET_CHAT -> "pet-static"
+            profile == SESSION_PROFILE_MOBILE_ACTIONS -> "mobile-static"
+            else -> systemInstruction?.hashCode()?.toString() ?: "nosys"
+        }
+        return "$modelId@$toolsPart@$profile@$sysPart"
     }
 
     fun modelPath(modelId: String): File? =
@@ -63,26 +78,55 @@ class LiteRtEnginePool @Inject constructor(
         modelId: String,
         tools: List<ToolProvider> = emptyList(),
         systemInstruction: String? = null,
+        profile: String = SESSION_PROFILE_DEFAULT,
     ): LiteRtSession {
-        val key = sessionKey(modelId, tools, systemInstruction)
+        val key = sessionKey(modelId, tools, systemInstruction, profile)
         sessions[key]?.let { return it }
-        val path = modelPath(modelId)?.absolutePath
-            ?: error("No .litertlm file for $modelId")
 
-        var lastError: Exception? = null
-        for (backend in listOf(Backend.GPU(), Backend.CPU())) {
-            try {
-                val session = createSession(path, backend, tools, systemInstruction)
-                Log.i(TAG, "Loaded $modelId on ${backend.name} backend (tools=${tools.isNotEmpty()})")
-                sessions[key] = session
-                return session
-            } catch (e: Exception) {
-                Log.w(TAG, "Backend ${backend.name} failed for $modelId", e)
-                lastError = e
-                sessions.remove(key)?.let { closeSession(it) }
+        return initMutex.withLock {
+            sessions[key]?.let { return it }
+
+            // Pet chat and agent paths must not keep two full Engine instances for one model.
+            if (profile == SESSION_PROFILE_PET_CHAT) {
+                unloadSessionsForModel(modelId, exceptKey = key)
             }
+
+            val path = modelPath(modelId)?.absolutePath
+                ?: error("No .litertlm file for $modelId")
+
+            val preference = userPreferencesRepository.litertAccelerator.first()
+            val backends = LiteRtBackendResolver.resolveBackendOrder(
+                modelId = modelId,
+                userPreference = preference,
+                nativeLibraryDir = context.applicationInfo.nativeLibraryDir,
+            )
+
+            var lastError: Exception? = null
+            for (backend in backends) {
+                try {
+                    val session = createSession(path, backend, tools, systemInstruction, profile)
+                    Log.i(
+                        TAG,
+                        "Loaded $modelId on ${backend.name} backend " +
+                            "(tools=${tools.isNotEmpty()}, profile=$profile, pref=${preference.name.lowercase()})",
+                    )
+                    sessions[key] = session
+                    return@withLock session
+                } catch (e: Exception) {
+                    Log.w(TAG, "Backend ${backend.name} failed for $modelId", e)
+                    lastError = e
+                    sessions.remove(key)?.let { closeSession(it) }
+                }
+            }
+            throw lastError ?: IllegalStateException("Failed to load LiteRT model $modelId")
         }
-        throw lastError ?: IllegalStateException("Failed to load LiteRT model $modelId")
+    }
+
+    private fun unloadSessionsForModel(modelId: String, exceptKey: String? = null) {
+        val prefix = "$modelId@"
+        sessions.keys.filter { it.startsWith(prefix) && it != exceptKey }.forEach { key ->
+            sessions.remove(key)?.let { closeSession(it) }
+        }
     }
 
     private fun createSession(
@@ -90,23 +134,62 @@ class LiteRtEnginePool @Inject constructor(
         backend: Backend,
         tools: List<ToolProvider>,
         systemInstruction: String?,
+        profile: String = SESSION_PROFILE_DEFAULT,
     ): LiteRtSession {
+        val modelFile = File(path)
+        // maxNumTokens is total context capacity (input + output), not output length alone.
         val engineConfig = EngineConfig(
             modelPath = path,
             backend = backend,
-            maxNumTokens = 2048,
+            maxNumTokens = DEFAULT_MAX_NUM_TOKENS,
+            cacheDir = modelFile.parentFile?.absolutePath,
         )
         val engine = Engine(engineConfig)
         engine.initialize()
         val sysContents = systemInstruction?.let { Contents.of(Content.Text(it)) }
+        val samplerConfig = samplerConfigFor(profile)
         val conversation = engine.createConversation(
             ConversationConfig(
-                samplerConfig = SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8),
+                samplerConfig = samplerConfig,
                 systemInstruction = sysContents,
                 tools = tools,
             ),
         )
-        return LiteRtSession(engine, conversation, backend.name)
+        val petMeta = if (profile == SESSION_PROFILE_PET_CHAT) {
+            systemInstruction to tools
+        } else {
+            null
+        }
+        return LiteRtSession(
+            engine = engine,
+            conversation = conversation,
+            backendName = backend.name,
+            petSystemInstruction = petMeta?.first,
+            petTools = petMeta?.second ?: emptyList(),
+        )
+    }
+
+    private fun samplerConfigFor(profile: String): SamplerConfig = when (profile) {
+        SESSION_PROFILE_PET_CHAT -> SamplerConfig(topK = 24, topP = 0.92, temperature = 0.7)
+        SESSION_PROFILE_MOBILE_ACTIONS -> SamplerConfig(topK = 64, topP = 0.95, temperature = 0.0)
+        else -> SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8)
+    }
+
+    private fun refreshPetConversation(session: LiteRtSession) {
+        if (session.petSystemInstruction == null && session.petTools.isEmpty()) return
+        try {
+            session.conversation.close()
+        } catch (e: Exception) {
+            Log.w(TAG, "pet conversation close before refresh", e)
+        }
+        val sysContents = session.petSystemInstruction?.let { Contents.of(Content.Text(it)) }
+        session.conversation = session.engine.createConversation(
+            ConversationConfig(
+                samplerConfig = samplerConfigFor(SESSION_PROFILE_PET_CHAT),
+                systemInstruction = sysContents,
+                tools = session.petTools,
+            ),
+        )
     }
 
     fun unload(modelId: String) {
@@ -115,6 +198,18 @@ class LiteRtEnginePool @Inject constructor(
             sessions.remove(key)?.let { closeSession(it) }
         }
     }
+
+    fun unloadAll() {
+        sessions.keys.toList().forEach { key ->
+            sessions.remove(key)?.let { closeSession(it) }
+        }
+    }
+
+    fun activeBackendFor(modelId: String): String? =
+        sessions.entries
+            .firstOrNull { it.key.startsWith("$modelId@") }
+            ?.value
+            ?.backendName
 
     private fun closeSession(session: LiteRtSession) {
         try {
@@ -133,8 +228,55 @@ class LiteRtEnginePool @Inject constructor(
         modelId: String,
         userText: String,
         tools: List<ToolProvider> = emptyList(),
+        systemInstruction: String? = null,
+        profile: String = SESSION_PROFILE_DEFAULT,
+    ): Flow<StreamEvent> {
+        if (profile != SESSION_PROFILE_PET_CHAT) {
+            return streamMessageInternal(modelId, userText, tools, systemInstruction, profile)
+        }
+        return flow {
+            petTurnMutex.withLock {
+                var session: LiteRtSession? = null
+                callbackFlow {
+                    session = ensureSession(modelId, tools, systemInstruction, profile)
+                    val activeSession = session!!
+                    val contents = Contents.of(Content.Text(userText))
+                    activeSession.conversation.sendMessageAsync(
+                        contents,
+                        object : MessageCallback {
+                            override fun onMessage(message: Message) {
+                                val chunk = message.extractDisplayText()
+                                if (chunk.isNotEmpty()) {
+                                    trySend(StreamEvent.Token(chunk, message.extractThought()))
+                                }
+                            }
+
+                            override fun onDone() {
+                                trySend(StreamEvent.Done)
+                                close()
+                            }
+
+                            override fun onError(throwable: Throwable) {
+                                close(throwable)
+                            }
+                        },
+                        emptyMap(),
+                    )
+                    awaitClose { activeSession.conversation.cancelProcess() }
+                }.collect { emit(it) }
+                session?.let { refreshPetConversation(it) }
+            }
+        }
+    }
+
+    private fun streamMessageInternal(
+        modelId: String,
+        userText: String,
+        tools: List<ToolProvider>,
+        systemInstruction: String?,
+        profile: String,
     ): Flow<StreamEvent> = callbackFlow {
-        val session = ensureSession(modelId, tools)
+        val session = ensureSession(modelId, tools, systemInstruction, profile)
         val contents = Contents.of(Content.Text(userText))
         session.conversation.sendMessageAsync(
             contents,
@@ -165,8 +307,27 @@ class LiteRtEnginePool @Inject constructor(
         userText: String,
         tools: List<ToolProvider> = emptyList(),
         systemInstruction: String? = null,
+        profile: String = SESSION_PROFILE_DEFAULT,
     ): TurnResult {
-        val session = ensureSession(modelId, tools, systemInstruction)
+        if (profile != SESSION_PROFILE_PET_CHAT) {
+            return sendTurnInternal(modelId, userText, tools, systemInstruction, profile)
+        }
+        return petTurnMutex.withLock {
+            val key = sessionKey(modelId, tools, systemInstruction, profile)
+            val result = sendTurnInternal(modelId, userText, tools, systemInstruction, profile)
+            sessions[key]?.let { refreshPetConversation(it) }
+            result
+        }
+    }
+
+    private suspend fun sendTurnInternal(
+        modelId: String,
+        userText: String,
+        tools: List<ToolProvider>,
+        systemInstruction: String?,
+        profile: String,
+    ): TurnResult {
+        val session = ensureSession(modelId, tools, systemInstruction, profile)
         return suspendCancellableCoroutine { cont ->
             val builder = StringBuilder()
             val thoughts = mutableListOf<String>()
@@ -204,7 +365,7 @@ class LiteRtEnginePool @Inject constructor(
         tools: List<ToolProvider>,
         systemInstruction: String?,
     ): TurnResult {
-        val session = ensureSession(modelId, tools, systemInstruction)
+        val session = ensureSession(modelId, tools, systemInstruction, SESSION_PROFILE_MOBILE_ACTIONS)
         return suspendCancellableCoroutine { cont ->
             val builder = StringBuilder()
             val thoughts = mutableListOf<String>()
@@ -254,6 +415,13 @@ class LiteRtEnginePool @Inject constructor(
                 emptyMap(),
             )
         }
+    }
+
+    companion object {
+        const val SESSION_PROFILE_DEFAULT = "default"
+        const val SESSION_PROFILE_PET_CHAT = "pet-chat"
+        const val SESSION_PROFILE_MOBILE_ACTIONS = "mobile-actions"
+        private const val DEFAULT_MAX_NUM_TOKENS = 2048
     }
 }
 

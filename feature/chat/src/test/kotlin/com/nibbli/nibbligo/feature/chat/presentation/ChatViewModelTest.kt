@@ -15,6 +15,7 @@ import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.InferenceChunk
 import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
 import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.ModelCapabilities
 import com.nibbli.nibbligo.core.model.ModelInfo
@@ -157,6 +158,7 @@ private class FakeModelRepository : ModelRepository {
 
 private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val defaultModelId = flowOf("functiongemma-270m")
+    override val petModelId = flowOf<String?>(null)
     override val generationParams = flowOf(GenerationParams())
     override val allowDownloads = flowOf(true)
     override val preferredRuntimeKind = flowOf("LITERT")
@@ -166,7 +168,9 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val petMoodPulseMode = flowOf(PetMoodPulseMode.NORMAL)
     override val themeMode = flowOf(AppThemeMode.SYSTEM)
     override val showDoTab = flowOf(false)
+    override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
+    override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
     override suspend fun setAllowDownloads(allowed: Boolean) = Unit
     override suspend fun setPreferredRuntimeKind(kind: String) = Unit
@@ -176,6 +180,7 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
     override suspend fun setThemeMode(mode: AppThemeMode) = Unit
     override suspend fun setShowDoTab(show: Boolean) = Unit
+    override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
 }
 
 private class FakeInferenceRuntime(
@@ -184,6 +189,12 @@ private class FakeInferenceRuntime(
     override val runtimeKind: RuntimeKind = RuntimeKind.LITERT
 
     override suspend fun ensureModelLoaded(modelId: String, includeTools: Boolean) =
+        RuntimeResult.Success(Unit)
+
+    override suspend fun ensurePetModelLoaded(modelId: String, systemInstruction: String) =
+        RuntimeResult.Success(Unit)
+
+    override suspend fun ensureAgentModelLoaded(modelId: String) =
         RuntimeResult.Success(Unit)
 
     override fun unloadModel(modelId: String) = Unit

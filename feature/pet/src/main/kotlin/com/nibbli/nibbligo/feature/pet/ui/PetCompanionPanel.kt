@@ -22,6 +22,7 @@ fun PetCompanionPanel(
     talkEnabled: Boolean,
     isVoiceListening: Boolean,
     onChipSelected: (String) -> Unit,
+    onStopClick: () -> Unit,
     onTalkToMeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -41,14 +42,16 @@ fun PetCompanionPanel(
 
             PetBubble(
                 text = dialogueLine,
-                isLoading = isGeneratingDialogue,
+                isLoading = isGeneratingDialogue && dialogueLine.isBlank(),
                 applyHorizontalInset = false,
             )
 
             PetTalkQuickChips(
                 enabled = talkEnabled,
+                isGeneratingDialogue = isGeneratingDialogue,
                 isVoiceListening = isVoiceListening,
                 onChipSelected = onChipSelected,
+                onStopClick = onStopClick,
                 onTalkToMeClick = onTalkToMeClick,
             )
 

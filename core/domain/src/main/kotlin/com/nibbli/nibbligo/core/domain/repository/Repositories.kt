@@ -7,6 +7,7 @@ import com.nibbli.nibbligo.core.model.ChatMessage
 import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
 import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
@@ -59,6 +60,7 @@ interface RecordingRepository {
 
 interface UserPreferencesRepository {
     val defaultModelId: Flow<String?>
+    val petModelId: Flow<String?>
     val generationParams: Flow<GenerationParams>
     val allowDownloads: Flow<Boolean>
     val preferredRuntimeKind: Flow<String>
@@ -68,7 +70,9 @@ interface UserPreferencesRepository {
     val petMoodPulseMode: Flow<PetMoodPulseMode>
     val themeMode: Flow<AppThemeMode>
     val showDoTab: Flow<Boolean>
+    val litertAccelerator: Flow<LiteRtAcceleratorPreference>
     suspend fun setDefaultModelId(modelId: String?)
+    suspend fun setPetModelId(modelId: String?)
     suspend fun setGenerationParams(params: GenerationParams)
     suspend fun setAllowDownloads(allowed: Boolean)
     suspend fun setPreferredRuntimeKind(kind: String)
@@ -78,4 +82,5 @@ interface UserPreferencesRepository {
     suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode)
     suspend fun setThemeMode(mode: AppThemeMode)
     suspend fun setShowDoTab(show: Boolean)
+    suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference)
 }

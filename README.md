@@ -1,14 +1,14 @@
 # nibbliGO
 
-A local-first Android companion: an evolving **pixel friend** on Home, plus on-device **Assist** (chat, agent tools, prompt lab). Inference runs on your phone with LiteRT — no cloud model calls.
+A local-first Android companion: an evolving **Pixel Friend** on Home, plus on-device **Assist** (chat, agent tools, prompt lab). Inference runs on your phone with LiteRT — no cloud model calls.
 
 **Privacy:** LiteRT inference on device. Network is used only for Hugging Face model downloads (and optional OAuth), not for sending your chats to a cloud LLM.
 
 ## Screenshots
 
-| Home (super dark) | Agent Chat | Manage |
+| Home (super dark) | Pixel Friend talk | Manage → Models |
 |:---:|:---:|:---:|
-| ![Home super dark](docs/screenshots/home-super-dark.png) | ![Agent Chat](docs/screenshots/agent-chat.png) | ![Manage appearance](docs/screenshots/manage-appearance.png) |
+| ![Home super dark](docs/screenshots/home-super-dark.png) | ![Pet home](docs/screenshots/pet-home.png) | ![Manage models](docs/screenshots/manage-models.png) |
 
 Regenerate after UI changes:
 
@@ -21,22 +21,24 @@ Regenerate after UI changes:
 ### Home — Pixel Friend
 
 - Retro **P1 LCD** pet with care actions (feed, play, clean, medicine, sleep).
-- **Talk** sheet and quick chips; **Talk to me** sends voice to **Agent Chat**.
+- **Talk** sheet plus Home quick actions: **Talk to me** (voice), **How are you?**, and **Stop** (cancels an in-flight reply).
+- **Talk to me** and quick chips use the **Pixel Friend** on-device model (Settings → on-device models), not Agent Chat.
 - **Looks** — unlock cosmetic overlays (collar, star patch, aurora aura) and equip them on the sprite.
-- On-device **mood lines** about once per minute while Home is visible, the app is in the foreground, and nibbli is awake (requires an installed LiteRT model).
+- Optional **mood pulse** — spontaneous LLM lines while Home is visible, the app is in the foreground, and nibbli is awake (Settings → mood pulse: off / normal / quiet).
 - **Catch** minigame, diary export, home-screen **widget**.
+- Pet engine **warm-loads** when you open Home so the first chip reply is faster.
 
 ### Assist
 
 - **Local Chat** — streaming chat with a downloaded LiteRT model.
-- **Agent Chat** — tool-calling agent with **confirm before run** for sensitive actions.
+- **Agent Chat** — tool-calling agent with **confirm before run** for sensitive actions (email, calendar, etc.).
 - **Prompt Lab** — prompt playground on device.
 
 ### Manage
 
-- **Models** — download LiteRT weights from Hugging Face (`functiongemma-270m`, `gemma-4-e2b-it`, …).
+- **Models** — download LiteRT weights from Hugging Face (see [Model catalog](#model-catalog) below).
 - **Appearance** — Light, Dark, **Super dark** (OLED-friendly midnight), or System.
-- **Settings** — privacy, storage, HF token, **pixel friend personality** (Playful / Calm / Curious).
+- **Settings** — privacy, storage, HF token, **default app model** vs **Pixel Friend model**, **LiteRT accelerator** (Auto / GPU / CPU / NPU), pixel friend personality (Playful / Calm / Curious), mood pulse.
 
 ### Phone tools (Agent Chat, after confirm)
 
@@ -45,6 +47,23 @@ Opens system apps via [`MobileActionsPerformer`](core/mobile-actions/src/main/ko
 ### Navigation
 
 Bottom tabs: **Home**, **Assist**, **Manage**. Sense and Do hubs exist in the nav graph but are hidden from the bottom bar in this build.
+
+## Model catalog
+
+| Model | Size (approx.) | Best for | HF sign-in |
+|--------|----------------|----------|------------|
+| **SmolLM2 360M Instruct** | ~374 MB | **Pixel Friend**, emulator, no-login dev | No |
+| **FunctionGemma 270M** | ~289 MB | **Agent** mobile actions (CPU) | Yes |
+| **Gemma 3 1B IT** | ~584 MB | Pixel Friend / chat (quality) | Yes |
+| **Gemma 4 E2B** | ~2.4 GB | Rich chat, thinking trace | No |
+| **Qwen 2.5 1.5B** | ~1.6 GB | General chat | No |
+| **DeepSeek R1 Distill 1.5B** | ~1.8 GB | Reasoning-style chat | No |
+
+**Recommended paths**
+
+- **Home talk only:** install **SmolLM2 360M** (public, fast on emulator CPU).
+- **Agent email/calendar:** install **FunctionGemma 270M** (gated; accept license + HF token in Settings).
+- **General chat:** pick any chat model; set **Default app model** in Settings.
 
 ## Requirements
 
@@ -61,9 +80,9 @@ Bottom tabs: **Home**, **Assist**, **Manage**. Sense and Do hubs exist in the na
 adb shell am start -n com.nibbli.nibbligo/.MainActivity
 ```
 
-1. **Manage → Models** — download `functiongemma-270m` (~289 MB) for fast emulator testing, or `gemma-4-e2b-it` (~2.6 GB) for richer chat.
-2. **Home** — care for nibbli; install a model for Talk and mood lines.
-3. **Assist → Agent Chat** — e.g. “send an email to me about lunch”, then confirm the tool.
+1. **Manage → Models** — download **SmolLM2 360M Instruct** (~374 MB, no HF login) for Home talk and emulator testing.
+2. **Home** — wait a few seconds for warm load; tap **How are you?** or use **Talk to me**.
+3. **Assist → Agent Chat** — install **FunctionGemma 270M** for tool calls; ask e.g. “draft an email about lunch”, then confirm.
 
 ### Emulator (Pixel 9a profile)
 
@@ -81,13 +100,16 @@ adb wait-for-device
 ./gradlew :app:installDebug
 ```
 
+**Emulator note:** LiteRT usually runs on **CPU** on AVDs. Settings → **LiteRT accelerator → Auto** skips GPU probing on emulators. On a physical Pixel, Auto prefers GPU (and NPU where supported).
+
 ## Demo flow
 
-1. **Manage → Models** — install `functiongemma-270m`.
+1. **Manage → Models** — install **SmolLM2 360M Instruct**.
 2. **Manage → Appearance** — try **Super dark**.
-3. **Home** — feed/play; open **Talk** or use quick chips; try **Talk to me** (mic → Assist).
-4. **Assist → Agent Chat** — ask for an email or flashlight; confirm the tool card.
-5. Unlock **Looks** by raising trust/skill, then equip a cosmetic on the LCD pet.
+3. **Home** — feed/play; tap **How are you?**; use **Stop** if a reply is taking too long; try **Talk to me** (mic → Pixel Friend LLM).
+4. **Manage → Models** — install **FunctionGemma 270M** (HF token if gated).
+5. **Assist → Agent Chat** — ask for an email or flashlight; confirm the tool card.
+6. Unlock **Looks** by raising trust/skill, then equip a cosmetic on the LCD pet.
 
 ## Pixel Friend (simulation + LLM)
 
@@ -95,16 +117,17 @@ adb wait-for-device
 |--------|------|
 | [`PetSimulationEngine`](feature/pet/src/main/kotlin/com/nibbli/nibbligo/feature/pet/domain/PetSimulationEngine.kt) | Hunger, hygiene, energy, sickness, evolution, death → new egg |
 | [`PetTickWorker`](feature/pet/src/main/kotlin/com/nibbli/nibbligo/feature/pet/work/PetTickWorker.kt) | Background decay (~15 min); notifications when needs stay critical |
-| [`core:pet-llm`](core/pet-llm/) | LiteRT reactions for Talk and mood pulse |
-| Status questions (“How are you?”) | Fast honest reply from stats (no LLM) |
-| Other talk / mood pulse | Full on-device generation when a model is installed |
+| [`core:pet-llm`](core/pet-llm/) | LiteRT reactions for Talk, voice, and mood pulse |
+| [`LiteRtEnginePool`](core/litert-engine/src/main/kotlin/com/nibbli/nibbligo/core/litert/engine/LiteRtEnginePool.kt) | Warm pet session, per-model GPU/CPU/NPU policy, conversation reset each turn |
+| Model pick | Settings → **Pixel Friend model** (Auto prefers SmolLM2 → Gemma 3 → …) |
+| Status questions (“How are you?”) | On-device LLM with compact pet prompt; template fallback if inference fails |
 
-Care works without a model; **Talk** and LLM mood lines need a downloaded `.litertlm` file.
+Care works without a model; **Talk**, voice, and LLM mood lines need a downloaded `.litertlm` file.
 
 ## Agent & tools
 
 - [`AgentOrchestrator`](core/agent/src/main/kotlin/com/nibbli/nibbligo/core/agent/AgentOrchestrator.kt) — multi-step turns, confirmation for `SENSITIVE` tools.
-- [`PhoneActionAgentTools`](core/agent/src/main/kotlin/com/nibbli/nibbligo/core/agent/tools/PhoneActionAgentTools.kt) — Gallery-style phone actions for FunctionGemma.
+- [`PhoneActionAgentTools`](core/agent/src/main/kotlin/com/nibbli/nibbligo/core/agent/tools/PhoneActionAgentTools.kt) — Gallery-style phone actions for **FunctionGemma 270M**.
 - **SKILL.md** packages under `assets/skills/`; bundled `nibbli_tasks`, `nibbli_clipboard`.
 - **MCP** — StreamableHTTP tools (see Settings / actions flows); discovered tools appear in Agent Chat with confirmation.
 
@@ -112,15 +135,15 @@ Care works without a model; **Talk** and LLM mood lines need a downloaded `.lite
 
 ```
 app/                  Shell, navigation, Hilt
-core/model/           Domain types (pet, agent, theme)
+core/model/           Domain types (pet, agent, theme, LiteRT accelerators)
 core/designsystem/    Theme (incl. super dark), shared Compose UI
 core/ui/              Loading / empty / error
 core/domain/          Repositories, PetEventBus
 core/storage/         Room, DataStore
 core/runtime/         InferenceRuntime interface
-core/runtime-litert/  LiteRT-LM (chat, agent, tools)
-core/litert-engine/   Engine pool (Gallery-derived)
-core/pet-llm/         Pet reaction LLM
+core/runtime-litert/  LiteRT-LM (chat, agent, pet, tools)
+core/litert-engine/   Engine pool, backend resolver (Gallery-derived)
+core/pet-llm/         Pet reaction LLM + prompt builder
 core/agent/           Orchestrator, tool registry, skills bridge
 core/mobile-actions/  Intents: email, maps, flashlight, …
 core/hf-download/     Hugging Face OAuth + downloads
@@ -141,7 +164,9 @@ feature/settings/     Settings screen
 
 Models live under app storage as `*.litertlm`. Chat, Agent, Prompt Lab, and pet LLM features prompt you to download from **Manage → Models** first.
 
-Vision, audio, and benchmarks may be limited depending on the installed model and build.
+- **LiteRT accelerator** (Settings): **Auto** uses per-model defaults (FunctionGemma = CPU only; chat models = GPU → CPU on device). Force **CPU** on emulators for stable dev.
+- **Engine pool** sets `cacheDir` beside model files for faster reloads and unloads sessions when you change accelerator preference.
+- Vision, audio, and benchmarks may be limited depending on the installed model and build.
 
 ## Tests
 
@@ -150,7 +175,7 @@ Vision, audio, and benchmarks may be limited depending on the installed model an
 ./gradlew connectedAndroidTest   # device/emulator required
 ```
 
-Unit tests cover `PetSimulationEngine`, `ModelCatalog`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/cosmetic helpers. Some instrumented flows need a downloaded model and are `@Ignore` by default.
+Unit tests cover `PetSimulationEngine`, `ModelCatalog`, `PetPromptBuilder`, `LiteRtBackendResolver`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/cosmetic helpers. Some instrumented flows need a downloaded model and are `@Ignore` by default.
 
 ## Google AI Edge Gallery
 
@@ -158,9 +183,9 @@ nibbliGO ports patterns from [Google AI Edge Gallery](https://github.com/google-
 
 | Module | Role |
 |--------|------|
-| `core:litert-engine` | LiteRT `Engine` / `Conversation` |
+| `core:litert-engine` | LiteRT `Engine` / `Conversation`, GPU/CPU/NPU fallback |
 | `core:hf-download` | Hugging Face OAuth + token storage |
-| `core:agent` | `GallerySkillWebViewBridge` |
+| `core:agent` | `GallerySkillWebViewBridge`, FunctionGemma mobile actions |
 
 ### Hugging Face OAuth (model downloads)
 
@@ -172,9 +197,9 @@ nibbliGO ports patterns from [Google AI Edge Gallery](https://github.com/google-
    hf.oauth.redirectUri=nibbli://oauth/huggingface
    ```
 
-3. Download models under **Manage → Models**. Public `litert-community` weights often work without sign-in.
+3. Download models under **Manage → Models**. Public `litert-community` weights (e.g. **SmolLM2 360M**) work without sign-in.
 
-   **Gated models:** **Settings** → paste a [HF access token](https://huggingface.co/settings/tokens), or use OAuth after step 2.
+   **Gated models:** **Settings** → paste a [HF access token](https://huggingface.co/settings/tokens), or use OAuth after step 2. Required for **FunctionGemma 270M** and **Gemma 3 1B IT**.
 
 Redirect: `nibbli://oauth/huggingface` in [`MainActivity`](app/src/main/kotlin/com/nibbli/nibbligo/MainActivity.kt). Allowlist aligned with [Gallery 1.0.15](https://github.com/google-ai-edge/gallery/blob/main/model_allowlists/1_0_15.json).
 

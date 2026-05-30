@@ -42,7 +42,32 @@ class AgentOrchestrator @Inject constructor(
         params: GenerationParams = GenerationParams(),
         autoApproveSafeTools: Boolean = true,
     ): AgentRunResult {
-        inferenceRuntime.ensureModelLoaded(modelId)
+        inferenceRuntime.ensureAgentModelLoaded(modelId).let { load ->
+            if (load is RuntimeResult.Error) {
+                return AgentRunResult(
+                    session.copy(isRunning = false),
+                    pendingConfirmation = null,
+                    finalText = null,
+                    error = load.message,
+                )
+            }
+            if (load == RuntimeResult.LowMemory) {
+                return AgentRunResult(
+                    session.copy(isRunning = false),
+                    pendingConfirmation = null,
+                    finalText = null,
+                    error = "Not enough memory to load the agent model.",
+                )
+            }
+            if (load == RuntimeResult.Unsupported) {
+                return AgentRunResult(
+                    session.copy(isRunning = false),
+                    pendingConfirmation = null,
+                    finalText = null,
+                    error = "Agent tools are not supported for this runtime.",
+                )
+            }
+        }
         var messages = session.messages + AgentMessage(AgentMessageRole.USER, userMessage)
         val steps = session.steps.toMutableList()
         var stepIndex = steps.size

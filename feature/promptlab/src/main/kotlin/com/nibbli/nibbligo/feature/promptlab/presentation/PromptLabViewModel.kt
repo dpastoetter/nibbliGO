@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.PromptRepository
+import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.CompletionRequest
 import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PromptPreset
@@ -15,6 +16,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -38,6 +40,7 @@ class PromptLabViewModel @Inject constructor(
     private val modelRepository: ModelRepository,
     private val promptRepository: PromptRepository,
     private val petEventBus: PetEventBus,
+    private val userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PromptLabUiState())
@@ -46,7 +49,9 @@ class PromptLabViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val installed = modelRepository.getInstalledModelIds()
-            _uiState.update { it.copy(installedModelIds = installed, selectedModelId = installed.firstOrNull()) }
+            val defaultModel = userPreferencesRepository.defaultModelId.first()
+            val selected = defaultModel?.takeIf { it in installed } ?: installed.firstOrNull()
+            _uiState.update { it.copy(installedModelIds = installed, selectedModelId = selected) }
             promptRepository.observeSavedPrompts().collect { favorites ->
                 _uiState.update { it.copy(favorites = favorites) }
             }

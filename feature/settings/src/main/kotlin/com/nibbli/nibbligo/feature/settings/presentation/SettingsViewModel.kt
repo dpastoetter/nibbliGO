@@ -8,8 +8,10 @@ import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
-import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.litert.engine.LiteRtEnginePool
 import com.nibbli.nibbligo.core.model.AppThemeMode
+import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +25,9 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val installedCount: Int = 0,
+    val installedModelIds: List<String> = emptyList(),
+    val defaultModelId: String? = null,
+    val petModelId: String? = null,
     val allowDownloads: Boolean = true,
     val storageSummary: String = "Calculating…",
     val hfSignedIn: Boolean = false,
@@ -33,6 +38,7 @@ data class SettingsUiState(
     val petCommentOnAgentWork: Boolean = true,
     val petMoodPulseMode: PetMoodPulseMode = PetMoodPulseMode.NORMAL,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val litertAccelerator: LiteRtAcceleratorPreference = LiteRtAcceleratorPreference.AUTO,
 )
 
 @HiltViewModel
@@ -42,6 +48,7 @@ class SettingsViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
     private val huggingFaceAuthHandler: HuggingFaceAuthHandler,
+    private val liteRtEnginePool: LiteRtEnginePool,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -50,42 +57,65 @@ class SettingsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             combine(
-                combine(
-                    modelRepository.observeInstalled(),
-                    userPreferencesRepository.allowDownloads,
-                    userPreferencesRepository.petPersonality,
-                    userPreferencesRepository.petCommentOnAgentWork,
-                    userPreferencesRepository.petMoodPulseMode,
-                ) { installed, allowDownloads, personality, commentOnAgent, moodPulse ->
-                    SettingsPrefsSlicePartial(
-                        installed = installed,
-                        allowDownloads = allowDownloads,
-                        personality = personality,
-                        commentOnAgent = commentOnAgent,
-                        moodPulse = moodPulse,
-                    )
-                },
+                modelRepository.observeInstalled(),
+                userPreferencesRepository.defaultModelId,
+                userPreferencesRepository.petModelId,
+                userPreferencesRepository.allowDownloads,
+                userPreferencesRepository.petPersonality,
+                userPreferencesRepository.petCommentOnAgentWork,
+                userPreferencesRepository.petMoodPulseMode,
                 userPreferencesRepository.themeMode,
+                userPreferencesRepository.litertAccelerator,
                 huggingFaceAuthRepository.accessToken,
-            ) { prefs, themeMode, token ->
-                val bytes = prefs.installed.sumOf { it.sizeBytes }
+            ) { values ->
+                @Suppress("UNCHECKED_CAST")
+                val installed = values[0] as List<InstalledModel>
+                val defaultModelId = values[1] as String?
+                val petModelId = values[2] as String?
+                val allowDownloads = values[3] as Boolean
+                val personality = values[4] as PetPersonality
+                val commentOnAgent = values[5] as Boolean
+                val moodPulse = values[6] as PetMoodPulseMode
+                val themeMode = values[7] as AppThemeMode
+                val litertAccelerator = values[8] as LiteRtAcceleratorPreference
+                val token = values[9] as String?
+                val bytes = installed.sumOf { it.sizeBytes }
                 SettingsUiState(
-                    installedCount = prefs.installed.size,
-                    allowDownloads = prefs.allowDownloads,
+                    installedCount = installed.size,
+                    installedModelIds = installed.map { it.modelId },
+                    defaultModelId = defaultModelId,
+                    petModelId = petModelId,
+                    allowDownloads = allowDownloads,
                     storageSummary = "~${bytes / 1_000_000} MB in models (local)",
                     hfSignedIn = !token.isNullOrBlank(),
                     hfConfigured = huggingFaceAuthRepository.isConfigured(),
-                    petPersonality = prefs.personality,
-                    petCommentOnAgentWork = prefs.commentOnAgent,
-                    petMoodPulseMode = prefs.moodPulse,
+                    petPersonality = personality,
+                    petCommentOnAgentWork = commentOnAgent,
+                    petMoodPulseMode = moodPulse,
                     themeMode = themeMode,
+                    litertAccelerator = litertAccelerator,
                 )
-            }.collect { state -> _uiState.value = state }
+            }.collect { state ->
+                _uiState.update { current ->
+                    state.copy(
+                        hfAuthMessage = current.hfAuthMessage,
+                        hfManualTokenInput = current.hfManualTokenInput,
+                    )
+                }
+            }
         }
     }
 
     fun setAllowDownloads(allowed: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setAllowDownloads(allowed) }
+    }
+
+    fun setDefaultModelId(modelId: String?) {
+        viewModelScope.launch { userPreferencesRepository.setDefaultModelId(modelId) }
+    }
+
+    fun setPetModelId(modelId: String?) {
+        viewModelScope.launch { userPreferencesRepository.setPetModelId(modelId) }
     }
 
     fun clearChatHistory() {
@@ -137,6 +167,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { userPreferencesRepository.setThemeMode(mode) }
     }
 
+    fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) {
+        viewModelScope.launch {
+            userPreferencesRepository.setLitertAccelerator(preference)
+            liteRtEnginePool.unloadAll()
+        }
+    }
+
     fun saveManualHuggingFaceToken() {
         val token = _uiState.value.hfManualTokenInput.trim()
         if (token.isEmpty()) {
@@ -154,11 +191,3 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
-
-private data class SettingsPrefsSlicePartial(
-    val installed: List<InstalledModel>,
-    val allowDownloads: Boolean,
-    val personality: PetPersonality,
-    val commentOnAgent: Boolean,
-    val moodPulse: PetMoodPulseMode,
-)

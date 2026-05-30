@@ -44,7 +44,7 @@ fun AgentChatScreen(
             )
             EmptyState(
                 title = "Install a model first",
-                subtitle = "Agent mode needs an installed LiteRT model (e.g. functiongemma-270m or gemma-4-e2b-it).",
+                subtitle = "Agent mode needs FunctionGemma 270M for email and calendar drafts.",
             )
         }
         return
@@ -53,9 +53,50 @@ fun AgentChatScreen(
     NibbliScreen(modifier = modifier) {
         NibbliScreenHeader(
             title = "Agent Chat",
-            subtitle = "nibbli can propose tools — you approve sensitive steps.",
+            subtitle = "Email and calendar drafts via FunctionGemma — you confirm before anything runs.",
             showOnDeviceBadge = true,
         )
+
+        if (uiState.agentModelMissing) {
+            Text(
+                "Install FunctionGemma 270M under Manage → Models for agent actions. " +
+                    "It requires Hugging Face sign-in and accepting the model license.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        } else if (!uiState.supportsToolCalling && uiState.session.modelId.isNotBlank()) {
+            Text(
+                "Selected model cannot call phone tools. Switch to FunctionGemma 270M.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 8.dp),
+        ) {
+            NibbliSuggestionChip(
+                label = "Email draft",
+                selected = false,
+                onClick = {
+                    viewModel.applyQuickPrompt(
+                        "Draft an email to me about lunch tomorrow at noon",
+                    )
+                },
+            )
+            NibbliSuggestionChip(
+                label = "Calendar draft",
+                selected = false,
+                onClick = {
+                    viewModel.applyQuickPrompt(
+                        "Create a calendar event tomorrow at 3pm titled Team sync",
+                    )
+                },
+            )
+        }
 
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -63,7 +104,7 @@ fun AgentChatScreen(
         ) {
             uiState.installedModelIds.forEach { id ->
                 NibbliSuggestionChip(
-                    label = id,
+                    label = viewModel.modelLabel(id),
                     selected = uiState.session.modelId == id,
                     onClick = { viewModel.selectModel(id) },
                 )

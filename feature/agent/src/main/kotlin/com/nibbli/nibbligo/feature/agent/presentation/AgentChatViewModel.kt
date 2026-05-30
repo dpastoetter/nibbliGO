@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.agent.AgentOrchestrator
 import com.nibbli.nibbligo.core.agent.PendingConfirmation
+import com.nibbli.nibbligo.core.agent.tools.AgentToolPreview
 import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
 import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
@@ -11,6 +12,7 @@ import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
 import com.nibbli.nibbligo.core.model.AgentSessionState
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.InstalledSkillPackage
+import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +33,8 @@ data class AgentChatUiState(
     val showThinkingTrace: Boolean = true,
     val error: String? = null,
     val supportsThinking: Boolean = false,
+    val supportsToolCalling: Boolean = false,
+    val agentModelMissing: Boolean = false,
 )
 
 @HiltViewModel
@@ -55,15 +59,16 @@ class AgentChatViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val installed = modelRepository.getInstalledModelIds()
-            val modelId = installed.firstOrNull { inferenceRuntime.capabilitiesFor(it).supportsToolCalling }
-                ?: installed.firstOrNull()
-                ?: ""
+            val modelId = resolveAgentModelId(installed)
             _uiState.update {
                 it.copy(
                     installedModelIds = installed,
                     session = AgentSessionState(modelId = modelId),
                     supportsThinking = modelId.isNotEmpty() &&
                         inferenceRuntime.capabilitiesFor(modelId).supportsThinkingTrace,
+                    supportsToolCalling = modelId.isNotEmpty() &&
+                        inferenceRuntime.capabilitiesFor(modelId).supportsToolCalling,
+                    agentModelMissing = FUNCTION_GEMMA_MODEL_ID !in installed,
                 )
             }
             skillPackageRepository.observeAll().collect { skills ->
@@ -80,8 +85,14 @@ class AgentChatViewModel @Inject constructor(
             it.copy(
                 session = it.session.copy(modelId = modelId),
                 supportsThinking = inferenceRuntime.capabilitiesFor(modelId).supportsThinkingTrace,
+                supportsToolCalling = inferenceRuntime.capabilitiesFor(modelId).supportsToolCalling,
+                error = null,
             )
         }
+    }
+
+    fun applyQuickPrompt(prompt: String) {
+        _uiState.update { it.copy(input = prompt, error = null) }
     }
 
     fun send() {
@@ -89,6 +100,15 @@ class AgentChatViewModel @Inject constructor(
         val text = state.input.trim()
         val modelId = state.session.modelId
         if (text.isBlank() || modelId.isBlank()) return
+        if (!inferenceRuntime.capabilitiesFor(modelId).supportsToolCalling) {
+            _uiState.update {
+                it.copy(
+                    error = "Select FunctionGemma 270M for email and calendar actions. " +
+                        "Install it under Manage → Models (Hugging Face sign-in required).",
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             _uiState.update { it.copy(input = "", session = it.session.copy(isRunning = true), error = null) }
             val result = agentOrchestrator.runTurn(modelId, text, state.session)
@@ -111,7 +131,21 @@ class AgentChatViewModel @Inject constructor(
     }
 
     fun dismissTool() {
-        _uiState.update { it.copy(pendingConfirmation = null, pendingToolTitle = "", pendingToolPreview = "") }
+        _uiState.update {
+            it.copy(
+                pendingConfirmation = null,
+                pendingToolTitle = "",
+                pendingToolPreview = "",
+                session = it.session.copy(isRunning = false),
+            )
+        }
+    }
+
+    fun modelLabel(modelId: String): String = ModelCatalog.displayName(modelId)
+
+    private fun resolveAgentModelId(installed: List<String>): String {
+        if (FUNCTION_GEMMA_MODEL_ID in installed) return FUNCTION_GEMMA_MODEL_ID
+        return installed.firstOrNull { inferenceRuntime.capabilitiesFor(it).supportsToolCalling }.orEmpty()
     }
 
     private fun handleRunResult(result: com.nibbli.nibbligo.core.agent.AgentRunResult) {
@@ -122,8 +156,8 @@ class AgentChatViewModel @Inject constructor(
                 it.copy(
                     session = result.session,
                     pendingConfirmation = pending,
-                    pendingToolTitle = "Use tool: ${call.toolId}",
-                    pendingToolPreview = call.argumentsJson,
+                    pendingToolTitle = AgentToolPreview.title(call.toolId),
+                    pendingToolPreview = AgentToolPreview.description(call.toolId, call.argumentsJson),
                 )
             }
             return
@@ -137,5 +171,9 @@ class AgentChatViewModel @Inject constructor(
                 error = result.error,
             )
         }
+    }
+
+    private companion object {
+        const val FUNCTION_GEMMA_MODEL_ID = "functiongemma-270m"
     }
 }

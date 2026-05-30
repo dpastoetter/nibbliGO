@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.feature.pet.presentation
 import android.content.Context
 import android.content.Intent
 import android.os.PowerManager
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
@@ -15,9 +16,12 @@ import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetState
+import com.nibbli.nibbligo.core.pet.llm.PetReaction
 import com.nibbli.nibbligo.core.pet.llm.PetMemoryWriter
+import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
 import com.nibbli.nibbligo.core.pet.llm.PetReactionPort
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
+import com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent
 import com.nibbli.nibbligo.feature.pet.domain.PetDiaryExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
@@ -25,13 +29,16 @@ import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -73,6 +80,9 @@ class PetViewModel @Inject constructor(
     private var lastReactionAtMillis = 0L
     private val pendingActivityHints = mutableListOf<String>()
     private var activityReactionJob: Job? = null
+    private var petInferenceJob: Job? = null
+    private var warmLoadDeferred: Deferred<Unit>? = null
+    private var userStoppedGeneration = false
 
     init {
         viewModelScope.launch {
@@ -110,6 +120,20 @@ class PetViewModel @Inject constructor(
 
     fun setHomeActive(active: Boolean) {
         homeActive.value = active
+        if (active) {
+            warmLoadDeferred = viewModelScope.async(Dispatchers.Default) {
+                petReactionPort.warmLoad()
+            }
+        } else {
+            warmLoadDeferred?.cancel()
+            warmLoadDeferred = null
+        }
+    }
+
+    private suspend fun awaitWarmLoad() {
+        withTimeoutOrNull(WARM_LOAD_WAIT_MS) {
+            warmLoadDeferred?.await()
+        }
     }
 
     private fun startMoodPulseLoop() {
@@ -152,6 +176,7 @@ class PetViewModel @Inject constructor(
             return
         }
         if (System.currentTimeMillis() - lastReactionAtMillis < MOOD_PULSE_COOLDOWN_MS) return
+        if (petInferenceJob?.isActive == true) return
 
         val now = System.currentTimeMillis()
         val tick = engine.tick(ui.petState, now)
@@ -160,10 +185,14 @@ class PetViewModel @Inject constructor(
             persist(state)
         }
         if (tick.evolved) {
-            generateReaction(state, lastAction = "evolving to ${state.stage.name.lowercase()}")
+            launchBackgroundReaction {
+                generateReaction(state, lastAction = "evolving to ${state.stage.name.lowercase()}")
+            }
             return
         }
-        generateReaction(state, moodPulse = true)
+        launchBackgroundReaction {
+            generateReaction(state, moodPulse = true)
+        }
     }
 
     private fun isScreenInteractive(): Boolean {
@@ -201,6 +230,7 @@ class PetViewModel @Inject constructor(
                     combined
                 }
                 if (hints.isBlank() || !canGenerateOnHome()) return@launch
+                if (petInferenceJob?.isActive == true) return@launch
                 generateReaction(
                     _uiState.value.petState,
                     activityHint = hints,
@@ -237,7 +267,9 @@ class PetViewModel @Inject constructor(
             val now = System.currentTimeMillis()
             val result = engine.interact(_uiState.value.petState, interaction, now)
             persist(result.state.copy(dialogueLine = result.templateDialogue))
-            generateReaction(result.state, lastAction = interaction.name.lowercase().replace('_', ' '))
+            launchBackgroundReaction {
+                generateReaction(result.state, lastAction = interaction.name.lowercase().replace('_', ' '))
+            }
         }
     }
 
@@ -256,18 +288,28 @@ class PetViewModel @Inject constructor(
             openMinigame()
             return
         }
-        viewModelScope.launch {
+        activityReactionJob?.cancel()
+        userStoppedGeneration = false
+        petInferenceJob?.cancel()
+        petInferenceJob = viewModelScope.launch(Dispatchers.Default) {
+            awaitWarmLoad()
             val now = System.currentTimeMillis()
             val tick = engine.tick(_uiState.value.petState, now)
-            val freshState = tick.state
-            val talkResult = engine.interact(freshState, PetInteraction.TALK, now)
-            persist(talkResult.state)
+            val talkResult = engine.interact(tick.state, PetInteraction.TALK, now)
             generateReaction(
                 state = talkResult.state,
                 userMessage = trimmed,
                 userInitiated = true,
             )
         }
+    }
+
+    fun stopGeneration() {
+        if (!_uiState.value.isGeneratingDialogue) return
+        userStoppedGeneration = true
+        petInferenceJob?.cancel()
+        petInferenceJob = null
+        _uiState.update { it.copy(isGeneratingDialogue = false) }
     }
 
     fun onPetTapped() {
@@ -281,7 +323,9 @@ class PetViewModel @Inject constructor(
                 ).clamped(),
             )
             persist(withStats)
-            generateReaction(withStats, lastAction = "gentle pets", quickTimeout = true)
+            launchBackgroundReaction {
+                generateReaction(withStats, lastAction = "gentle pets", quickTimeout = true)
+            }
         }
     }
 
@@ -305,7 +349,9 @@ class PetViewModel @Inject constructor(
         viewModelScope.launch {
             val updated = engine.applyMinigameWin(_uiState.value.petState, System.currentTimeMillis())
             persist(updated)
-            generateReaction(updated, lastAction = "winning the catch game")
+            launchBackgroundReaction {
+                generateReaction(updated, lastAction = "winning the catch game")
+            }
         }
     }
 
@@ -360,6 +406,21 @@ class PetViewModel @Inject constructor(
         }
     }
 
+    private fun launchBackgroundReaction(block: suspend () -> Unit) {
+        if (petInferenceJob?.isActive == true) return
+        lateinit var job: Job
+        job = viewModelScope.launch(Dispatchers.Default) {
+            try {
+                block()
+            } finally {
+                if (petInferenceJob == job) {
+                    petInferenceJob = null
+                }
+            }
+        }
+        petInferenceJob = job
+    }
+
     private suspend fun generateReaction(
         state: PetState,
         lastAction: String? = null,
@@ -370,20 +431,21 @@ class PetViewModel @Inject constructor(
         userInitiated: Boolean = false,
     ) {
         if (state.condition == PetCondition.DEAD) return
+        if (!userInitiated && petInferenceJob?.isActive == true) return
         if (_uiState.value.isGeneratingDialogue && !userInitiated) return
 
+        val timeoutMs = when {
+            quickTimeout -> TAP_REACTION_TIMEOUT_MS
+            moodPulse -> MOOD_PULSE_TIMEOUT_MS
+            userInitiated -> USER_TALK_TIMEOUT_MS
+            else -> GENERATION_TIMEOUT_MS
+        }
         val ui = _uiState.value
         val recentLines = buildList {
             addAll(ui.recentDialogue)
             if (ui.petState.dialogueLine.isNotBlank()) add(ui.petState.dialogueLine)
         }.filter { it.isNotBlank() }.distinct().takeLast(2)
 
-        _uiState.update { it.copy(isGeneratingDialogue = true) }
-        val timeoutMs = when {
-            quickTimeout -> TAP_REACTION_TIMEOUT_MS
-            moodPulse -> MOOD_PULSE_TIMEOUT_MS
-            else -> GENERATION_TIMEOUT_MS
-        }
         val request = PetReactionRequest(
             state = state,
             lastAction = lastAction,
@@ -392,6 +454,24 @@ class PetViewModel @Inject constructor(
             recentLines = recentLines,
             activityHint = activityHint,
         )
+
+        if (userInitiated && userMessage != null) {
+            val userLine = "You: $userMessage"
+            _uiState.update {
+                it.copy(
+                    isGeneratingDialogue = true,
+                    petState = state.copy(dialogueLine = ""),
+                    recentDialogue = (listOf(userLine) + it.recentDialogue)
+                        .filter { line -> line.isNotBlank() }
+                        .distinct()
+                        .take(2),
+                )
+            }
+            generateReactionStreaming(state, request, timeoutMs, moodPulse)
+            return
+        }
+
+        _uiState.update { it.copy(isGeneratingDialogue = true) }
         try {
             val reaction = withTimeoutOrNull(timeoutMs) {
                 withContext(Dispatchers.Default) {
@@ -399,22 +479,66 @@ class PetViewModel @Inject constructor(
                 }
             }
             if (reaction == null) {
-                if (!moodPulse) {
-                    persist(state.copy(dialogueLine = "I got distracted… try talking again?"))
-                }
+                if (userStoppedGeneration || moodPulse) return
+                Log.w(TAG, "Pet reaction timed out (non-streaming)")
+                applyReaction(state, request, PetReactionParser.fallback(request))
                 return
             }
-            lastReactionAtMillis = System.currentTimeMillis()
-            val expression = reaction.suggestedExpression ?: state.expression
-            var updated = state.copy(
-                dialogueLine = reaction.dialogue,
-                expression = expression,
-            )
-            updated = PetMemoryWriter.withNewFact(updated, request, reaction.dialogue)
-            persist(updated)
+            applyReaction(state, request, reaction)
         } finally {
             _uiState.update { it.copy(isGeneratingDialogue = false) }
         }
+    }
+
+    private suspend fun generateReactionStreaming(
+        state: PetState,
+        request: PetReactionRequest,
+        timeoutMs: Long,
+        moodPulse: Boolean,
+    ) {
+        try {
+            awaitWarmLoad()
+            var finalReaction: PetReaction? = null
+            withTimeoutOrNull(timeoutMs) {
+                withContext(Dispatchers.Default) {
+                    petReactionPort.generateStream(request).collect { event ->
+                        when (event) {
+                            is PetReactionStreamEvent.Token -> {
+                                _uiState.update {
+                                    it.copy(petState = it.petState.copy(dialogueLine = event.text))
+                                }
+                            }
+                            is PetReactionStreamEvent.Done -> finalReaction = event.reaction
+                        }
+                    }
+                }
+            }
+            val reaction = finalReaction
+            if (reaction == null) {
+                if (userStoppedGeneration || moodPulse) return
+                Log.w(TAG, "Pet talk stream ended without a reaction (timeout or cancel)")
+                applyReaction(state, request, PetReactionParser.fallback(request))
+                return
+            }
+            applyReaction(state, request, reaction)
+        } finally {
+            _uiState.update { it.copy(isGeneratingDialogue = false) }
+        }
+    }
+
+    private suspend fun applyReaction(
+        state: PetState,
+        request: PetReactionRequest,
+        reaction: PetReaction,
+    ) {
+        lastReactionAtMillis = System.currentTimeMillis()
+        val expression = reaction.suggestedExpression ?: state.expression
+        var updated = state.copy(
+            dialogueLine = reaction.dialogue,
+            expression = expression,
+        )
+        updated = PetMemoryWriter.withNewFact(updated, request, reaction.dialogue)
+        persist(updated)
     }
 
     private suspend fun persist(state: PetState) {
@@ -437,11 +561,14 @@ class PetViewModel @Inject constructor(
     }
 
     private companion object {
+        private const val TAG = "PetViewModel"
         private const val GENERATION_TIMEOUT_MS = 90_000L
+        private const val USER_TALK_TIMEOUT_MS = 30_000L
         private const val TAP_REACTION_TIMEOUT_MS = 30_000L
         private const val MOOD_PULSE_TIMEOUT_MS = 45_000L
         private const val MOOD_PULSE_COOLDOWN_MS = 45_000L
         private const val ACTIVITY_REACTION_DEBOUNCE_MS = 8_000L
+        private const val WARM_LOAD_WAIT_MS = 15_000L
         private const val LETS_PLAY_CHIP = "Let's play!"
     }
 }

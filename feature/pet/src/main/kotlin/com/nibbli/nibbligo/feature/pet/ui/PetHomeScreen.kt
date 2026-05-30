@@ -36,7 +36,6 @@ import com.nibbli.nibbligo.feature.pet.ui.voice.rememberVoiceAssistLauncher
 fun PetHomeScreen(
     modifier: Modifier = Modifier,
     viewModel: PetViewModel = hiltViewModel(),
-    onNavigateToAssist: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -44,12 +43,11 @@ fun PetHomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     var showCosmeticsSheet by remember { mutableStateOf(false) }
 
-    val launchVoiceAssist = rememberVoiceAssistLauncher(
+    val launchVoiceTalk = rememberVoiceAssistLauncher(
         onListening = { viewModel.setVoiceListening(true) },
         onResult = { transcript ->
             viewModel.setVoiceListening(false)
-            viewModel.submitVoiceToAssist(transcript)
-            onNavigateToAssist()
+            viewModel.onTalkSend(transcript)
         },
         onError = { viewModel.onVoiceAssistError(it) },
         onStopped = { viewModel.setVoiceListening(false) },
@@ -141,7 +139,8 @@ fun PetHomeScreen(
                         talkEnabled = talkEnabled,
                         isVoiceListening = uiState.isVoiceListening,
                         onChipSelected = { viewModel.onQuickChip(it) },
-                        onTalkToMeClick = launchVoiceAssist,
+                        onStopClick = { viewModel.stopGeneration() },
+                        onTalkToMeClick = launchVoiceTalk,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }

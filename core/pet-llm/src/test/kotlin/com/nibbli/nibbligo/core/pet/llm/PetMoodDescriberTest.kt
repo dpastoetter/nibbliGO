@@ -22,9 +22,10 @@ class PetMoodDescriberTest {
                 state = PetState(stats = PetStats(mood = 90)),
                 moodPulse = true,
             ),
+            modelId = "functiongemma-270m",
         )
-        assertTrue(prompt.contains("Mood right now:"))
-        assertTrue(prompt.contains("Spontaneous thought"))
+        assertTrue(prompt.contains("Mood:"))
+        assertTrue(prompt.contains("spontaneous home-screen thought"))
     }
 
     @Test
@@ -41,10 +42,11 @@ class PetMoodDescriberTest {
                 recentLines = listOf("Earlier beep.", "Second line."),
                 activityHint = "They finished an agent task.",
             ),
+            modelId = "gemma-4-e2b-it",
         )
         assertTrue(prompt.contains("You recently said:"))
         assertTrue(prompt.contains("Earlier beep."))
-        assertTrue(prompt.contains("Context: They finished an agent task."))
-        assertTrue(prompt.contains("Memory (facts"))
+        assertTrue(prompt.contains("React briefly in character to: They finished an agent task."))
+        assertTrue(prompt.contains("Memory: Likes snacks."))
     }
 }

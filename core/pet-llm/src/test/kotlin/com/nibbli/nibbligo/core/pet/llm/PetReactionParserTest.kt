@@ -28,6 +28,13 @@ class PetReactionParserTest {
     }
 
     @Test
+    fun stripForStreaming_hides_partial_expression_tag() {
+        assertEquals("So cozy", PetReactionParser.stripForStreaming("So cozy|HAP"))
+        assertEquals("Hello", PetReactionParser.stripForStreaming("Hello"))
+        assertEquals("", PetReactionParser.stripForStreaming("|HAPPY"))
+    }
+
+    @Test
     fun fallback_never_empty() {
         val reaction = PetReactionParser.fallback(
             PetReactionRequest(
