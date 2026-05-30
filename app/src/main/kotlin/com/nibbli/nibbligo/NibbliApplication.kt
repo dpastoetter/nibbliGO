@@ -18,14 +18,18 @@ class NibbliApplication : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var skillPackageLoader: SkillPackageLoader
     @Inject lateinit var petTickScheduler: PetTickScheduler
+    @Inject lateinit var liteRtModelPreloader: com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         petTickScheduler.schedule()
         appScope.launch {
             skillPackageLoader.loadBundledSkills()
+        }
+        appScope.launch {
+            liteRtModelPreloader.preloadPrimaryModel()
         }
     }
 

@@ -16,6 +16,8 @@ object ModelCatalog {
             hfRepoId = "litert-community/Gemma3-1B-IT",
             hfModelFile = "gemma3-1b-it-int4.litertlm",
             hfCommitHash = "42d538a932e8d5b12e6b3b455f5572560bd60b2c",
+            preferredAccelerators = listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
+            maxContextTokens = 1024,
         ),
         ModelInfo(
             id = "functiongemma-270m",
@@ -31,6 +33,7 @@ object ModelCatalog {
             hfModelFile = "mobile_actions_q8_ekv1024.litertlm",
             hfCommitHash = "38942192c9b723af836d489074823ff33d4a3e7a",
             preferredAccelerators = listOf(LiteRtAccelerator.CPU),
+            maxContextTokens = 1024,
         ),
         ModelInfo(
             id = "smollm2-360m-instruct",
@@ -45,6 +48,8 @@ object ModelCatalog {
             hfRepoId = "litert-community/SmolLM2-360M-Instruct",
             hfModelFile = "SmolLM2_360M_instruct.litertlm",
             hfCommitHash = "507c99cfe6541ba2bcd84818786f7b025935e5e1",
+            preferredAccelerators = listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
+            maxContextTokens = 1024,
         ),
         ModelInfo(
             id = "qwen2.5-1.5b-instruct",
@@ -59,6 +64,8 @@ object ModelCatalog {
             hfRepoId = "litert-community/Qwen2.5-1.5B-Instruct",
             hfModelFile = "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
             hfCommitHash = "19edb84c69a0212f29a6ef17ba0d6f278b6a1614",
+            preferredAccelerators = listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
+            maxContextTokens = 4096,
         ),
         ModelInfo(
             id = "deepseek-r1-distill-qwen-1.5b",
@@ -73,6 +80,8 @@ object ModelCatalog {
             hfRepoId = "litert-community/DeepSeek-R1-Distill-Qwen-1.5B",
             hfModelFile = "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
             hfCommitHash = "e34bb88632342d1f9640bad579a45134eb1cf988",
+            preferredAccelerators = listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
+            maxContextTokens = 4096,
         ),
         ModelInfo(
             id = "gemma-4-e2b-it",
@@ -87,6 +96,8 @@ object ModelCatalog {
             hfRepoId = "litert-community/gemma-4-E2B-it-litert-lm",
             hfModelFile = "gemma-4-E2B-it.litertlm",
             hfCommitHash = "6e5c4f1e395deb959c494953478fa5cec4b8008f",
+            preferredAccelerators = listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
+            maxContextTokens = 4000,
         ),
     )
 

@@ -35,6 +35,62 @@ class PetReactionParserTest {
     }
 
     @Test
+    fun parseTalk_joins_multiple_lines() {
+        val reaction = PetReactionParser.parseTalk("Hello!\nExtra line included.")
+        assertEquals("Hello! Extra line included.", reaction.dialogue)
+    }
+
+    @Test
+    fun parseTalk_expression_suffix() {
+        val reaction = PetReactionParser.parseTalk("Doing great!\nNeed a snack.|HUNGRY")
+        assertEquals("Doing great! Need a snack.", reaction.dialogue)
+        assertEquals(PetExpression.HUNGRY, reaction.suggestedExpression)
+    }
+
+    @Test
+    fun reconcileTalkStream_keeps_longer_streamed_text() {
+        val parsed = PetReactionParser.parseTalk("Hi.")
+        val reconciled = PetReactionParser.reconcileTalkStream(parsed, "Hi there, doing well today!")
+        assertEquals("Hi there, doing well today!", reconciled.dialogue)
+    }
+
+    @Test
+    fun stripForStreaming_joins_partial_lines() {
+        assertEquals(
+            "I'm okay Hunger",
+            PetReactionParser.stripForStreaming("I'm okay\nHunger"),
+        )
+    }
+
+    @Test
+    fun sanitizeModelEcho_strips_system_role_prefix() {
+        val leaked = "systemYou are a Pixel Friend AI pet in the nibbliGO app."
+        assertEquals("", PetReactionParser.sanitizeModelEcho(leaked))
+    }
+
+    @Test
+    fun sanitizeModelEcho_keeps_reply_after_prompt_echo() {
+        val leaked = """
+            systemYou are a Pixel Friend AI pet in the nibbliGO app.
+            Examples:
+            User: How are you?
+            You: I'm cheerful!|HAPPY
+            User: What's up?
+            You: Just vibing on your home screen!|HAPPY
+        """.trimIndent()
+        assertEquals("Just vibing on your home screen!|HAPPY", PetReactionParser.sanitizeModelEcho(leaked))
+    }
+
+    @Test
+    fun parseTalk_strips_leaked_system_prompt() {
+        val reaction = PetReactionParser.parseTalk(
+            "systemYou are a Pixel Friend AI pet in the nibbliGO app. User: hi You: Hey there!|HAPPY",
+        )
+        assertEquals("Hey there!", reaction.dialogue)
+        assertEquals(PetExpression.HAPPY, reaction.suggestedExpression)
+    }
+
+    @Test
     fun fallback_never_empty() {
         val reaction = PetReactionParser.fallback(
             PetReactionRequest(

@@ -20,6 +20,10 @@ fun PetCharacterCard(
     pet: PetState,
     onPetTap: () -> Unit,
     onCareAction: (PetInteraction) -> Unit,
+    dialogueLine: String = "",
+    isGeneratingDialogue: Boolean = false,
+    talkLcdMode: Boolean = false,
+    onDismissTalkLcd: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -43,6 +47,10 @@ fun PetCharacterCard(
                     pet = pet,
                     onPetTap = onPetTap,
                     onCareAction = onCareAction,
+                    dialogueLine = dialogueLine,
+                    isGeneratingDialogue = isGeneratingDialogue,
+                    talkLcdMode = talkLcdMode,
+                    onDismissTalkLcd = onDismissTalkLcd,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

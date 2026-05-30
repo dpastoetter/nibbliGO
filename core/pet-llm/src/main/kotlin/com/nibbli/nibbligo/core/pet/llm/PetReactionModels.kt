@@ -34,4 +34,6 @@ interface PetReactionPort {
     fun generateStream(request: PetReactionRequest): Flow<PetReactionStreamEvent>
 
     suspend fun warmLoad()
+
+    suspend fun activeModelDisplayName(): String
 }

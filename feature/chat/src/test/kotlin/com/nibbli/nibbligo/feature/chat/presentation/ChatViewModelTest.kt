@@ -132,6 +132,11 @@ private class FakeChatRepository : ChatRepository {
         return id
     }
 
+    override suspend fun findConversationByTitle(title: String): Conversation? = null
+
+    override suspend fun getOrCreateConversation(title: String, modelId: String): Long =
+        createConversation(modelId, title)
+
     override suspend fun saveMessage(message: ChatMessage) {
         val flow = messagesByConversation.getValue(message.conversationId)
         val stored = message.copy(id = nextMessageId++)
@@ -213,6 +218,8 @@ private class FakeInferenceRuntime(
     override suspend fun transcribeAudio(request: TranscriptionRequest) = RuntimeResult.Unsupported
 
     override suspend fun runBenchmark(modelId: String) = RuntimeResult.Unsupported
+
+    override suspend fun runPetBenchmark(modelId: String) = RuntimeResult.Unsupported
 
     override fun capabilitiesFor(modelId: String) = ModelCapabilities(
         modelId = modelId,

@@ -36,6 +36,8 @@ interface ChatRepository {
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: Long): Flow<List<ChatMessage>>
     suspend fun createConversation(modelId: String, title: String): Long
+    suspend fun findConversationByTitle(title: String): Conversation?
+    suspend fun getOrCreateConversation(title: String, modelId: String): Long
     suspend fun saveMessage(message: ChatMessage)
     suspend fun updateConversation(conversation: Conversation)
     suspend fun deleteAllConversations()

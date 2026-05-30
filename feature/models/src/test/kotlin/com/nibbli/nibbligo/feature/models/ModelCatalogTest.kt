@@ -71,4 +71,14 @@ class ModelCatalogTest {
             )
         }
     }
+
+    @Test
+    fun gemma4_hasGalleryAlignedContextAndAccelerators() {
+        val model = ModelCatalog.find("gemma-4-e2b-it")
+        assertEquals(4000, model?.maxContextTokens)
+        assertEquals(
+            listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
+            model?.preferredAccelerators,
+        )
+    }
 }

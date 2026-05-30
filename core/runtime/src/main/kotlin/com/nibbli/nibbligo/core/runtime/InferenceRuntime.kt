@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.core.runtime
 import com.nibbli.nibbligo.core.model.AgentRequest
 import com.nibbli.nibbligo.core.model.AgentTurn
 import com.nibbli.nibbligo.core.model.BenchmarkMetrics
+import com.nibbli.nibbligo.core.model.PetBenchmarkMetrics
 import com.nibbli.nibbligo.core.model.ChatInferenceRequest
 import com.nibbli.nibbligo.core.model.CompletionRequest
 import com.nibbli.nibbligo.core.model.InferenceChunk
@@ -25,9 +26,20 @@ interface InferenceRuntime {
         systemInstruction: String,
     ): RuntimeResult<Unit> = RuntimeResult.Unsupported
 
+    suspend fun ensureHomeTalkSession(
+        modelId: String,
+        systemInstruction: String,
+    ): RuntimeResult<Unit> = RuntimeResult.Unsupported
+
     suspend fun ensureAgentModelLoaded(modelId: String): RuntimeResult<Unit> = RuntimeResult.Unsupported
 
     fun unloadModel(modelId: String)
+
+    /** Clears in-memory chat turns so the next message starts fresh (Local Chat). */
+    fun resetChatSession(modelId: String) {}
+
+    /** Clears Home talk turns while keeping cached system instruction. */
+    fun resetHomeTalkSession(modelId: String) {}
 
     fun streamChat(request: ChatInferenceRequest): Flow<InferenceChunk>
 
@@ -56,11 +68,18 @@ interface InferenceRuntime {
         }
     }
 
+    fun streamHomeTalk(request: PetTurnRequest): Flow<InferenceChunk> = streamPetTurn(request)
+
+    suspend fun completeHomeTalk(request: PetTurnRequest): RuntimeResult<String> = completePetTurn(request)
+
     suspend fun analyzeImage(request: VisionRequest): RuntimeResult<String>
 
     suspend fun transcribeAudio(request: TranscriptionRequest): RuntimeResult<String>
 
     suspend fun runBenchmark(modelId: String): RuntimeResult<BenchmarkMetrics>
+
+    suspend fun runPetBenchmark(modelId: String): RuntimeResult<PetBenchmarkMetrics> =
+        RuntimeResult.Unsupported
 
     fun capabilitiesFor(modelId: String): ModelCapabilities
 

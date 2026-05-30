@@ -51,6 +51,9 @@ interface ConversationDao {
     @Query("SELECT * FROM conversation ORDER BY updatedAtMillis DESC")
     fun observeAll(): Flow<List<ConversationEntity>>
 
+    @Query("SELECT * FROM conversation WHERE title = :title LIMIT 1")
+    suspend fun findByTitle(title: String): ConversationEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: ConversationEntity): Long
 

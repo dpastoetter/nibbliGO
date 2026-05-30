@@ -22,17 +22,20 @@ import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
 import com.nibbli.nibbligo.core.pet.llm.PetReactionPort
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent
+import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
+import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.feature.pet.domain.PetDiaryExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,8 +61,11 @@ data class PetUiState(
     val showMinigame: Boolean = false,
     val agentToast: String? = null,
     val statusMessage: String? = null,
-    val recentDialogue: List<String> = emptyList(),
+    val talkHistory: List<TalkHistoryEntry> = emptyList(),
+    val talkLcdMode: Boolean = false,
     val isVoiceListening: Boolean = false,
+    val petModelLabel: String = "No model",
+    val isWarmingModel: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -69,9 +75,11 @@ class PetViewModel @Inject constructor(
     private val petRepository: PetRepository,
     private val petEventBus: PetEventBus,
     private val petReactionPort: PetReactionPort,
+    private val petTalkChatRecorder: PetTalkChatRecorder,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val engine: PetSimulationEngine,
     private val assistVoiceRequestBus: AssistVoiceRequestBus,
+    private val liteRtModelPreloader: LiteRtModelPreloader,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PetUiState())
@@ -101,6 +109,7 @@ class PetViewModel @Inject constructor(
                 }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
+                refreshPetModelLabel()
             }
         }
         viewModelScope.launch {
@@ -116,6 +125,21 @@ class PetViewModel @Inject constructor(
             }
         }
         startMoodPulseLoop()
+        viewModelScope.launch {
+            userPreferencesRepository.petModelId.collect {
+                refreshPetModelLabel()
+            }
+        }
+        viewModelScope.launch {
+            liteRtModelPreloader.isWarmingUp.collect { warming ->
+                _uiState.update { it.copy(isWarmingModel = warming) }
+            }
+        }
+    }
+
+    private suspend fun refreshPetModelLabel() {
+        val label = petReactionPort.activeModelDisplayName()
+        _uiState.update { it.copy(petModelLabel = label) }
     }
 
     fun setHomeActive(active: Boolean) {
@@ -124,17 +148,17 @@ class PetViewModel @Inject constructor(
             warmLoadDeferred = viewModelScope.async(Dispatchers.Default) {
                 petReactionPort.warmLoad()
             }
+            viewModelScope.launch { refreshPetModelLabel() }
         } else {
             warmLoadDeferred?.cancel()
             warmLoadDeferred = null
         }
     }
 
-    private suspend fun awaitWarmLoad() {
+    private suspend fun awaitWarmLoad(): Boolean =
         withTimeoutOrNull(WARM_LOAD_WAIT_MS) {
             warmLoadDeferred?.await()
-        }
-    }
+        } != null
 
     private fun startMoodPulseLoop() {
         viewModelScope.launch {
@@ -171,7 +195,8 @@ class PetViewModel @Inject constructor(
         if (!homeActive.value || !isScreenInteractive()) return
         if (!ui.petState.isAwakeForMoodPulse) return
         if (ui.isLoading || ui.isGeneratingDialogue || ui.isVoiceListening ||
-            ui.showTalkSheet || ui.showMinigame
+            ui.isWarmingModel ||
+            ui.showTalkSheet || ui.showMinigame || ui.talkLcdMode
         ) {
             return
         }
@@ -208,8 +233,10 @@ class PetViewModel @Inject constructor(
             !ui.isLoading &&
             !ui.isGeneratingDialogue &&
             !ui.isVoiceListening &&
+            !ui.isWarmingModel &&
             !ui.showTalkSheet &&
-            !ui.showMinigame
+            !ui.showMinigame &&
+            !ui.talkLcdMode
     }
 
     private fun scheduleActivityReaction(event: PetEvent) {
@@ -260,9 +287,11 @@ class PetViewModel @Inject constructor(
 
     fun onInteraction(interaction: PetInteraction) {
         if (interaction == PetInteraction.TALK) {
+            dismissTalkLcdMode()
             _uiState.update { it.copy(showTalkSheet = true) }
             return
         }
+        dismissTalkLcdMode()
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             val result = engine.interact(_uiState.value.petState, interaction, now)
@@ -284,6 +313,7 @@ class PetViewModel @Inject constructor(
     fun onTalkSend(message: String) {
         val trimmed = message.trim()
         if (trimmed.isEmpty()) return
+        if (_uiState.value.isWarmingModel) return
         if (trimmed.equals(LETS_PLAY_CHIP, ignoreCase = true)) {
             openMinigame()
             return
@@ -292,14 +322,31 @@ class PetViewModel @Inject constructor(
         userStoppedGeneration = false
         petInferenceJob?.cancel()
         petInferenceJob = viewModelScope.launch(Dispatchers.Default) {
-            awaitWarmLoad()
             val now = System.currentTimeMillis()
-            val tick = engine.tick(_uiState.value.petState, now)
-            val talkResult = engine.interact(tick.state, PetInteraction.TALK, now)
+            _uiState.update {
+                it.copy(
+                    talkLcdMode = true,
+                    talkHistory = appendTalkHistory(
+                        it.talkHistory,
+                        TalkHistoryEntry(TalkHistoryRole.USER, trimmed),
+                    ),
+                )
+            }
+            val warmLoad = async { awaitWarmLoad() }
+            val talkState = async {
+                val tick = engine.tick(_uiState.value.petState, now)
+                engine.interact(tick.state, PetInteraction.TALK, now).state
+            }
+            val warmLoaded = warmLoad.await()
+            launch(Dispatchers.Default) {
+                val modelId = petTalkChatRecorder.resolvePetModelId()
+                petTalkChatRecorder.recordUserMessage(trimmed, modelId, now)
+            }
             generateReaction(
-                state = talkResult.state,
+                state = talkState.await(),
                 userMessage = trimmed,
                 userInitiated = true,
+                coldStart = !warmLoaded,
             )
         }
     }
@@ -363,7 +410,13 @@ class PetViewModel @Inject constructor(
         viewModelScope.launch {
             val egg = engine.hatchNewEgg(_uiState.value.petState)
             persist(egg)
-            _uiState.update { it.copy(statusMessage = "A new egg appeared!") }
+            _uiState.update {
+                it.copy(
+                    statusMessage = "A new egg appeared!",
+                    talkLcdMode = false,
+                    talkHistory = emptyList(),
+                )
+            }
         }
     }
 
@@ -408,8 +461,9 @@ class PetViewModel @Inject constructor(
 
     private fun launchBackgroundReaction(block: suspend () -> Unit) {
         if (petInferenceJob?.isActive == true) return
+        if (_uiState.value.talkLcdMode) return
         lateinit var job: Job
-        job = viewModelScope.launch(Dispatchers.Default) {
+        job = viewModelScope.launch {
             try {
                 block()
             } finally {
@@ -429,22 +483,21 @@ class PetViewModel @Inject constructor(
         activityHint: String? = null,
         quickTimeout: Boolean = false,
         userInitiated: Boolean = false,
+        coldStart: Boolean = false,
     ) {
         if (state.condition == PetCondition.DEAD) return
-        if (!userInitiated && petInferenceJob?.isActive == true) return
         if (_uiState.value.isGeneratingDialogue && !userInitiated) return
+        if (_uiState.value.isWarmingModel && !userInitiated) return
 
         val timeoutMs = when {
             quickTimeout -> TAP_REACTION_TIMEOUT_MS
             moodPulse -> MOOD_PULSE_TIMEOUT_MS
+            userInitiated && coldStart -> USER_TALK_COLD_TIMEOUT_MS
             userInitiated -> USER_TALK_TIMEOUT_MS
             else -> GENERATION_TIMEOUT_MS
         }
         val ui = _uiState.value
-        val recentLines = buildList {
-            addAll(ui.recentDialogue)
-            if (ui.petState.dialogueLine.isNotBlank()) add(ui.petState.dialogueLine)
-        }.filter { it.isNotBlank() }.distinct().takeLast(2)
+        val recentLines = talkHistoryToRecentLines(ui.talkHistory)
 
         val request = PetReactionRequest(
             state = state,
@@ -456,15 +509,11 @@ class PetViewModel @Inject constructor(
         )
 
         if (userInitiated && userMessage != null) {
-            val userLine = "You: $userMessage"
             _uiState.update {
                 it.copy(
                     isGeneratingDialogue = true,
+                    talkLcdMode = true,
                     petState = state.copy(dialogueLine = ""),
-                    recentDialogue = (listOf(userLine) + it.recentDialogue)
-                        .filter { line -> line.isNotBlank() }
-                        .distinct()
-                        .take(2),
                 )
             }
             generateReactionStreaming(state, request, timeoutMs, moodPulse)
@@ -496,26 +545,56 @@ class PetViewModel @Inject constructor(
         timeoutMs: Long,
         moodPulse: Boolean,
     ) {
+        val streamStart = System.nanoTime()
         try {
-            awaitWarmLoad()
             var finalReaction: PetReaction? = null
+            var lastUiUpdateMs = 0L
+            var pendingDialogue: String? = null
+            fun flushDialogue(text: String) {
+                _uiState.update {
+                    it.copy(
+                        petState = it.petState.copy(dialogueLine = text),
+                        talkHistory = updateLastPetTalkEntry(it.talkHistory, text),
+                    )
+                }
+            }
             withTimeoutOrNull(timeoutMs) {
                 withContext(Dispatchers.Default) {
-                    petReactionPort.generateStream(request).collect { event ->
-                        when (event) {
-                            is PetReactionStreamEvent.Token -> {
-                                _uiState.update {
-                                    it.copy(petState = it.petState.copy(dialogueLine = event.text))
+                    try {
+                        petReactionPort.generateStream(request).collect { event ->
+                            when (event) {
+                                is PetReactionStreamEvent.Token -> {
+                                    pendingDialogue = event.text
+                                    val now = System.currentTimeMillis()
+                                    if (now - lastUiUpdateMs >= STREAM_UI_MIN_INTERVAL_MS) {
+                                        lastUiUpdateMs = now
+                                        flushDialogue(event.text)
+                                        pendingDialogue = null
+                                    }
                                 }
+                                is PetReactionStreamEvent.Done -> finalReaction = event.reaction
                             }
-                            is PetReactionStreamEvent.Done -> finalReaction = event.reaction
                         }
+                    } catch (e: CancellationException) {
+                        if (userStoppedGeneration) return@withContext
+                        throw e
                     }
                 }
+            }
+            pendingDialogue?.let { flushDialogue(it) }
+            if (Log.isLoggable(TAG, Log.DEBUG)) {
+                val elapsedMs = (System.nanoTime() - streamStart) / 1_000_000
+                Log.d(TAG, "talkStream total=${elapsedMs}ms")
             }
             val reaction = finalReaction
             if (reaction == null) {
                 if (userStoppedGeneration || moodPulse) return
+                val streamed = _uiState.value.petState.dialogueLine.trim()
+                if (request.userMessage != null && streamed.isNotBlank()) {
+                    Log.w(TAG, "Pet talk stream ended without Done; keeping streamed dialogue")
+                    applyReaction(state, request, PetReaction(dialogue = streamed.take(PetReactionParser.MAX_TALK_LEN)))
+                    return
+                }
                 Log.w(TAG, "Pet talk stream ended without a reaction (timeout or cancel)")
                 applyReaction(state, request, PetReactionParser.fallback(request))
                 return
@@ -532,43 +611,67 @@ class PetViewModel @Inject constructor(
         reaction: PetReaction,
     ) {
         lastReactionAtMillis = System.currentTimeMillis()
-        val expression = reaction.suggestedExpression ?: state.expression
+        val resolved = if (request.userMessage != null) {
+            PetReactionParser.reconcileTalkStream(
+                reaction,
+                _uiState.value.petState.dialogueLine,
+            )
+        } else {
+            reaction
+        }
+        val expression = resolved.suggestedExpression ?: state.expression
         var updated = state.copy(
-            dialogueLine = reaction.dialogue,
+            dialogueLine = resolved.dialogue,
             expression = expression,
         )
-        updated = PetMemoryWriter.withNewFact(updated, request, reaction.dialogue)
-        persist(updated)
+        updated = PetMemoryWriter.withNewFact(updated, request, resolved.dialogue)
+        if (request.userMessage != null) {
+            _uiState.update {
+                it.copy(
+                    petState = updated,
+                    talkHistory = updateLastPetTalkEntry(it.talkHistory, resolved.dialogue),
+                )
+            }
+        } else {
+            _uiState.update { it.copy(petState = updated) }
+        }
+        petRepository.savePetState(updated)
+        PetWidgetSnapshot.write(context, updated)
+        PetWidgetUpdater.refresh(context)
+        if (request.userMessage != null) {
+            val modelId = petTalkChatRecorder.resolvePetModelId()
+            petTalkChatRecorder.recordAssistantMessage(resolved.dialogue, modelId)
+        }
+    }
+
+    fun dismissTalkLcdMode() {
+        _uiState.update { it.copy(talkLcdMode = false) }
     }
 
     private suspend fun persist(state: PetState) {
-        petRepository.savePetState(state)
-        PetWidgetSnapshot.write(context, state)
-        PetWidgetUpdater.refresh(context)
-        _uiState.update { current ->
-            val dialogueChanged = state.dialogueLine != current.petState.dialogueLine &&
-                state.dialogueLine.isNotBlank()
-            val recent = if (dialogueChanged) {
-                (listOf(current.petState.dialogueLine) + current.recentDialogue)
-                    .filter { it.isNotBlank() }
-                    .distinct()
-                    .take(2)
-            } else {
-                current.recentDialogue
-            }
-            current.copy(petState = state, recentDialogue = recent)
+        val ui = _uiState.value
+        val toPersist = if (ui.isGeneratingDialogue && ui.petState.dialogueLine.isNotBlank()) {
+            state.copy(dialogueLine = ui.petState.dialogueLine)
+        } else {
+            state
         }
+        petRepository.savePetState(toPersist)
+        PetWidgetSnapshot.write(context, toPersist)
+        PetWidgetUpdater.refresh(context)
+        _uiState.update { it.copy(petState = toPersist) }
     }
 
     private companion object {
         private const val TAG = "PetViewModel"
         private const val GENERATION_TIMEOUT_MS = 90_000L
-        private const val USER_TALK_TIMEOUT_MS = 30_000L
+        private const val USER_TALK_TIMEOUT_MS = 90_000L
+        private const val USER_TALK_COLD_TIMEOUT_MS = 120_000L
         private const val TAP_REACTION_TIMEOUT_MS = 30_000L
         private const val MOOD_PULSE_TIMEOUT_MS = 45_000L
         private const val MOOD_PULSE_COOLDOWN_MS = 45_000L
         private const val ACTIVITY_REACTION_DEBOUNCE_MS = 8_000L
         private const val WARM_LOAD_WAIT_MS = 15_000L
+        private const val STREAM_UI_MIN_INTERVAL_MS = 33L
         private const val LETS_PLAY_CHIP = "Let's play!"
     }
 }

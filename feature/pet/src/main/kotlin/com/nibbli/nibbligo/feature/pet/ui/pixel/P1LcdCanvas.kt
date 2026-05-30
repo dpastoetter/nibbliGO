@@ -37,6 +37,8 @@ fun P1LcdCanvas(
     modifier: Modifier = Modifier,
     flash: Boolean = false,
     tapBoost: Boolean = false,
+    dialogueVisible: Boolean = false,
+    talkLcdMode: Boolean = false,
 ) {
     val atlas = ImageBitmap.imageResource(R.drawable.nibbli_sprites)
     val selection = pet.resolveSprite()
@@ -77,35 +79,53 @@ fun P1LcdCanvas(
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = scale),
         )
 
-        val petZoneHeight = if (frame == NibbliSpriteAtlas.Frame.EGG) {
-            P1DisplaySpec.PET_ZONE_HEIGHT_PX * 0.65f
-        } else {
-            P1DisplaySpec.PET_ZONE_HEIGHT_PX.toFloat()
+        val petZoneHeight = when {
+            talkLcdMode -> P1DisplaySpec.BOTTOM_STRIP_SLOT_PX.toFloat()
+            dialogueVisible -> (P1DisplaySpec.DIALOGUE_ZONE_TOP_PX - P1DisplaySpec.PET_ZONE_TOP_PX).toFloat()
+            frame == NibbliSpriteAtlas.Frame.EGG -> P1DisplaySpec.PET_ZONE_HEIGHT_PX * 0.65f
+            else -> P1DisplaySpec.PET_ZONE_HEIGHT_PX.toFloat()
         }
-        val zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX + motion.bobOffsetPx
-        val zoneWidthPx = P1DisplaySpec.LCD_WIDTH_PX.toFloat()
+        val zoneTopPx = if (talkLcdMode) {
+            P1DisplaySpec.BOTTOM_STRIP_TOP_PX.toFloat()
+        } else {
+            P1DisplaySpec.PET_ZONE_TOP_PX + motion.bobOffsetPx
+        }
+        val zoneLeftPx = if (talkLcdMode) {
+            P1DisplaySpec.TALK_PET_LEFT_PX.toFloat()
+        } else {
+            0f
+        }
+        val zoneWidthPx = if (talkLcdMode) {
+            P1DisplaySpec.BOTTOM_STRIP_SLOT_PX.toFloat()
+        } else {
+            P1DisplaySpec.LCD_WIDTH_PX.toFloat()
+        }
+        val talkSpriteScale = if (talkLcdMode) 1f else motion.scale
         drawAtlasFrameInZone(
             atlas = atlas,
             frame = frame,
-            zoneLeftPx = 0f,
+            zoneLeftPx = zoneLeftPx,
             zoneTopPx = zoneTopPx,
             zoneWidthPx = zoneWidthPx,
             zoneHeightPx = petZoneHeight,
             lcdScale = scale,
-            swayOffsetPx = motion.swayOffsetPx,
-            spriteScale = motion.scale,
-            spriteScaleY = motion.scaleY,
+            swayOffsetPx = if (talkLcdMode) 0f else motion.swayOffsetPx,
+            spriteScale = talkSpriteScale,
+            spriteScaleY = if (talkLcdMode) 1f else motion.scaleY,
+            align = if (talkLcdMode) SpriteZoneAlign.BottomStart else SpriteZoneAlign.Center,
         )
-        drawLcdAmbientEffects(
-            pet = pet,
-            frame = frame,
-            zoneTopPx = zoneTopPx,
-            zoneHeightPx = petZoneHeight,
-            lcdScale = scale,
-            colors = colors,
-            frameIndex = frameIndex,
-        )
-        if (pet.showsCosmeticOverlay()) {
+        if (!talkLcdMode) {
+            drawLcdAmbientEffects(
+                pet = pet,
+                frame = frame,
+                zoneTopPx = zoneTopPx,
+                zoneHeightPx = petZoneHeight,
+                lcdScale = scale,
+                colors = colors,
+                frameIndex = frameIndex,
+            )
+        }
+        if (pet.showsCosmeticOverlay() && !talkLcdMode) {
             val cosmetic = pet.equippedCosmetic!!
             val overlayAlpha = when {
                 cosmetic == PetCosmetic.AURORA_AURA && frameIndex % 2 == 1 -> 0.65f
@@ -127,17 +147,20 @@ fun P1LcdCanvas(
             )
         }
 
-        drawMenuLabel(
-            label = menuLabel,
-            topPx = P1DisplaySpec.MENU_BAND_TOP_PX.toFloat(),
-            lcdScale = scale,
-        )
+        if (!dialogueVisible && !talkLcdMode) {
+            drawMenuLabel(
+                label = menuLabel,
+                topPx = P1DisplaySpec.MENU_BAND_TOP_PX.toFloat(),
+                lcdScale = scale,
+            )
+        }
 
         drawStatIconStrip(
             pet = pet,
             colors = colors,
             lcdScale = scale,
             pulsePhase = statPulse,
+            talkLcdMode = talkLcdMode,
         )
     }
 }
@@ -164,6 +187,7 @@ private fun DrawScope.drawStatIconStrip(
     colors: P1Colors,
     lcdScale: Float,
     pulsePhase: Float,
+    talkLcdMode: Boolean = false,
 ) {
     val icons = buildList {
         add(P1StatIcon.HUNGER to (pet.stats.hunger < 45))
@@ -176,8 +200,12 @@ private fun DrawScope.drawStatIconStrip(
     }.take(4)
 
     val iconPx = P1DisplaySpec.ICON_SIZE_PX * P1DisplaySpec.ICON_SCALE
-    val totalWidth = icons.size * iconPx + (icons.size - 1).coerceAtLeast(0) * 4
-    var x = (P1DisplaySpec.LCD_WIDTH_PX - totalWidth) / 2f
+    val totalWidth = icons.size * iconPx + (icons.size - 1).coerceAtLeast(0) * P1DisplaySpec.BOTTOM_STRIP_GAP_PX
+    var x = if (talkLcdMode) {
+        P1DisplaySpec.TALK_STAT_ICONS_START_PX.toFloat()
+    } else {
+        (P1DisplaySpec.LCD_WIDTH_PX - totalWidth) / 2f
+    }
     val y = P1DisplaySpec.ICON_STRIP_TOP_PX.toFloat()
 
     icons.forEach { (icon, alert) ->
@@ -191,7 +219,7 @@ private fun DrawScope.drawStatIconStrip(
             scale = P1DisplaySpec.ICON_SCALE * lcdScale,
             color = colors.lcdPixel.copy(alpha = alpha),
         )
-        x += iconPx + 4
+        x += iconPx + P1DisplaySpec.BOTTOM_STRIP_GAP_PX
     }
 }
 
@@ -202,6 +230,11 @@ data class SpriteDstRect(
     val spriteH: Float,
 )
 
+enum class SpriteZoneAlign {
+    Center,
+    BottomStart,
+}
+
 fun computeSpriteDstRect(
     zoneLeftPx: Float,
     zoneTopPx: Float,
@@ -210,15 +243,20 @@ fun computeSpriteDstRect(
     spriteScale: Float = 1f,
     spriteScaleY: Float = 1f,
     swayOffsetPx: Float = 0f,
+    align: SpriteZoneAlign = SpriteZoneAlign.Center,
 ): SpriteDstRect {
     val framePx = NibbliSpriteAtlas.FRAME_SIZE_PX
     val fitScale = minOf(zoneWidthPx / framePx, zoneHeightPx / framePx)
     val spriteW = framePx * fitScale * spriteScale
     val spriteH = framePx * fitScale * spriteScale * spriteScaleY
-    val centerX = zoneLeftPx + zoneWidthPx / 2f + swayOffsetPx
-    val centerY = zoneTopPx + zoneHeightPx / 2f
-    val left = centerX - spriteW / 2f
-    val top = centerY - spriteH / 2f
+    val left = when (align) {
+        SpriteZoneAlign.Center -> zoneLeftPx + zoneWidthPx / 2f + swayOffsetPx - spriteW / 2f
+        SpriteZoneAlign.BottomStart -> zoneLeftPx
+    }
+    val top = when (align) {
+        SpriteZoneAlign.Center -> zoneTopPx + zoneHeightPx / 2f - spriteH / 2f
+        SpriteZoneAlign.BottomStart -> zoneTopPx + zoneHeightPx - spriteH
+    }
     return SpriteDstRect(left = left, top = top, spriteW = spriteW, spriteH = spriteH)
 }
 
@@ -233,6 +271,7 @@ fun DrawScope.drawAtlasFrameInZone(
     swayOffsetPx: Float = 0f,
     spriteScale: Float = 1f,
     spriteScaleY: Float = 1f,
+    align: SpriteZoneAlign = SpriteZoneAlign.Center,
 ) {
     val rect = computeSpriteDstRect(
         zoneLeftPx = zoneLeftPx,
@@ -242,6 +281,7 @@ fun DrawScope.drawAtlasFrameInZone(
         spriteScale = spriteScale,
         spriteScaleY = spriteScaleY,
         swayOffsetPx = swayOffsetPx,
+        align = align,
     )
     val framePx = NibbliSpriteAtlas.FRAME_SIZE_PX
     drawImage(

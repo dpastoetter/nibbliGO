@@ -4,23 +4,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
-import com.nibbli.nibbligo.core.designsystem.component.PetBubble
 import com.nibbli.nibbligo.core.model.PetStats
+import com.nibbli.nibbligo.feature.pet.presentation.TalkHistoryEntry
 
 @Composable
 fun PetCompanionPanel(
-    dialogueLine: String,
-    isGeneratingDialogue: Boolean,
-    previousLines: List<String>,
     stats: PetStats,
     talkEnabled: Boolean,
+    isGeneratingDialogue: Boolean,
     isVoiceListening: Boolean,
+    talkHistory: List<TalkHistoryEntry>,
+    streamingDialogue: String,
+    talkLcdMode: Boolean,
     onChipSelected: (String) -> Unit,
     onStopClick: () -> Unit,
     onTalkToMeClick: () -> Unit,
@@ -32,20 +31,6 @@ fun PetCompanionPanel(
             .padding(horizontal = 16.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            PetDialogueLog(previousLines = previousLines)
-
-            if (previousLines.isNotEmpty()) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.12f),
-                )
-            }
-
-            PetBubble(
-                text = dialogueLine,
-                isLoading = isGeneratingDialogue && dialogueLine.isBlank(),
-                applyHorizontalInset = false,
-            )
-
             PetTalkQuickChips(
                 enabled = talkEnabled,
                 isGeneratingDialogue = isGeneratingDialogue,
@@ -56,6 +41,13 @@ fun PetCompanionPanel(
             )
 
             PetStatStrip(stats = stats)
+
+            PetTalkHistory(
+                talkHistory = talkHistory,
+                streamingDialogue = streamingDialogue,
+                isGeneratingDialogue = isGeneratingDialogue,
+                talkLcdMode = talkLcdMode,
+            )
         }
     }
 }

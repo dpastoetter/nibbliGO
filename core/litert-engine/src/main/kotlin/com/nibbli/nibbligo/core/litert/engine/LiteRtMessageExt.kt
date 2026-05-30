@@ -2,6 +2,7 @@ package com.nibbli.nibbligo.core.litert.engine
 
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Message
+import com.google.ai.edge.litertlm.Role
 
 fun Message.extractText(): String =
     contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }
@@ -33,4 +34,10 @@ fun Message.extractDisplayText(): String {
     val text = extractText()
     if (text.isNotBlank()) return text
     return extractToolSummary().orEmpty()
+}
+
+/** Assistant/model tokens only — ignores system and user echoes from chat templates. */
+fun Message.extractModelReplyText(): String {
+    if (role != Role.MODEL) return ""
+    return extractDisplayText()
 }

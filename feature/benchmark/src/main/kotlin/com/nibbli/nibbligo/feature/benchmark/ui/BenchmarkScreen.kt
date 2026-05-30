@@ -28,12 +28,12 @@ fun BenchmarkScreen(
     NibbliScreen(modifier = modifier) {
         NibbliScreenHeader(
             title = "Benchmark",
-            subtitle = "Measure on-device performance per model.",
+            subtitle = "Raw LiteRT vs Pixel Friend pet path (TTFT, tok/s, refresh).",
             showOnDeviceBadge = true,
         )
         uiState.installedModelIds.forEach { id ->
             NibbliPrimaryButton(
-                text = "Run: $id",
+                text = "Raw: $id",
                 onClick = {
                     viewModel.selectModel(id)
                     viewModel.runBenchmark()
@@ -43,8 +43,20 @@ fun BenchmarkScreen(
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
             )
+            NibbliPrimaryButton(
+                text = "Pet path: $id",
+                onClick = {
+                    viewModel.selectModel(id)
+                    viewModel.runPetBenchmark()
+                },
+                enabled = !uiState.isRunning,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+            )
         }
-        uiState.lastResult?.let { Text(it, modifier = Modifier.padding(bottom = 12.dp)) }
+        uiState.lastResult?.let { Text("Raw: $it", modifier = Modifier.padding(bottom = 8.dp)) }
+        uiState.lastPetResult?.let { Text(it, modifier = Modifier.padding(bottom = 12.dp)) }
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp),

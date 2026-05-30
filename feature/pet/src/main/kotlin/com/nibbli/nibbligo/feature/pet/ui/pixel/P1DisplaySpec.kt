@@ -15,9 +15,26 @@ object P1DisplaySpec {
     const val ICON_SIZE_PX = 16
     const val ICON_SCALE = 1f
 
-    /** Menu label band above icons. */
+    /** Menu label band above icons (care menu when idle). */
     const val MENU_BAND_TOP_PX = 40
     const val MENU_BAND_HEIGHT_PX = 8
+
+    /** Scrolling LLM dialogue band — above stat icons, below pet. */
+    const val DIALOGUE_ZONE_TOP_PX = 30
+    const val DIALOGUE_ZONE_HEIGHT_PX = 18
+
+    /** LLM talk mode: reply area above bottom strip. */
+    const val BOTTOM_STRIP_TOP_PX = ICON_STRIP_TOP_PX
+    const val BOTTOM_STRIP_SLOT_PX = ICON_SIZE_PX
+    const val BOTTOM_STRIP_GAP_PX = 4
+    const val TALK_PET_LEFT_PX = 2
+    const val TALK_STAT_ICONS_START_PX =
+        TALK_PET_LEFT_PX + BOTTOM_STRIP_SLOT_PX + BOTTOM_STRIP_GAP_PX
+
+    const val TALK_REPLY_TOP_PX = 4
+    const val TALK_REPLY_BOTTOM_PX = ICON_STRIP_TOP_PX - 2
+    const val TALK_REPLY_LEFT_PX = TALK_STAT_ICONS_START_PX
+    const val TALK_REPLY_RIGHT_PX = 4
 }
 
 enum class P1StatIcon {

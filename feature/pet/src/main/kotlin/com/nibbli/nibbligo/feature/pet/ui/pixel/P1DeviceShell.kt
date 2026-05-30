@@ -30,6 +30,10 @@ fun P1DeviceShell(
     pet: PetState,
     onPetTap: () -> Unit,
     onCareAction: (PetInteraction) -> Unit,
+    dialogueLine: String = "",
+    isGeneratingDialogue: Boolean = false,
+    talkLcdMode: Boolean = false,
+    onDismissTalkLcd: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val menu = p1CareMenu(pet)
@@ -75,6 +79,7 @@ fun P1DeviceShell(
     val canCycle = pet.isAlive
     val canConfirm = current.isConfirmEnabled(pet)
     val colors = p1Colors()
+    val showTalkOverlay = talkLcdMode && (dialogueLine.isNotBlank() || isGeneratingDialogue)
 
     Column(
         modifier = modifier
@@ -106,20 +111,35 @@ fun P1DeviceShell(
                 frameIndex = frameIndex,
                 flash = flash,
                 tapBoost = motionBoost,
+                talkLcdMode = talkLcdMode,
                 modifier = Modifier.fillMaxWidth(),
             )
+            if (showTalkOverlay) {
+                P1LcdDialogueOverlay(
+                    text = dialogueLine,
+                    isLoading = isGeneratingDialogue && dialogueLine.isBlank(),
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
         }
 
         P1ThreeButtonBar(
-            onButtonLeft = { menuIndex = (safeIndex - 1 + menu.size) % menu.size },
+            onButtonLeft = {
+                onDismissTalkLcd()
+                menuIndex = (safeIndex - 1 + menu.size) % menu.size
+            },
             onButtonCenter = {
+                onDismissTalkLcd()
                 if (canConfirm) {
                     flash = true
                     triggerMotionBoost()
                     onCareAction(current.interaction)
                 }
             },
-            onButtonRight = { menuIndex = (safeIndex + 1) % menu.size },
+            onButtonRight = {
+                onDismissTalkLcd()
+                menuIndex = (safeIndex + 1) % menu.size
+            },
             cycleEnabled = canCycle,
             confirmEnabled = canConfirm,
             modifier = Modifier.padding(top = 12.dp),

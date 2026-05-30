@@ -6,6 +6,7 @@ import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PetExpression
+import com.nibbli.nibbligo.core.model.PetGameReference
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetInteractionResult
 import com.nibbli.nibbligo.core.model.PetNeed
@@ -73,21 +74,28 @@ class PetSimulationEngine {
 
         var hasMess = state.hasMess
         var condition = state.condition
-        if (condition != PetCondition.SLEEPING && stats.hygiene < 35 && Random.nextFloat() < 0.08f * ticks) {
+        if (condition != PetCondition.SLEEPING &&
+            stats.hygiene < PetGameReference.MESS_HYGIENE_THRESHOLD &&
+            Random.nextFloat() < 0.08f * ticks
+        ) {
             hasMess = true
         }
-        if (hasMess && stats.hygiene < 25 && condition == PetCondition.HEALTHY) {
+        if (hasMess && stats.hygiene < PetGameReference.SICK_HYGIENE_THRESHOLD && condition == PetCondition.HEALTHY) {
             condition = PetCondition.SICK
         }
 
         val ageMinutes = state.ageMinutes + minutesElapsed
         var careScore = state.careScore
-        if (stats.hunger > 40 && stats.mood > 40 && stats.hygiene > 40) {
+        if (stats.hunger > PetGameReference.CARE_SCORE_TICK_THRESHOLD &&
+            stats.mood > PetGameReference.CARE_SCORE_TICK_THRESHOLD &&
+            stats.hygiene > PetGameReference.CARE_SCORE_TICK_THRESHOLD
+        ) {
             careScore = (careScore + 1).coerceAtMost(100)
         }
 
         var criticalSince = state.criticalNeglectSinceMillis
-        val critical = stats.hunger < 10 || stats.health < 15
+        val critical = stats.hunger < PetGameReference.CRITICAL_HUNGER_THRESHOLD ||
+            stats.health < PetGameReference.CRITICAL_HEALTH_THRESHOLD
         criticalSince = when {
             critical && criticalSince == null -> nowMillis
             !critical -> null
@@ -105,7 +113,7 @@ class PetSimulationEngine {
         )
 
         var evolved = false
-        val evolution = checkEvolution(updated)
+        val evolution = PetGameReference.canEvolve(updated)
         if (evolution != null) {
             updated = updated.copy(
                 stage = evolution,
@@ -117,7 +125,7 @@ class PetSimulationEngine {
             evolved = true
         }
 
-        if (criticalSince != null && nowMillis - criticalSince > 4 * 60 * 60 * 1000L) {
+        if (criticalSince != null && nowMillis - criticalSince > PetGameReference.CRITICAL_DEATH_MS) {
             updated = updated.copy(
                 condition = PetCondition.DEAD,
                 expression = PetExpression.NEUTRAL,
@@ -165,7 +173,7 @@ class PetSimulationEngine {
         var condition = state.condition
         var hasMess = state.hasMess
         var animation = PetAnimation.IDLE
-        var careScore = (state.careScore + 2).coerceAtMost(100)
+        var careScore = (state.careScore + PetGameReference.CARE_SCORE_PER_INTERACTION).coerceAtMost(100)
 
         val templateDialogue = when (interaction) {
             PetInteraction.FEED_MEAL -> {
@@ -186,7 +194,7 @@ class PetSimulationEngine {
                 "Treat time! So happy."
             }
             PetInteraction.PLAY -> {
-                if (stats.hunger < 25) {
+                if (stats.hunger < PetGameReference.NEED_HUNGRY_THRESHOLD) {
                     stats = stats.copy(energy = stats.energy - 5)
                     "Too hungry to play… feed me first?"
                 } else {
@@ -361,14 +369,6 @@ class PetSimulationEngine {
             lastInteractionAtMillis = nowMillis,
             dialogueLine = "You win! Best caretaker ever.",
         )
-    }
-
-    private fun checkEvolution(state: PetState): LifeStage? = when (state.stage) {
-        LifeStage.EGG -> if (state.ageMinutes >= 30 || state.careScore >= 55) LifeStage.BABY else null
-        LifeStage.BABY -> if (state.ageMinutes >= 24 * 60 && state.careScore >= 45) LifeStage.CHILD else null
-        LifeStage.CHILD -> if (state.ageMinutes >= 3 * 24 * 60 && state.careScore >= 50) LifeStage.TEEN else null
-        LifeStage.TEEN -> if (state.ageMinutes >= 5 * 24 * 60 && state.careScore >= 55) LifeStage.ADULT else null
-        LifeStage.ADULT -> null
     }
 
     private fun evolutionLine(stage: LifeStage): String = when (stage) {

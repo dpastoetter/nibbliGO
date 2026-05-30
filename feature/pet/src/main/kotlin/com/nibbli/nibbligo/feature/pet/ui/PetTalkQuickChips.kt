@@ -1,10 +1,12 @@
 package com.nibbli.nibbligo.feature.pet.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,7 +25,8 @@ fun PetTalkQuickChips(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min),
+            .height(IntrinsicSize.Min)
+            .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -37,11 +40,13 @@ fun PetTalkQuickChips(
             onClick = { if (enabled) onChipSelected("How are you?") },
             enabled = enabled,
         )
-        PetTalkActionChip(
-            label = "Stop",
-            onClick = onStopClick,
-            enabled = isGeneratingDialogue,
-            selected = isGeneratingDialogue,
-        )
+        if (isGeneratingDialogue) {
+            PetTalkActionChip(
+                label = "Stop",
+                onClick = onStopClick,
+                enabled = true,
+                selected = true,
+            )
+        }
     }
 }

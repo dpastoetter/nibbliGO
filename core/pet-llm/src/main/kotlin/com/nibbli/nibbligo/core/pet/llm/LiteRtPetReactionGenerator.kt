@@ -1,11 +1,16 @@
 package com.nibbli.nibbligo.core.pet.llm
 
+import android.util.Log
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.InferenceChunk
+import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.model.PetTurnRequest
 import com.nibbli.nibbligo.core.model.RuntimeResult
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -16,29 +21,34 @@ class LiteRtPetReactionGenerator @Inject constructor(
     private val inferenceRuntime: InferenceRuntime,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val modelAvailabilityGate: ModelAvailabilityGate,
+    private val petModelResolver: PetModelResolver,
+    private val liteRtModelPreloader: LiteRtModelPreloader,
 ) : PetReactionPort {
+
+    private var homeTalkTurnCount = 0
 
     override suspend fun generate(request: PetReactionRequest): PetReaction {
         if (!modelAvailabilityGate.hasUsableModel()) {
             return installRequiredReaction()
         }
-        val modelId = resolvePetModelId()
+        val modelId = petModelResolver.resolve()
         val enriched = enrichRequest(request)
 
-        val parts = PetPromptBuilder.buildParts(enriched, modelId)
-        val primaryText = completePetTurn(modelId, parts)
-        if (!primaryText.isNullOrBlank()) {
-            return PetReactionParser.parse(primaryText)
-        }
-
-        if (enriched.userMessage != null) {
-            val compact = PetPromptBuilder.buildCompactTalkParts(enriched, modelId)
-            val retryText = completePetTurn(modelId, compact)
-            if (!retryText.isNullOrBlank()) {
-                return PetReactionParser.parse(retryText)
+        enriched.userMessage?.let { msg ->
+            PetGameFaqMatcher.confidentInstantAnswer(msg)?.let { answer ->
+                return PetReactionParser.parseTalk("$answer|NEUTRAL")
             }
+            return generateUserTalk(enriched, modelId)
         }
 
+        val parts = PetPromptBuilder.buildParts(enriched, modelId)
+        if (!ensurePetModelReady(modelId, parts.systemInstruction)) {
+            return PetReactionParser.fallback(enriched)
+        }
+
+        parseModelOutput(completePetTurn(modelId, parts), enriched)?.let { return it }
+
+        Log.w(TAG, "Pet reaction empty; using fallback (non-streaming)")
         return PetReactionParser.fallback(enriched)
     }
 
@@ -47,22 +57,27 @@ class LiteRtPetReactionGenerator @Inject constructor(
             emit(PetReactionStreamEvent.Done(installRequiredReaction()))
             return@flow
         }
-        val modelId = resolvePetModelId()
+        val modelId = petModelResolver.resolve()
         val enriched = enrichRequest(request)
+
+        enriched.userMessage?.let { msg ->
+            PetGameFaqMatcher.confidentInstantAnswer(msg)?.let { answer ->
+                emit(PetReactionStreamEvent.Done(PetReactionParser.parseTalk("$answer|NEUTRAL")))
+                return@flow
+            }
+            emitAll(streamUserTalkViaHomeSession(enriched, modelId))
+            return@flow
+        }
 
         val parts = PetPromptBuilder.buildParts(enriched, modelId)
 
-        if (enriched.userMessage != null) {
-            val fastText = completePetTurn(modelId, parts)
-            if (!fastText.isNullOrBlank()) {
-                val reaction = PetReactionParser.parse(fastText)
-                emit(PetReactionStreamEvent.Token(reaction.dialogue))
-                emit(PetReactionStreamEvent.Done(reaction))
-                return@flow
-            }
+        if (!ensurePetModelReady(modelId, parts.systemInstruction)) {
+            emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(enriched)))
+            return@flow
         }
 
         val builder = StringBuilder()
+        var streamFailed = false
         try {
             inferenceRuntime.streamPetTurn(
                 PetTurnRequest(
@@ -75,47 +90,202 @@ class LiteRtPetReactionGenerator @Inject constructor(
                     if (chunk.token.isNotEmpty()) {
                         builder.append(chunk.token)
                     }
-                    val raw = builder.toString().trim()
-                    val reaction = if (raw.isNotBlank()) {
-                        PetReactionParser.parse(raw)
-                    } else if (enriched.userMessage != null) {
-                        val compact = PetPromptBuilder.buildCompactTalkParts(enriched, modelId)
-                        val retry = completePetTurn(modelId, compact)
-                        if (!retry.isNullOrBlank()) {
-                            PetReactionParser.parse(retry)
-                        } else {
-                            PetReactionParser.fallback(enriched)
-                        }
-                    } else {
-                        PetReactionParser.fallback(enriched)
-                    }
-                    emit(PetReactionStreamEvent.Done(reaction))
                 } else if (chunk.token.isNotEmpty()) {
+                    if (isInferenceFailureText(chunk.token)) {
+                        streamFailed = true
+                        return@collect
+                    }
                     builder.append(chunk.token)
-                    emit(PetReactionStreamEvent.Token(PetReactionParser.stripForStreaming(builder.toString())))
+                    emit(
+                        PetReactionStreamEvent.Token(
+                            PetReactionParser.stripForStreaming(builder.toString()),
+                        ),
+                    )
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            Log.w(TAG, "Pet stream failed; using fallback", e)
             emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(enriched)))
+            return@flow
         }
+
+        val raw = builder.toString().trim()
+        if (!streamFailed) {
+            parseModelOutput(raw, enriched)?.let {
+                emit(PetReactionStreamEvent.Done(it))
+                return@flow
+            }
+        }
+
+        Log.w(TAG, "Pet stream empty or failed; using fallback")
+        emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(enriched)))
     }
 
     override suspend fun warmLoad() {
-        if (!modelAvailabilityGate.hasUsableModel()) return
-        val modelId = resolvePetModelId()
-        val staticSystem = PetPromptBuilder.buildStaticSystemInstruction(modelId)
-        when (inferenceRuntime.ensurePetModelLoaded(modelId, staticSystem)) {
-            is RuntimeResult.Error,
-            RuntimeResult.LowMemory,
-            RuntimeResult.Unsupported,
-            -> Unit
-            is RuntimeResult.Success -> Unit
+        liteRtModelPreloader.preloadPrimaryModel()
+    }
+
+    override suspend fun activeModelDisplayName(): String {
+        if (!modelAvailabilityGate.hasUsableModel()) return "No model"
+        val modelId = petModelResolver.resolve()
+        return ModelCatalog.find(modelId)?.displayName ?: modelId
+    }
+
+    private suspend fun generateUserTalk(request: PetReactionRequest, modelId: String): PetReaction {
+        val parts = PetPromptBuilder.buildHomeTalkParts(request, modelId)
+        if (!ensureHomeTalkSession(modelId)) {
+            return PetReactionParser.fallback(request)
         }
+        maybeResetHomeTalkSession(modelId)
+
+        val raw = completeHomeTalkTurn(modelId, parts)
+        parseModelOutput(raw, request)?.let { reaction ->
+            if (PetReactionParser.hasPromptEcho(raw.orEmpty())) {
+                inferenceRuntime.resetHomeTalkSession(modelId)
+                homeTalkTurnCount = 0
+            }
+            return reaction
+        }
+
+        val compactParts = PetPromptBuilder.buildCompactHomeTalkParts(request)
+        val compactRaw = completeHomeTalkTurn(modelId, compactParts)
+        parseModelOutput(compactRaw, request)?.let { return it }
+
+        Log.w(TAG, "User talk empty; using fallback")
+        return PetReactionParser.fallback(request)
+    }
+
+    private fun streamUserTalkViaHomeSession(
+        request: PetReactionRequest,
+        modelId: String,
+    ): Flow<PetReactionStreamEvent> = flow {
+        val parts = PetPromptBuilder.buildHomeTalkParts(request, modelId)
+        if (!ensureHomeTalkSession(modelId)) {
+            emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(request)))
+            return@flow
+        }
+        maybeResetHomeTalkSession(modelId)
+
+        val builder = StringBuilder()
+        var streamFailed = false
+        try {
+            inferenceRuntime.streamHomeTalk(homeTalkRequest(modelId, parts)).collect { chunk ->
+                if (chunk.isComplete) {
+                    if (chunk.token.isNotEmpty()) {
+                        builder.append(chunk.token)
+                    }
+                } else if (chunk.token.isNotEmpty()) {
+                    if (isInferenceFailureText(chunk.token)) {
+                        streamFailed = true
+                        return@collect
+                    }
+                    builder.append(chunk.token)
+                    emit(
+                        PetReactionStreamEvent.Token(
+                            PetReactionParser.stripForStreaming(builder.toString()),
+                        ),
+                    )
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "User talk stream failed; using fallback", e)
+            emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(request)))
+            return@flow
+        }
+
+        val raw = builder.toString().trim()
+        if (!streamFailed) {
+            parseModelOutput(raw, request)?.let { reaction ->
+                if (PetReactionParser.hasPromptEcho(raw)) {
+                    inferenceRuntime.resetHomeTalkSession(modelId)
+                    homeTalkTurnCount = 0
+                }
+                emit(PetReactionStreamEvent.Done(reaction))
+                return@flow
+            }
+        }
+
+        if (streamFailed || raw.isBlank()) {
+            val compactParts = PetPromptBuilder.buildCompactHomeTalkParts(request)
+            if (ensureHomeTalkSession(modelId)) {
+                parseModelOutput(completeHomeTalkTurn(modelId, compactParts), request)?.let {
+                    emit(PetReactionStreamEvent.Done(it))
+                    return@flow
+                }
+            }
+        }
+
+        Log.w(TAG, "User talk stream empty or failed; using fallback")
+        emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(request)))
     }
 
     private suspend fun enrichRequest(request: PetReactionRequest): PetReactionRequest {
         val personality = userPreferencesRepository.petPersonality.first()
         return request.copy(personality = personality)
+    }
+
+    private suspend fun ensureHomeTalkSession(modelId: String): Boolean {
+        val systemInstruction = PetPromptBuilder.homeTalkSystemInstruction()
+        return when (val result = inferenceRuntime.ensureHomeTalkSession(modelId, systemInstruction)) {
+            is RuntimeResult.Success -> true
+            is RuntimeResult.Error -> {
+                Log.w(TAG, "Home talk session load failed: ${result.message}")
+                false
+            }
+            RuntimeResult.LowMemory -> {
+                Log.w(TAG, "Home talk session load failed: low memory")
+                false
+            }
+            RuntimeResult.Unsupported -> {
+                Log.w(TAG, "Home talk session load failed: unsupported")
+                false
+            }
+        }
+    }
+
+    private fun maybeResetHomeTalkSession(modelId: String) {
+        if (homeTalkTurnCount >= HOME_TALK_RESET_EVERY) {
+            inferenceRuntime.resetHomeTalkSession(modelId)
+            homeTalkTurnCount = 0
+        }
+        homeTalkTurnCount++
+    }
+
+    private suspend fun ensurePetModelReady(modelId: String, systemInstruction: String): Boolean {
+        return when (val result = inferenceRuntime.ensurePetModelLoaded(modelId, systemInstruction)) {
+            is RuntimeResult.Success -> true
+            is RuntimeResult.Error -> {
+                Log.w(TAG, "Pet model load failed: ${result.message}")
+                false
+            }
+            RuntimeResult.LowMemory -> {
+                Log.w(TAG, "Pet model load failed: low memory")
+                false
+            }
+            RuntimeResult.Unsupported -> {
+                Log.w(TAG, "Pet model load failed: unsupported")
+                false
+            }
+        }
+    }
+
+    private suspend fun completeHomeTalkTurn(modelId: String, parts: PetPromptParts): String? {
+        return try {
+            when (
+                val result = inferenceRuntime.completeHomeTalk(homeTalkRequest(modelId, parts))
+            ) {
+                is RuntimeResult.Success -> result.data.trim().takeIf { it.isNotEmpty() }
+                is RuntimeResult.Error -> null
+                RuntimeResult.LowMemory -> null
+                RuntimeResult.Unsupported -> null
+            }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private suspend fun completePetTurn(modelId: String, parts: PetPromptParts): String? {
@@ -139,15 +309,27 @@ class LiteRtPetReactionGenerator @Inject constructor(
         }
     }
 
-    internal suspend fun resolvePetModelId(): String {
-        val preferred = userPreferencesRepository.petModelId.first()
-        if (preferred != null && inferenceRuntime.capabilitiesFor(preferred).supportsChat) {
-            return preferred
+    private fun homeTalkRequest(modelId: String, parts: PetPromptParts): PetTurnRequest =
+        PetTurnRequest(
+            modelId = modelId,
+            systemInstruction = parts.systemInstruction,
+            userMessage = parts.userMessage,
+        )
+
+    private fun parseModelOutput(raw: String?, request: PetReactionRequest): PetReaction? {
+        if (raw.isNullOrBlank() || isInferenceFailureText(raw)) return null
+        return if (request.userMessage != null) {
+            PetReactionParser.parseTalk(raw)
+        } else {
+            PetReactionParser.parse(raw)
         }
-        for (modelId in PET_MODEL_PREFERENCE) {
-            if (inferenceRuntime.capabilitiesFor(modelId).supportsChat) return modelId
-        }
-        return modelAvailabilityGate.firstUsableModelId() ?: DEFAULT_MODEL
+    }
+
+    internal fun isInferenceFailureText(raw: String): Boolean {
+        val trimmed = raw.trim()
+        return trimmed.startsWith(LITERT_ERROR_PREFIX) ||
+            trimmed.startsWith("LiteRT error:") ||
+            trimmed.startsWith("Install a LiteRT model")
     }
 
     private fun installRequiredReaction() = PetReaction(
@@ -156,14 +338,8 @@ class LiteRtPetReactionGenerator @Inject constructor(
     )
 
     companion object {
-        private const val DEFAULT_MODEL = "smollm2-360m-instruct"
-        private val PET_MODEL_PREFERENCE = listOf(
-            "smollm2-360m-instruct",
-            "gemma3-1b-it",
-            "qwen2.5-1.5b-instruct",
-            "deepseek-r1-distill-qwen-1.5b",
-            "gemma-4-e2b-it",
-            "functiongemma-270m",
-        )
+        private const val TAG = "LiteRtPetReaction"
+        const val LITERT_ERROR_PREFIX = "__LITERT_ERROR__:"
+        private const val HOME_TALK_RESET_EVERY = 5
     }
 }

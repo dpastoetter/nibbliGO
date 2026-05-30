@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.theme.OnDeviceGreen
 import kotlinx.coroutines.delay
@@ -75,6 +76,7 @@ fun StatBar(
 fun OnDeviceBadge(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    label: String? = null,
 ) {
     Surface(
         modifier = modifier,
@@ -82,7 +84,7 @@ fun OnDeviceBadge(
         color = OnDeviceGreen.copy(alpha = 0.2f),
     ) {
         Text(
-            text = if (compact) "On-device" else "Processed on-device",
+            text = label ?: if (compact) "On-device" else "Processed on-device",
             modifier = Modifier.padding(
                 horizontal = if (compact) 8.dp else 10.dp,
                 vertical = if (compact) 2.dp else 4.dp,
@@ -93,6 +95,8 @@ fun OnDeviceBadge(
                 MaterialTheme.typography.labelMedium
             },
             color = OnDeviceGreen,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

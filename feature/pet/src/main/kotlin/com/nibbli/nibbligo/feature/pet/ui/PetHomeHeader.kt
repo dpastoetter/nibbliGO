@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +29,9 @@ import com.nibbli.nibbligo.core.model.PetState
 @Composable
 fun PetHomeHeader(
     pet: PetState,
+    petModelLabel: String,
     statusMessage: String?,
+    isWarmingModel: Boolean = false,
     onLooksClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -102,7 +105,24 @@ fun PetHomeHeader(
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OnDeviceBadge(compact = true)
+            OnDeviceBadge(compact = true, label = petModelLabel)
+        }
+        if (isWarmingModel) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(12.dp),
+                    strokeWidth = 2.dp,
+                )
+                Text(
+                    text = "Warming up model…",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
+            }
         }
         statusMessage?.let {
             Text(

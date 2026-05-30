@@ -8,6 +8,11 @@ import com.nibbli.nibbligo.core.model.ModelCatalog
 
 object LiteRtBackendResolver {
 
+    /**
+     * Resolves accelerator order for a model. Matches Edge Gallery allowlist behavior:
+     * Auto uses the model's `accelerators` list (e.g. gpu,cpu) without prepending NPU.
+     * NPU is only tried when the user explicitly selects NPU or the model lists it.
+     */
     fun resolveAcceleratorOrder(
         modelId: String,
         userPreference: LiteRtAcceleratorPreference,
@@ -20,9 +25,6 @@ object LiteRtBackendResolver {
         val ordered = when (userPreference) {
             LiteRtAcceleratorPreference.AUTO -> when {
                 isProbablyEmulator() -> listOf(LiteRtAccelerator.CPU)
-                allowNpuInAuto && !cpuOnly && LiteRtAccelerator.NPU !in modelDefault -> {
-                    listOf(LiteRtAccelerator.NPU) + modelDefault
-                }
                 else -> modelDefault
             }
             LiteRtAcceleratorPreference.GPU -> {

@@ -16,7 +16,8 @@ class PetPromptBuilderTest {
 
         assertTrue(parts.systemInstruction.contains("Pixel Friend AI pet"))
         assertTrue(parts.systemInstruction.contains("Examples:"))
-        assertTrue(parts.systemInstruction.contains("Format: dialogue|"))
+        assertTrue(parts.systemInstruction.contains("dialogue|"))
+        assertTrue(parts.systemInstruction.contains("up to 4 short sentences"))
         assertTrue(!parts.systemInstruction.contains("Pet name: Pixel"))
         assertTrue(parts.userMessage.contains("Pet name: Pixel"))
         assertTrue(parts.userMessage.contains("User: How are you?"))
@@ -56,6 +57,16 @@ class PetPromptBuilderTest {
     }
 
     @Test
+    fun buildParts_mood_pulse_uses_static_system_instruction() {
+        val parts = PetPromptBuilder.buildParts(
+            PetReactionRequest(state = PetState(), moodPulse = true),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.systemInstruction.contains("1-2 short sentences"))
+        assertTrue(!parts.systemInstruction.contains("up to 4 short sentences"))
+    }
+
+    @Test
     fun buildParts_mood_pulse_uses_ambient_user_trigger() {
         val parts = PetPromptBuilder.buildParts(
             PetReactionRequest(state = PetState(), moodPulse = true),
@@ -66,6 +77,48 @@ class PetPromptBuilderTest {
     }
 
     @Test
+    fun buildParts_gameQuestion_injects_faq_block() {
+        val parts = PetPromptBuilder.buildParts(
+            PetReactionRequest(state = PetState(), userMessage = "How do I evolve?"),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.userMessage.contains("Game help facts"))
+        assertTrue(parts.userMessage.contains("Evolution"))
+        assertTrue(!parts.systemInstruction.contains("Evolution"))
+    }
+
+    @Test
+    fun buildParts_statusQuestion_does_not_inject_faq() {
+        val parts = PetPromptBuilder.buildParts(
+            PetReactionRequest(state = PetState(), userMessage = "How are you?"),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.userMessage.contains("wellbeing"))
+        assertTrue(!parts.userMessage.contains("Game help facts"))
+    }
+
+    @Test
+    fun buildCompactTalkParts_gameQuestion_includes_faq() {
+        val parts = PetPromptBuilder.buildCompactTalkParts(
+            PetReactionRequest(state = PetState(), userMessage = "How do I unlock Looks?"),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.userMessage.contains("Game help facts"))
+        assertTrue(parts.userMessage.contains("Looks"))
+    }
+
+    @Test
+    fun buildStreamTalkParts_uses_compact_status_not_full_snapshot() {
+        val parts = PetPromptBuilder.buildStreamTalkParts(
+            PetReactionRequest(state = PetState(), userMessage = "How do I evolve?"),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.userMessage.contains("Status: hunger"))
+        assertTrue(!parts.userMessage.contains("--- Current status"))
+        assertTrue(parts.userMessage.contains("Game help facts"))
+    }
+
+    @Test
     fun buildCompactTalkParts_uses_static_system_and_compact_user_turn() {
         val parts = PetPromptBuilder.buildCompactTalkParts(
             PetReactionRequest(state = PetState(), userMessage = "How are you?"),
@@ -73,8 +126,71 @@ class PetPromptBuilderTest {
         )
         assertTrue(parts.userMessage.contains("User: How are you?"))
         assertTrue(parts.userMessage.contains("Format: words|HAPPY"))
-        assertTrue(parts.systemInstruction.contains("Format: dialogue|"))
-        assertTrue(!parts.systemInstruction.contains("Format: words|HAPPY"))
+        assertTrue(parts.systemInstruction.contains("dialogue|"))
+        assertTrue(parts.systemInstruction.contains("up to 4 short sentences"))
+        assertTrue(!parts.userMessage.contains("Format: dialogue|"))
+    }
+
+    @Test
+    fun buildChatTalkParts_omitsFewShotExamples() {
+        val parts = PetPromptBuilder.buildChatTalkParts(
+            PetReactionRequest(state = PetState(), userMessage = "Tell me a joke"),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(!parts.systemInstruction.contains("Examples:"))
+        assertTrue(!parts.systemInstruction.contains("I'm cheerful!"))
+        assertTrue(parts.userMessage.contains("Caretaker: Tell me a joke"))
+        assertTrue(!parts.userMessage.contains("User: Tell me a joke"))
+        assertTrue(!parts.userMessage.contains("Status: hunger"))
+        assertTrue(!parts.userMessage.contains("Personality:"))
+    }
+
+    @Test
+    fun buildHomeTalkParts_fastTier_usesCaretakerOnly() {
+        val parts = PetPromptBuilder.buildHomeTalkParts(
+            PetReactionRequest(state = PetState(), userMessage = "Thanks!"),
+            "smollm2-360m-instruct",
+        )
+        assertEquals(HomeTalkPromptTier.FAST, PetPromptBuilder.resolveHomeTalkTier("Thanks!"))
+        assertEquals("Caretaker: Thanks!", parts.userMessage)
+    }
+
+    @Test
+    fun buildHomeTalkParts_statusTier_includesStatsAndPersonality() {
+        val parts = PetPromptBuilder.buildHomeTalkParts(
+            PetReactionRequest(state = PetState(name = "Pixel"), userMessage = "How are you?"),
+            "smollm2-360m-instruct",
+        )
+        assertEquals(HomeTalkPromptTier.STATUS, PetPromptBuilder.resolveHomeTalkTier("How are you?"))
+        assertTrue(parts.userMessage.contains("Pet name: Pixel"))
+        assertTrue(parts.userMessage.contains("Personality:"))
+        assertTrue(parts.userMessage.contains("Status: hunger"))
+        assertTrue(parts.userMessage.contains("wellbeing"))
+    }
+
+    @Test
+    fun buildHomeTalkParts_gameTier_includesFaqBlock() {
+        val parts = PetPromptBuilder.buildHomeTalkParts(
+            PetReactionRequest(state = PetState(), userMessage = "How do I evolve?"),
+            "smollm2-360m-instruct",
+        )
+        assertEquals(HomeTalkPromptTier.GAME_HELP, PetPromptBuilder.resolveHomeTalkTier("How do I evolve?"))
+        assertTrue(parts.userMessage.contains("Game help facts"))
+        assertTrue(!parts.userMessage.contains("Status: hunger"))
+    }
+
+    @Test
+    fun homeTalkSystemInstruction_isCompact() {
+        val rules = PetPromptBuilder.homeTalkSystemInstruction()
+        assertTrue(rules.length in 150..250)
+        assertTrue(rules.contains("HAPPY, SLEEPY, HUNGRY, CURIOUS, or NEUTRAL"))
+        assertTrue(!rules.contains("Examples:"))
+    }
+
+    @Test
+    fun needsStatusContext_detectsFeelingKeywords() {
+        assertTrue(PetPromptBuilder.needsStatusContext("You seem tired today"))
+        assertTrue(!PetPromptBuilder.needsStatusContext("Tell me a joke"))
     }
 
     @Test

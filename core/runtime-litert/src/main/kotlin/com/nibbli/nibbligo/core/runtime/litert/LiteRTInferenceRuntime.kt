@@ -5,9 +5,11 @@ import com.nibbli.nibbligo.core.litert.engine.StreamEvent
 import com.nibbli.nibbligo.core.litert.engine.TurnResult
 import com.nibbli.nibbligo.core.litert.engine.liteRtToolArgumentsToJson
 import com.nibbli.nibbligo.core.model.AgentMessageRole
+import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
 import com.nibbli.nibbligo.core.model.AgentRequest
 import com.nibbli.nibbligo.core.model.AgentTurn
 import com.nibbli.nibbligo.core.model.BenchmarkMetrics
+import com.nibbli.nibbligo.core.model.PetBenchmarkMetrics
 import com.nibbli.nibbligo.core.model.ChatInferenceRequest
 import com.nibbli.nibbligo.core.model.CompletionRequest
 import com.nibbli.nibbligo.core.model.InferenceChunk
@@ -30,6 +32,7 @@ import javax.inject.Singleton
 class LiteRTInferenceRuntime @Inject constructor(
     private val enginePool: LiteRtEnginePool,
     private val mobileActionsPerformer: MobileActionsPerformer,
+    private val petBenchmark: LiteRtPetBenchmark,
 ) : InferenceRuntime {
 
     override val runtimeKind: RuntimeKind = RuntimeKind.LITERT
@@ -93,8 +96,36 @@ class LiteRTInferenceRuntime @Inject constructor(
         }
     }
 
+    override suspend fun ensureHomeTalkSession(
+        modelId: String,
+        systemInstruction: String,
+    ): RuntimeResult<Unit> {
+        if (!useLiteRt(modelId)) return modelNotInstalled(modelId)
+        return try {
+            enginePool.ensureSession(
+                modelId = modelId,
+                tools = emptyList(),
+                systemInstruction = systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_HOME_TALK,
+            )
+            RuntimeResult.Success(Unit)
+        } catch (e: Exception) {
+            RuntimeResult.Error(e.message ?: "LiteRT home talk load failed", e)
+        }
+    }
+
     override fun unloadModel(modelId: String) {
         enginePool.unload(modelId)
+    }
+
+    override fun resetChatSession(modelId: String) {
+        if (!useLiteRt(modelId)) return
+        enginePool.resetPlainChatSession(modelId)
+    }
+
+    override fun resetHomeTalkSession(modelId: String) {
+        if (!useLiteRt(modelId)) return
+        enginePool.resetHomeTalkSession(modelId)
     }
 
     override fun streamChat(request: ChatInferenceRequest): Flow<InferenceChunk> {
@@ -176,8 +207,60 @@ class LiteRTInferenceRuntime @Inject constructor(
             }
         } catch (e: Exception) {
             val message = e.message?.takeIf { it.isNotBlank() } ?: "LiteRT pet error"
-            emit(InferenceChunk(message))
+            emit(InferenceChunk("${LiteRtPetReactionGenerator.LITERT_ERROR_PREFIX}$message"))
             emit(InferenceChunk("", isComplete = true))
+        }
+    }
+
+    override fun streamHomeTalk(request: PetTurnRequest): Flow<InferenceChunk> = flow {
+        if (!useLiteRt(request.modelId)) {
+            emit(
+                InferenceChunk(
+                    "Install a LiteRT model under Manage → Models to use chat.",
+                    isComplete = true,
+                ),
+            )
+            return@flow
+        }
+        try {
+            enginePool.streamMessage(
+                modelId = request.modelId,
+                userText = request.userMessage,
+                tools = emptyList(),
+                systemInstruction = request.systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_HOME_TALK,
+            ).collect { event ->
+                when (event) {
+                    is StreamEvent.Token -> emit(InferenceChunk(event.text))
+                    is StreamEvent.Done -> emit(InferenceChunk("", isComplete = true))
+                }
+            }
+        } catch (e: Exception) {
+            val message = e.message?.takeIf { it.isNotBlank() } ?: "LiteRT home talk error"
+            emit(InferenceChunk("${LiteRtPetReactionGenerator.LITERT_ERROR_PREFIX}$message"))
+            emit(InferenceChunk("", isComplete = true))
+        }
+    }
+
+    override suspend fun completeHomeTalk(request: PetTurnRequest): RuntimeResult<String> {
+        if (!useLiteRt(request.modelId)) return modelNotInstalled(request.modelId)
+        return try {
+            enginePool.ensureSession(
+                modelId = request.modelId,
+                tools = emptyList(),
+                systemInstruction = request.systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_HOME_TALK,
+            )
+            val result = enginePool.sendTurn(
+                modelId = request.modelId,
+                userText = request.userMessage,
+                tools = emptyList(),
+                systemInstruction = request.systemInstruction,
+                profile = LiteRtEnginePool.SESSION_PROFILE_HOME_TALK,
+            )
+            RuntimeResult.Success(result.text)
+        } catch (e: Exception) {
+            RuntimeResult.Error(e.message ?: "LiteRT home talk failed", e)
         }
     }
 
@@ -187,8 +270,34 @@ class LiteRTInferenceRuntime @Inject constructor(
     override suspend fun transcribeAudio(request: TranscriptionRequest): RuntimeResult<String> =
         RuntimeResult.Unsupported
 
-    override suspend fun runBenchmark(modelId: String): RuntimeResult<BenchmarkMetrics> =
-        RuntimeResult.Unsupported
+    override suspend fun runBenchmark(modelId: String): RuntimeResult<BenchmarkMetrics> {
+        if (!useLiteRt(modelId)) return modelNotInstalled(modelId)
+        return try {
+            val raw = enginePool.benchmarkStreamTurn(
+                modelId = modelId,
+                userText = LiteRtEnginePool.BENCHMARK_RAW_PROMPT,
+            )
+            RuntimeResult.Success(
+                BenchmarkMetrics(
+                    timeToFirstTokenMs = raw.timeToFirstTokenMs,
+                    tokensPerSecond = raw.tokensPerSecond,
+                    estimatedMemoryMb = 0,
+                    thermalNote = enginePool.activeBackendFor(modelId) ?: "unknown",
+                ),
+            )
+        } catch (e: Exception) {
+            RuntimeResult.Error(e.message ?: "LiteRT benchmark failed", e)
+        }
+    }
+
+    override suspend fun runPetBenchmark(modelId: String): RuntimeResult<PetBenchmarkMetrics> {
+        if (!useLiteRt(modelId)) return modelNotInstalled(modelId)
+        return try {
+            RuntimeResult.Success(petBenchmark.run(modelId))
+        } catch (e: Exception) {
+            RuntimeResult.Error(e.message ?: "LiteRT pet benchmark failed", e)
+        }
+    }
 
     override fun capabilitiesFor(modelId: String): ModelCapabilities {
         val installed = useLiteRt(modelId)

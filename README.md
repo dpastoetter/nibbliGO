@@ -22,6 +22,8 @@ Regenerate after UI changes:
 
 - Retro **P1 LCD** pet with care actions (feed, play, clean, medicine, sleep).
 - **Talk** sheet plus Home quick actions: **Talk to me** (voice), **How are you?**, and **Stop** (cancels an in-flight reply).
+- In **talk mode**, the pet moves to the bottom-left of the LCD and the LLM reply is centered on-screen (scrolls when long); conversation history appears below the stat strip in the companion panel.
+- A **chat bar** at the bottom of Home lets you type messages to nibbli anytime (same on-device Pixel Friend model as the quick chips).
 - **Talk to me** and quick chips use the **Pixel Friend** on-device model (Settings → on-device models), not Agent Chat.
 - **Looks** — unlock cosmetic overlays (collar, star patch, aurora aura) and equip them on the sprite.
 - Optional **mood pulse** — spontaneous LLM lines while Home is visible, the app is in the foreground, and nibbli is awake (Settings → mood pulse: off / normal / quiet).
@@ -121,6 +123,8 @@ adb wait-for-device
 | [`LiteRtEnginePool`](core/litert-engine/src/main/kotlin/com/nibbli/nibbligo/core/litert/engine/LiteRtEnginePool.kt) | Warm pet session, per-model GPU/CPU/NPU policy, conversation reset each turn |
 | Model pick | Settings → **Pixel Friend model** (Auto prefers SmolLM2 → Gemma 3 → …) |
 | Status questions (“How are you?”) | On-device LLM with compact pet prompt; template fallback if inference fails |
+| Game help (Talk) | Ask about care, evolution, Looks, minigames — pet answers in character using an on-device FAQ knowledge base |
+| Home talk history | Saved to **Assist → Local Chat** as **Pixel Friend (Home)** |
 
 Care works without a model; **Talk**, voice, and LLM mood lines need a downloaded `.litertlm` file.
 
@@ -175,7 +179,7 @@ Models live under app storage as `*.litertlm`. Chat, Agent, Prompt Lab, and pet 
 ./gradlew connectedAndroidTest   # device/emulator required
 ```
 
-Unit tests cover `PetSimulationEngine`, `ModelCatalog`, `PetPromptBuilder`, `LiteRtBackendResolver`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/cosmetic helpers. Some instrumented flows need a downloaded model and are `@Ignore` by default.
+Unit tests cover `PetSimulationEngine`, `ModelCatalog`, `PetPromptBuilder`, `PetGameFaqMatcher`, `LiteRtBackendResolver`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/cosmetic helpers. Some instrumented flows need a downloaded model and are `@Ignore` by default.
 
 ## Google AI Edge Gallery
 

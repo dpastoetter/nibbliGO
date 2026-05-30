@@ -38,14 +38,14 @@ class LiteRtBackendResolverTest {
     }
 
     @Test
-    fun smollm2_prependsNpuOnPhysicalDeviceInAuto() {
+    fun smollm2_autoOnPhysicalDevice_matchesGalleryGpuThenCpu() {
         val order = LiteRtBackendResolver.resolveAcceleratorOrder(
             modelId = "smollm2-360m-instruct",
             userPreference = LiteRtAcceleratorPreference.AUTO,
             allowNpuInAuto = true,
         )
         assertEquals(
-            listOf(LiteRtAccelerator.NPU, LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
+            listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
             order,
         )
     }

@@ -55,6 +55,19 @@ data class BenchmarkMetrics(
     val thermalNote: String,
 )
 
+/** Raw LiteRT vs pet-path vs conversation-refresh breakdown for Pixel Friend tuning. */
+data class PetBenchmarkMetrics(
+    val rawTimeToFirstTokenMs: Long,
+    val rawTokensPerSecond: Float,
+    val petPathTimeToFirstTokenMs: Long,
+    val petPathTokensPerSecond: Float,
+    val refreshMs: Long,
+    val backendName: String,
+    val thermalNote: String,
+    val homeTalkFastTierTimeToFirstTokenMs: Long = 0L,
+    val homeTalkCombinedPromptTimeToFirstTokenMs: Long = 0L,
+)
+
 data class BenchmarkRun(
     val id: Long = 0,
     val modelId: String,

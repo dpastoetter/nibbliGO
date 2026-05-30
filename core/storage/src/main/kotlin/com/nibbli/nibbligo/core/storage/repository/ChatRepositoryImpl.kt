@@ -36,6 +36,22 @@ class ChatRepositoryImpl @Inject constructor(
     )
   }
 
+  override suspend fun findConversationByTitle(title: String): Conversation? =
+    conversationDao.findByTitle(title)?.toDomain()
+
+  override suspend fun getOrCreateConversation(title: String, modelId: String): Long {
+    val existing = conversationDao.findByTitle(title)
+    if (existing != null) {
+      if (existing.modelId != modelId) {
+        conversationDao.update(
+          existing.copy(modelId = modelId, updatedAtMillis = System.currentTimeMillis()),
+        )
+      }
+      return existing.id
+    }
+    return createConversation(modelId, title)
+  }
+
   override suspend fun saveMessage(message: ChatMessage) {
     messageDao.insert(message.toEntity())
   }

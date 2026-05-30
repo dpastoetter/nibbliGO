@@ -16,6 +16,7 @@ import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import com.nibbli.nibbligo.core.domain.model.InstalledModelPathResolver
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.ModelCatalog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -39,8 +40,11 @@ data class LiteRtSession(
     val engine: Engine,
     var conversation: Conversation,
     val backendName: String,
-    val petSystemInstruction: String? = null,
+    val petModelId: String = "",
+    var petSystemInstruction: String? = null,
     val petTools: List<ToolProvider> = emptyList(),
+    val homeTalkModelId: String = "",
+    var homeTalkSystemInstruction: String? = null,
 )
 
 @Singleton
@@ -62,6 +66,7 @@ class LiteRtEnginePool @Inject constructor(
         val toolsPart = if (tools.isEmpty()) "plain" else "tools"
         val sysPart = when {
             profile == SESSION_PROFILE_PET_CHAT -> "pet-static"
+            profile == SESSION_PROFILE_HOME_TALK -> "home-talk-static"
             profile == SESSION_PROFILE_MOBILE_ACTIONS -> "mobile-static"
             else -> systemInstruction?.hashCode()?.toString() ?: "nosys"
         }
@@ -81,13 +86,53 @@ class LiteRtEnginePool @Inject constructor(
         profile: String = SESSION_PROFILE_DEFAULT,
     ): LiteRtSession {
         val key = sessionKey(modelId, tools, systemInstruction, profile)
-        sessions[key]?.let { return it }
+        sessions[key]?.let { existing ->
+            if (
+                profile == SESSION_PROFILE_PET_CHAT &&
+                systemInstruction != null &&
+                systemInstruction != existing.petSystemInstruction
+            ) {
+                existing.petSystemInstruction = systemInstruction
+                refreshPetConversation(existing)
+            }
+            if (
+                profile == SESSION_PROFILE_HOME_TALK &&
+                systemInstruction != null &&
+                systemInstruction != existing.homeTalkSystemInstruction
+            ) {
+                existing.homeTalkSystemInstruction = systemInstruction
+                refreshHomeTalkConversation(existing)
+            }
+            return existing
+        }
 
         return initMutex.withLock {
-            sessions[key]?.let { return it }
+            sessions[key]?.let { existing ->
+                if (
+                    profile == SESSION_PROFILE_PET_CHAT &&
+                    systemInstruction != null &&
+                    systemInstruction != existing.petSystemInstruction
+                ) {
+                    existing.petSystemInstruction = systemInstruction
+                    refreshPetConversation(existing)
+                }
+                if (
+                    profile == SESSION_PROFILE_HOME_TALK &&
+                    systemInstruction != null &&
+                    systemInstruction != existing.homeTalkSystemInstruction
+                ) {
+                    existing.homeTalkSystemInstruction = systemInstruction
+                    refreshHomeTalkConversation(existing)
+                }
+                return@withLock existing
+            }
 
-            // Pet chat and agent paths must not keep two full Engine instances for one model.
-            if (profile == SESSION_PROFILE_PET_CHAT) {
+            // One Engine per model — avoid loading GPU weights multiple times (critical on Pixel).
+            if (
+                profile == SESSION_PROFILE_PET_CHAT ||
+                profile == SESSION_PROFILE_HOME_TALK ||
+                profile == SESSION_PROFILE_DEFAULT
+            ) {
                 unloadSessionsForModel(modelId, exceptKey = key)
             }
 
@@ -104,7 +149,9 @@ class LiteRtEnginePool @Inject constructor(
             var lastError: Exception? = null
             for (backend in backends) {
                 try {
-                    val session = createSession(path, backend, tools, systemInstruction, profile)
+                    val ensureStart = System.nanoTime()
+                    val session = createSession(path, modelId, backend, tools, systemInstruction, profile)
+                    LiteRtPetTiming.log("ensureSession", (System.nanoTime() - ensureStart) / 1_000_000)
                     Log.i(
                         TAG,
                         "Loaded $modelId on ${backend.name} backend " +
@@ -131,23 +178,32 @@ class LiteRtEnginePool @Inject constructor(
 
     private fun createSession(
         path: String,
+        modelId: String,
         backend: Backend,
         tools: List<ToolProvider>,
         systemInstruction: String?,
         profile: String = SESSION_PROFILE_DEFAULT,
     ): LiteRtSession {
         val modelFile = File(path)
+        val catalogMaxTokens = ModelCatalog.find(modelId)?.maxContextTokens
+        val maxNumTokens = when (profile) {
+            SESSION_PROFILE_PET_CHAT -> PET_MAX_NUM_TOKENS
+            SESSION_PROFILE_HOME_TALK -> HOME_TALK_MAX_NUM_TOKENS
+            else -> catalogMaxTokens ?: DEFAULT_MAX_NUM_TOKENS
+        }
         // maxNumTokens is total context capacity (input + output), not output length alone.
+        val cacheDir = context.getExternalFilesDir(null)?.absolutePath
+            ?: modelFile.parentFile?.absolutePath
         val engineConfig = EngineConfig(
             modelPath = path,
             backend = backend,
-            maxNumTokens = DEFAULT_MAX_NUM_TOKENS,
-            cacheDir = modelFile.parentFile?.absolutePath,
+            maxNumTokens = maxNumTokens,
+            cacheDir = cacheDir,
         )
         val engine = Engine(engineConfig)
         engine.initialize()
         val sysContents = systemInstruction?.let { Contents.of(Content.Text(it)) }
-        val samplerConfig = samplerConfigFor(profile)
+        val samplerConfig = samplerConfigFor(profile, modelId)
         val conversation = engine.createConversation(
             ConversationConfig(
                 samplerConfig = samplerConfig,
@@ -164,15 +220,34 @@ class LiteRtEnginePool @Inject constructor(
             engine = engine,
             conversation = conversation,
             backendName = backend.name,
+            petModelId = if (profile == SESSION_PROFILE_PET_CHAT) modelId else "",
             petSystemInstruction = petMeta?.first,
             petTools = petMeta?.second ?: emptyList(),
+            homeTalkModelId = if (profile == SESSION_PROFILE_HOME_TALK) modelId else "",
+            homeTalkSystemInstruction = if (profile == SESSION_PROFILE_HOME_TALK) systemInstruction else null,
         )
     }
 
-    private fun samplerConfigFor(profile: String): SamplerConfig = when (profile) {
-        SESSION_PROFILE_PET_CHAT -> SamplerConfig(topK = 24, topP = 0.92, temperature = 0.7)
-        SESSION_PROFILE_MOBILE_ACTIONS -> SamplerConfig(topK = 64, topP = 0.95, temperature = 0.0)
+    private fun samplerConfigFor(profile: String, modelId: String): SamplerConfig = when {
+        profile == SESSION_PROFILE_PET_CHAT && isCompactPetModel(modelId) ->
+            SamplerConfig(topK = 16, topP = 0.9, temperature = 0.4)
+        profile == SESSION_PROFILE_PET_CHAT ->
+            SamplerConfig(topK = 24, topP = 0.92, temperature = 0.7)
+        profile == SESSION_PROFILE_HOME_TALK ->
+            SamplerConfig(topK = 24, topP = 0.9, temperature = 0.5)
+        profile == SESSION_PROFILE_MOBILE_ACTIONS ->
+            SamplerConfig(topK = 64, topP = 0.95, temperature = 0.0)
         else -> SamplerConfig(topK = 40, topP = 0.95, temperature = 0.8)
+    }
+
+    private fun isCompactPetModel(modelId: String): Boolean =
+        modelId.contains("smollm", ignoreCase = true) ||
+            modelId.contains("functiongemma", ignoreCase = true)
+
+    internal fun refreshPetConversationTimed(session: LiteRtSession): Long {
+        val start = System.nanoTime()
+        refreshPetConversation(session)
+        return (System.nanoTime() - start) / 1_000_000
     }
 
     private fun refreshPetConversation(session: LiteRtSession) {
@@ -185,9 +260,59 @@ class LiteRtEnginePool @Inject constructor(
         val sysContents = session.petSystemInstruction?.let { Contents.of(Content.Text(it)) }
         session.conversation = session.engine.createConversation(
             ConversationConfig(
-                samplerConfig = samplerConfigFor(SESSION_PROFILE_PET_CHAT),
+                samplerConfig = samplerConfigFor(SESSION_PROFILE_PET_CHAT, session.petModelId),
                 systemInstruction = sysContents,
                 tools = session.petTools,
+            ),
+        )
+    }
+
+    /** Drop accumulated Home talk turns while keeping cached system instruction. */
+    fun resetHomeTalkSession(modelId: String) {
+        val key = sessionKey(modelId, emptyList(), null, SESSION_PROFILE_HOME_TALK)
+        sessions[key]?.let { session ->
+            refreshHomeTalkConversation(session)
+        }
+    }
+
+    private fun refreshHomeTalkConversation(session: LiteRtSession) {
+        if (session.homeTalkSystemInstruction == null) return
+        try {
+            session.conversation.close()
+        } catch (e: Exception) {
+            Log.w(TAG, "home talk conversation close before refresh", e)
+        }
+        val sysContents = session.homeTalkSystemInstruction?.let { Contents.of(Content.Text(it)) }
+        session.conversation = session.engine.createConversation(
+            ConversationConfig(
+                samplerConfig = samplerConfigFor(SESSION_PROFILE_HOME_TALK, session.homeTalkModelId),
+                systemInstruction = sysContents,
+            ),
+        )
+    }
+
+    /** Drop accumulated chat turns for the plain (Local Chat) session. */
+    fun resetPlainChatSession(modelId: String, tools: List<ToolProvider> = emptyList()) {
+        val key = sessionKey(modelId, tools, null, SESSION_PROFILE_DEFAULT)
+        sessions[key]?.let { session ->
+            refreshPlainChatSession(session, modelId, tools)
+        }
+    }
+
+    private fun refreshPlainChatSession(
+        session: LiteRtSession,
+        modelId: String,
+        tools: List<ToolProvider>,
+    ) {
+        try {
+            session.conversation.close()
+        } catch (e: Exception) {
+            Log.w(TAG, "plain conversation close before refresh", e)
+        }
+        session.conversation = session.engine.createConversation(
+            ConversationConfig(
+                samplerConfig = samplerConfigFor(SESSION_PROFILE_DEFAULT, modelId),
+                tools = tools,
             ),
         )
     }
@@ -235,17 +360,16 @@ class LiteRtEnginePool @Inject constructor(
             return streamMessageInternal(modelId, userText, tools, systemInstruction, profile)
         }
         return flow {
+            val session = ensureSession(modelId, tools, systemInstruction, profile)
             petTurnMutex.withLock {
-                var session: LiteRtSession? = null
                 callbackFlow {
-                    session = ensureSession(modelId, tools, systemInstruction, profile)
-                    val activeSession = session!!
+                    val activeSession = session
                     val contents = Contents.of(Content.Text(userText))
                     activeSession.conversation.sendMessageAsync(
                         contents,
                         object : MessageCallback {
                             override fun onMessage(message: Message) {
-                                val chunk = message.extractDisplayText()
+                                val chunk = message.extractModelReplyText()
                                 if (chunk.isNotEmpty()) {
                                     trySend(StreamEvent.Token(chunk, message.extractThought()))
                                 }
@@ -264,8 +388,9 @@ class LiteRtEnginePool @Inject constructor(
                     )
                     awaitClose { activeSession.conversation.cancelProcess() }
                 }.collect { emit(it) }
-                session?.let { refreshPetConversation(it) }
             }
+            val refreshMs = refreshPetConversationTimed(session)
+            LiteRtPetTiming.log("refreshPetConversation", refreshMs)
         }
     }
 
@@ -312,12 +437,15 @@ class LiteRtEnginePool @Inject constructor(
         if (profile != SESSION_PROFILE_PET_CHAT) {
             return sendTurnInternal(modelId, userText, tools, systemInstruction, profile)
         }
-        return petTurnMutex.withLock {
-            val key = sessionKey(modelId, tools, systemInstruction, profile)
-            val result = sendTurnInternal(modelId, userText, tools, systemInstruction, profile)
-            sessions[key]?.let { refreshPetConversation(it) }
-            result
+        val key = sessionKey(modelId, tools, systemInstruction, profile)
+        val result = petTurnMutex.withLock {
+            sendTurnInternal(modelId, userText, tools, systemInstruction, profile)
         }
+        sessions[key]?.let { session ->
+            val refreshMs = refreshPetConversationTimed(session)
+            LiteRtPetTiming.log("refreshPetConversation", refreshMs)
+        }
+        return result
     }
 
     private suspend fun sendTurnInternal(
@@ -336,7 +464,12 @@ class LiteRtEnginePool @Inject constructor(
                 Contents.of(Content.Text(userText)),
                 object : MessageCallback {
                     override fun onMessage(message: Message) {
-                        builder.append(message.extractDisplayText())
+                        val chunk = if (profile == SESSION_PROFILE_PET_CHAT) {
+                            message.extractModelReplyText()
+                        } else {
+                            message.extractDisplayText()
+                        }
+                        builder.append(chunk)
                         message.extractThought()?.let { thoughts.add(it) }
                         if (message.toolCalls.isNotEmpty()) {
                             toolCalls.addAll(message.toolCalls)
@@ -417,11 +550,55 @@ class LiteRtEnginePool @Inject constructor(
         }
     }
 
+    fun measurePetRefresh(modelId: String): Long {
+        val key = sessionKey(modelId, emptyList(), null, SESSION_PROFILE_PET_CHAT)
+        val session = sessions[key] ?: return 0L
+        return refreshPetConversationTimed(session)
+    }
+
+    suspend fun benchmarkStreamTurn(
+        modelId: String,
+        userText: String,
+        systemInstruction: String? = null,
+        profile: String = SESSION_PROFILE_DEFAULT,
+    ): LiteRtStreamBenchmarkResult {
+        val decodeStart = System.nanoTime()
+        var firstTokenAt: Long? = null
+        var charCount = 0
+        streamMessage(modelId, userText, emptyList(), systemInstruction, profile).collect { event ->
+            when (event) {
+                is StreamEvent.Token -> {
+                    if (firstTokenAt == null) {
+                        firstTokenAt = System.nanoTime()
+                    }
+                    charCount += event.text.length
+                }
+                StreamEvent.Done -> Unit
+            }
+        }
+        val totalMs = (System.nanoTime() - decodeStart) / 1_000_000
+        val ttftMs = firstTokenAt?.let { (it - decodeStart) / 1_000_000 } ?: totalMs
+        val tokenEstimate = (charCount / 4).coerceAtLeast(1)
+        val decodeMs = (totalMs - ttftMs).coerceAtLeast(1)
+        val tokPerSec = tokenEstimate * 1000f / decodeMs
+        return LiteRtStreamBenchmarkResult(
+            timeToFirstTokenMs = ttftMs,
+            totalMs = totalMs,
+            approximateTokenCount = tokenEstimate,
+            tokensPerSecond = tokPerSec,
+        )
+    }
+
     companion object {
         const val SESSION_PROFILE_DEFAULT = "default"
         const val SESSION_PROFILE_PET_CHAT = "pet-chat"
+        const val SESSION_PROFILE_HOME_TALK = "home-talk"
         const val SESSION_PROFILE_MOBILE_ACTIONS = "mobile-actions"
         private const val DEFAULT_MAX_NUM_TOKENS = 2048
+        internal const val PET_MAX_NUM_TOKENS = 1024
+        internal const val HOME_TALK_MAX_NUM_TOKENS = 512
+        const val BENCHMARK_RAW_PROMPT = "Say hello in one short sentence."
+        const val BENCHMARK_HOME_TALK_FAST_PROMPT = "Caretaker: Hi there!"
     }
 }
 

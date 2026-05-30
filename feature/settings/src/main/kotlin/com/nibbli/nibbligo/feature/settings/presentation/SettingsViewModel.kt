@@ -9,6 +9,7 @@ import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
 import com.nibbli.nibbligo.core.litert.engine.LiteRtEnginePool
+import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
@@ -49,6 +50,7 @@ class SettingsViewModel @Inject constructor(
     private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
     private val huggingFaceAuthHandler: HuggingFaceAuthHandler,
     private val liteRtEnginePool: LiteRtEnginePool,
+    private val liteRtModelPreloader: LiteRtModelPreloader,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -171,6 +173,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.setLitertAccelerator(preference)
             liteRtEnginePool.unloadAll()
+            liteRtModelPreloader.invalidate()
+            liteRtModelPreloader.preloadPrimaryModel(force = true)
         }
     }
 

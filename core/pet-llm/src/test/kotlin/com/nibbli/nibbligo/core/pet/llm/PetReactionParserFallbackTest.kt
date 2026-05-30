@@ -19,6 +19,16 @@ class PetReactionParserFallbackTest {
     }
 
     @Test
+    fun fallback_gameQuestion_usesFaqAnswer() {
+        val request = PetReactionRequest(
+            state = PetState(),
+            userMessage = "How do I evolve?",
+        )
+        val reaction = PetReactionParser.fallback(request)
+        assertTrue(reaction.dialogue.contains("Evolution"))
+    }
+
+    @Test
     fun fallback_genericUserMessage_mentionsHiccup() {
         val request = PetReactionRequest(
             state = PetState(),

@@ -21,6 +21,7 @@ data class BenchmarkUiState(
     val history: List<BenchmarkRun> = emptyList(),
     val isRunning: Boolean = false,
     val lastResult: String? = null,
+    val lastPetResult: String? = null,
 )
 
 @HiltViewModel
@@ -68,6 +69,30 @@ class BenchmarkViewModel @Inject constructor(
                 }
                 is RuntimeResult.Error -> _uiState.update { it.copy(isRunning = false, lastResult = result.message) }
                 else -> _uiState.update { it.copy(isRunning = false, lastResult = "Failed") }
+            }
+        }
+    }
+
+    fun runPetBenchmark() {
+        val modelId = _uiState.value.selectedModelId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRunning = true) }
+            when (val result = inferenceRuntime.runPetBenchmark(modelId)) {
+                is RuntimeResult.Success -> {
+                    val m = result.data
+                    _uiState.update {
+                        it.copy(
+                            isRunning = false,
+                            lastPetResult = "Raw TTFT ${m.rawTimeToFirstTokenMs}ms · ${m.rawTokensPerSecond} tok/s\n" +
+                                "Pet TTFT ${m.petPathTimeToFirstTokenMs}ms · ${m.petPathTokensPerSecond} tok/s\n" +
+                                "Home fast TTFT ${m.homeTalkFastTierTimeToFirstTokenMs}ms · " +
+                                "combined ${m.homeTalkCombinedPromptTimeToFirstTokenMs}ms\n" +
+                                "Refresh ${m.refreshMs}ms · ${m.backendName} · ${m.thermalNote}",
+                        )
+                    }
+                }
+                is RuntimeResult.Error -> _uiState.update { it.copy(isRunning = false, lastPetResult = result.message) }
+                else -> _uiState.update { it.copy(isRunning = false, lastPetResult = "Failed") }
             }
         }
     }

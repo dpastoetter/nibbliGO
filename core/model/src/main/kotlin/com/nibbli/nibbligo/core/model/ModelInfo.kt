@@ -22,6 +22,8 @@ data class ModelInfo(
         LiteRtAccelerator.GPU,
         LiteRtAccelerator.CPU,
     ),
+    /** Total LiteRT context window (input + output), aligned with Edge Gallery allowlist. */
+    val maxContextTokens: Int = 2048,
 ) {
     fun resolveDownloadUrl(): String? {
         downloadUrl?.let { return it }

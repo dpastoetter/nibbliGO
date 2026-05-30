@@ -93,7 +93,8 @@ fun PetHomeScreen(
     }
 
     val pet = uiState.petState
-    val talkEnabled = pet.isAlive && !uiState.isGeneratingDialogue && !uiState.isVoiceListening
+    val talkEnabled = pet.isAlive && !uiState.isGeneratingDialogue &&
+        !uiState.isVoiceListening && !uiState.isWarmingModel
 
     Box(modifier = modifier.fillMaxSize()) {
         NibbliAmbientBackground()
@@ -101,7 +102,9 @@ fun PetHomeScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             PetHomeHeader(
                 pet = pet,
+                petModelLabel = uiState.petModelLabel,
                 statusMessage = uiState.statusMessage,
+                isWarmingModel = uiState.isWarmingModel,
                 onLooksClick = { showCosmeticsSheet = true },
             )
 
@@ -127,17 +130,22 @@ fun PetHomeScreen(
                             pet = pet,
                             onPetTap = { viewModel.onPetTapped() },
                             onCareAction = { viewModel.onInteraction(it) },
+                            dialogueLine = pet.dialogueLine,
+                            isGeneratingDialogue = uiState.isGeneratingDialogue,
+                            talkLcdMode = uiState.talkLcdMode,
+                            onDismissTalkLcd = viewModel::dismissTalkLcdMode,
                             modifier = Modifier.fillMaxWidth(0.94f),
                         )
                     }
 
                     PetCompanionPanel(
-                        dialogueLine = pet.dialogueLine,
-                        isGeneratingDialogue = uiState.isGeneratingDialogue,
-                        previousLines = uiState.recentDialogue,
                         stats = pet.stats,
                         talkEnabled = talkEnabled,
+                        isGeneratingDialogue = uiState.isGeneratingDialogue,
                         isVoiceListening = uiState.isVoiceListening,
+                        talkHistory = uiState.talkHistory,
+                        streamingDialogue = pet.dialogueLine,
+                        talkLcdMode = uiState.talkLcdMode,
                         onChipSelected = { viewModel.onQuickChip(it) },
                         onStopClick = { viewModel.stopGeneration() },
                         onTalkToMeClick = launchVoiceTalk,
@@ -149,6 +157,14 @@ fun PetHomeScreen(
             if (pet.condition == PetCondition.DEAD) {
                 PetDeadBanner(onHatch = { viewModel.hatchNewEgg() })
             }
+
+            PetTalkInputBar(
+                enabled = talkEnabled,
+                isGeneratingDialogue = uiState.isGeneratingDialogue,
+                isWarmingModel = uiState.isWarmingModel,
+                onSend = { viewModel.onTalkSend(it) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+            )
 
             PetQuickActionStrip(
                 cosmeticsCount = pet.unlockedCosmetics.size,

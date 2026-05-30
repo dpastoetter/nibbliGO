@@ -1,0 +1,137 @@
+package com.nibbli.nibbligo.core.pet.llm
+
+import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
+import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.AppThemeMode
+import com.nibbli.nibbligo.core.model.GenerationParams
+import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
+import com.nibbli.nibbligo.core.model.ModelCapabilities
+import com.nibbli.nibbligo.core.model.PetMoodPulseMode
+import com.nibbli.nibbligo.core.model.PetPersonality
+import com.nibbli.nibbligo.core.model.RuntimeKind
+import com.nibbli.nibbligo.core.model.RuntimeResult
+import com.nibbli.nibbligo.core.runtime.InferenceRuntime
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [31])
+class LiteRtModelPreloaderTest {
+
+    @Test
+    fun preloadPrimaryModel_setsWarmingFlagDuringLoad() = runTest {
+        val runtime = SlowHomeTalkRuntime()
+        val preloader = createPreloader(runtime)
+
+        val warmingDuringLoad = async {
+            while (!runtime.loadStarted) {
+                delay(1)
+            }
+            preloader.isWarmingUp.value
+        }
+        val preloadJob = async { preloader.preloadPrimaryModel() }
+
+        assertTrue(warmingDuringLoad.await())
+        preloadJob.await()
+        assertFalse(preloader.isWarmingUp.value)
+    }
+
+    @Test
+    fun preloadPrimaryModel_skipsWarmingWhenAlreadyLoaded() = runTest {
+        val runtime = SlowHomeTalkRuntime()
+        val preloader = createPreloader(runtime)
+
+        preloader.preloadPrimaryModel()
+        assertFalse(preloader.isWarmingUp.value)
+
+        runtime.loadStarted = false
+        preloader.preloadPrimaryModel()
+        assertFalse(preloader.isWarmingUp.value)
+        assertFalse(runtime.loadStarted)
+    }
+
+    private fun createPreloader(runtime: InferenceRuntime): LiteRtModelPreloader {
+        val gate = object : ModelAvailabilityGate {
+            override suspend fun hasUsableModel(): Boolean = true
+            override suspend fun firstUsableModelId(): String = "smollm2-360m-instruct"
+        }
+        val prefs = object : UserPreferencesRepository {
+            override val defaultModelId = flowOf("smollm2-360m-instruct")
+            override val petModelId = flowOf<String?>(null)
+            override val generationParams = flowOf(GenerationParams())
+            override val allowDownloads = flowOf(true)
+            override val preferredRuntimeKind = flowOf("litert")
+            override val petPersonality = flowOf(PetPersonality.PLAYFUL)
+            override val usePetLlmReactions = flowOf(true)
+            override val petCommentOnAgentWork = flowOf(true)
+            override val petMoodPulseMode = flowOf(PetMoodPulseMode.NORMAL)
+            override val themeMode = flowOf(AppThemeMode.SYSTEM)
+            override val showDoTab = flowOf(false)
+            override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
+            override suspend fun setDefaultModelId(modelId: String?) = Unit
+            override suspend fun setPetModelId(modelId: String?) = Unit
+            override suspend fun setGenerationParams(params: GenerationParams) = Unit
+            override suspend fun setAllowDownloads(allowed: Boolean) = Unit
+            override suspend fun setPreferredRuntimeKind(kind: String) = Unit
+            override suspend fun setPetPersonality(personality: PetPersonality) = Unit
+            override suspend fun setUsePetLlmReactions(enabled: Boolean) = Unit
+            override suspend fun setPetCommentOnAgentWork(enabled: Boolean) = Unit
+            override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
+            override suspend fun setThemeMode(mode: AppThemeMode) = Unit
+            override suspend fun setShowDoTab(show: Boolean) = Unit
+            override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
+        }
+        val resolver = PetModelResolver(runtime, prefs, gate)
+        return LiteRtModelPreloader(gate, resolver, runtime)
+    }
+}
+
+private class SlowHomeTalkRuntime : InferenceRuntime {
+    @Volatile var loadStarted = false
+
+    override val runtimeKind = RuntimeKind.LITERT
+
+    override suspend fun ensureHomeTalkSession(modelId: String, systemInstruction: String): RuntimeResult<Unit> {
+        loadStarted = true
+        delay(50)
+        return RuntimeResult.Success(Unit)
+    }
+
+    override suspend fun ensureModelLoaded(modelId: String, includeTools: Boolean) =
+        RuntimeResult.Success(Unit)
+
+    override fun unloadModel(modelId: String) = Unit
+
+    override fun streamChat(request: com.nibbli.nibbligo.core.model.ChatInferenceRequest) =
+        kotlinx.coroutines.flow.emptyFlow<com.nibbli.nibbligo.core.model.InferenceChunk>()
+
+    override suspend fun complete(request: com.nibbli.nibbligo.core.model.CompletionRequest) =
+        RuntimeResult.Unsupported
+
+    override suspend fun analyzeImage(request: com.nibbli.nibbligo.core.model.VisionRequest) =
+        RuntimeResult.Unsupported
+
+    override suspend fun transcribeAudio(request: com.nibbli.nibbligo.core.model.TranscriptionRequest) =
+        RuntimeResult.Unsupported
+
+    override suspend fun runBenchmark(modelId: String) = RuntimeResult.Unsupported
+
+    override suspend fun generateWithTools(request: com.nibbli.nibbligo.core.model.AgentRequest) =
+        RuntimeResult.Unsupported
+
+    override fun capabilitiesFor(modelId: String): ModelCapabilities = ModelCapabilities(
+        modelId = modelId,
+        supportsChat = true,
+        supportsVision = false,
+        supportsAudio = false,
+        supportsStreaming = true,
+    )
+}
