@@ -23,7 +23,7 @@ import kotlin.random.Random
 class PetSimulationEngine {
 
     private companion object {
-        const val ACTION_ANIMATION_HOLD_MS = 3_500L
+        const val ACTION_ANIMATION_HOLD_MS = 4_500L
         val ACTION_HOLD_ANIMATIONS = setOf(
             PetAnimation.EAT,
             PetAnimation.PLAY,
@@ -213,6 +213,7 @@ class PetSimulationEngine {
                     if (condition == PetCondition.SICK && stats.health > 40) {
                         condition = PetCondition.HEALTHY
                     }
+                    animation = PetAnimation.HAPPY
                     "Fresh and tidy! Thank you."
                 }
             }
@@ -237,6 +238,7 @@ class PetSimulationEngine {
                 if (condition == PetCondition.SLEEPING) {
                     condition = PetCondition.HEALTHY
                     stats = stats.copy(energy = stats.energy + 15)
+                    animation = PetAnimation.HAPPY
                     "Good morning! Ready to help on-device."
                 } else {
                     "I'm already awake and curious!"

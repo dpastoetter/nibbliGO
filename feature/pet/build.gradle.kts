@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:storage"))
     implementation(project(":core:pet-llm"))
+    implementation(project(":core:runtime"))
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.hilt.work)
     ksp(libs.hilt.work.compiler)

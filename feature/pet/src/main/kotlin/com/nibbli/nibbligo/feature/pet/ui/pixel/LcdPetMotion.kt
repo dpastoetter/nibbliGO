@@ -9,6 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import com.nibbli.nibbligo.core.model.PetAnimation
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetState
 
@@ -25,6 +26,7 @@ private data class LcdMotionProfile(
     val swayAmplitudePx: Float,
     val swayPeriodMs: Int,
     val breatheScale: Float,
+    val hopAmplitudePx: Float = 0f,
 )
 
 private fun lcdMotionProfile(selection: SpriteSelection, pet: PetState): LcdMotionProfile {
@@ -33,83 +35,122 @@ private fun lcdMotionProfile(selection: SpriteSelection, pet: PetState): LcdMoti
     }
     return when (selection.primary) {
         NibbliSpriteAtlas.Frame.PLAYFUL -> LcdMotionProfile(
-            bobAmplitudePx = 5.5f,
-            bobPeriodMs = 420,
-            swayAmplitudePx = 4f,
-            swayPeriodMs = 340,
-            breatheScale = 0.06f,
+            bobAmplitudePx = 7f,
+            bobPeriodMs = 320,
+            swayAmplitudePx = 5.5f,
+            swayPeriodMs = 260,
+            breatheScale = 0.08f,
+            hopAmplitudePx = 4f,
         )
         NibbliSpriteAtlas.Frame.EATING_A -> LcdMotionProfile(
-            bobAmplitudePx = 3.5f,
-            bobPeriodMs = 340,
-            swayAmplitudePx = 2.5f,
-            swayPeriodMs = 280,
-            breatheScale = 0.035f,
+            bobAmplitudePx = 4.5f,
+            bobPeriodMs = 260,
+            swayAmplitudePx = 3f,
+            swayPeriodMs = 220,
+            breatheScale = 0.05f,
+            hopAmplitudePx = 1.5f,
         )
         NibbliSpriteAtlas.Frame.ATTENTION -> LcdMotionProfile(
-            bobAmplitudePx = 4f,
-            bobPeriodMs = 380,
-            swayAmplitudePx = 4.5f,
-            swayPeriodMs = 320,
-            breatheScale = 0.045f,
+            bobAmplitudePx = 5f,
+            bobPeriodMs = 300,
+            swayAmplitudePx = 6f,
+            swayPeriodMs = 240,
+            breatheScale = 0.055f,
+            hopAmplitudePx = 2f,
         )
         NibbliSpriteAtlas.Frame.HAPPY -> LcdMotionProfile(
-            bobAmplitudePx = 4.5f,
-            bobPeriodMs = 440,
-            swayAmplitudePx = 3f,
-            swayPeriodMs = 400,
-            breatheScale = 0.05f,
+            bobAmplitudePx = 6f,
+            bobPeriodMs = 360,
+            swayAmplitudePx = 4f,
+            swayPeriodMs = 320,
+            breatheScale = 0.065f,
+            hopAmplitudePx = 3f,
         )
         NibbliSpriteAtlas.Frame.HUNGRY -> LcdMotionProfile(
-            bobAmplitudePx = 2f,
-            bobPeriodMs = 520,
-            swayAmplitudePx = 3.5f,
-            swayPeriodMs = 480,
-            breatheScale = 0.02f,
-        )
-        NibbliSpriteAtlas.Frame.SICK -> LcdMotionProfile(
-            bobAmplitudePx = 1.2f,
-            bobPeriodMs = 820,
-            swayAmplitudePx = 1.5f,
-            swayPeriodMs = 720,
-            breatheScale = 0.015f,
-        )
-        NibbliSpriteAtlas.Frame.SLEEPING -> LcdMotionProfile(
-            bobAmplitudePx = 1f,
-            bobPeriodMs = 1400,
-            swayAmplitudePx = 0f,
-            swayPeriodMs = 1100,
-            breatheScale = 0.018f,
-        )
-        NibbliSpriteAtlas.Frame.EGG -> LcdMotionProfile(
-            bobAmplitudePx = 2.5f,
-            bobPeriodMs = 580,
-            swayAmplitudePx = 2f,
-            swayPeriodMs = 500,
+            bobAmplitudePx = 3f,
+            bobPeriodMs = 440,
+            swayAmplitudePx = 5f,
+            swayPeriodMs = 380,
             breatheScale = 0.03f,
         )
+        NibbliSpriteAtlas.Frame.SICK -> LcdMotionProfile(
+            bobAmplitudePx = 1.8f,
+            bobPeriodMs = 760,
+            swayAmplitudePx = 2.5f,
+            swayPeriodMs = 680,
+            breatheScale = 0.02f,
+        )
+        NibbliSpriteAtlas.Frame.SLEEPING -> LcdMotionProfile(
+            bobAmplitudePx = 1.4f,
+            bobPeriodMs = 1200,
+            swayAmplitudePx = 0f,
+            swayPeriodMs = 1100,
+            breatheScale = 0.025f,
+        )
+        NibbliSpriteAtlas.Frame.EGG -> LcdMotionProfile(
+            bobAmplitudePx = 3.5f,
+            bobPeriodMs = 480,
+            swayAmplitudePx = 3f,
+            swayPeriodMs = 420,
+            breatheScale = 0.04f,
+        )
         NibbliSpriteAtlas.Frame.IDLE_A -> LcdMotionProfile(
-            bobAmplitudePx = 3f,
-            bobPeriodMs = 640,
-            swayAmplitudePx = 1.5f,
-            swayPeriodMs = 780,
-            breatheScale = 0.035f,
+            bobAmplitudePx = 3.5f,
+            bobPeriodMs = 560,
+            swayAmplitudePx = 2f,
+            swayPeriodMs = 680,
+            breatheScale = 0.04f,
         )
         else -> LcdMotionProfile(
-            bobAmplitudePx = 2f,
-            bobPeriodMs = 720,
-            swayAmplitudePx = 1f,
-            swayPeriodMs = 840,
-            breatheScale = 0.025f,
+            bobAmplitudePx = 2.5f,
+            bobPeriodMs = 640,
+            swayAmplitudePx = 1.5f,
+            swayPeriodMs = 760,
+            breatheScale = 0.03f,
         )
     }
 }
 
 private fun moodMotionMultiplier(pet: PetState): Float =
-    1f + (pet.stats.mood / 100f) * 0.2f
+    1f + (pet.stats.mood / 100f) * 0.25f
 
-private fun frameSquashScale(frameIndex: Int): Float =
-    if (frameIndex % 2 == 1) 0.92f else 1f
+private fun actionMotionMultiplier(animation: PetAnimation): Float = when (animation) {
+    PetAnimation.PLAY -> 1.5f
+    PetAnimation.EVOLVE -> 1.45f
+    PetAnimation.EAT -> 1.3f
+    PetAnimation.HAPPY -> 1.35f
+    PetAnimation.ATTENTION -> 1.2f
+    else -> 1f
+}
+
+private fun frameSquashScale(frameIndex: Int, selection: SpriteSelection): Pair<Float, Float> {
+    val frame = selection.frameAtIndex(frameIndex)
+    return when (selection.primary) {
+        NibbliSpriteAtlas.Frame.EATING_A -> when (frame) {
+            NibbliSpriteAtlas.Frame.EATING_A -> 1.02f to 0.86f
+            NibbliSpriteAtlas.Frame.EATING_B -> 0.98f to 1.08f
+            else -> 1f to 1f
+        }
+        NibbliSpriteAtlas.Frame.PLAYFUL -> when (frame) {
+            NibbliSpriteAtlas.Frame.PLAYFUL -> 1.06f to 0.9f
+            NibbliSpriteAtlas.Frame.HAPPY -> 0.96f to 1.04f
+            NibbliSpriteAtlas.Frame.IDLE_B -> 1f to 0.94f
+            else -> 1f to 1f
+        }
+        NibbliSpriteAtlas.Frame.HAPPY -> when (frame) {
+            NibbliSpriteAtlas.Frame.HAPPY -> 1.04f to 0.92f
+            NibbliSpriteAtlas.Frame.PLAYFUL -> 1.02f to 0.95f
+            else -> 1f to 0.96f
+        }
+        NibbliSpriteAtlas.Frame.ATTENTION -> when (frame) {
+            NibbliSpriteAtlas.Frame.ATTENTION -> 1.05f to 0.93f
+            else -> 0.98f to 1f
+        }
+        NibbliSpriteAtlas.Frame.HUNGRY -> if (frameIndex % 3 == 0) 1.03f to 0.94f else 1f to 1f
+        NibbliSpriteAtlas.Frame.SLEEPING -> 1f to if (frameIndex % 4 == 2) 0.96f else 1f
+        else -> if (frameIndex % 2 == 1) 1f to 0.93f else 1f to 1f
+    }
+}
 
 @Composable
 fun rememberLcdPetMotion(
@@ -123,6 +164,7 @@ fun rememberLcdPetMotion(
     }
     val profile = lcdMotionProfile(selection, pet)
     val moodMultiplier = moodMotionMultiplier(pet)
+    val actionMultiplier = actionMotionMultiplier(pet.animation)
     val infinite = rememberInfiniteTransition(label = "lcd_motion")
     val bobFast by infinite.animateFloat(
         initialValue = 0f,
@@ -151,14 +193,29 @@ fun rememberLcdPetMotion(
         ),
         label = "lcd_sway",
     )
+    val hop by infinite.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween((profile.bobPeriodMs * 0.75f).toInt().coerceAtLeast(180), easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "lcd_hop",
+    )
     val dualBob = bobFast * 0.55f + bobSlow * 0.45f
-    val squash = frameSquashScale(frameIndex)
-    val motionMultiplier = if (tapBoost) 2f else 1f
+    val hopPulse = if (profile.hopAmplitudePx > 0f) {
+        val spike = (1f - kotlin.math.abs(hop * 2f - 1f))
+        spike * spike * profile.hopAmplitudePx
+    } else {
+        0f
+    }
+    val (scaleX, scaleY) = frameSquashScale(frameIndex, selection)
+    val motionMultiplier = (if (tapBoost) 1.75f else 1f) * actionMultiplier
     val breathe = 1f + (dualBob - 0.5f) * 2f * profile.breatheScale
     return LcdPetMotion(
-        bobOffsetPx = dualBob * profile.bobAmplitudePx * moodMultiplier * motionMultiplier,
+        bobOffsetPx = (dualBob * profile.bobAmplitudePx + hopPulse) * moodMultiplier * motionMultiplier,
         swayOffsetPx = sway * profile.swayAmplitudePx * moodMultiplier * motionMultiplier,
-        scale = breathe,
-        scaleY = squash,
+        scale = breathe * scaleX,
+        scaleY = scaleY,
     )
 }

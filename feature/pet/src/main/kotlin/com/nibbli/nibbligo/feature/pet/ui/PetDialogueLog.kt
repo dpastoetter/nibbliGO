@@ -28,7 +28,7 @@ fun PetTalkHistory(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(max = 120.dp)
+            .heightIn(max = 220.dp)
             .verticalScroll(scrollState),
     ) {
         talkHistory.forEach { entry ->

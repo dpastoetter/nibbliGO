@@ -174,6 +174,8 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val themeMode = flowOf(AppThemeMode.SYSTEM)
     override val showDoTab = flowOf(false)
     override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
+    override val petOnboardingProfile = flowOf(com.nibbli.nibbligo.core.model.PetOnboardingProfile(completed = true))
+    override val onboardingCompleted = flowOf(true)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -185,6 +187,7 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
     override suspend fun setThemeMode(mode: AppThemeMode) = Unit
     override suspend fun setShowDoTab(show: Boolean) = Unit
+    override suspend fun setPetOnboardingProfile(profile: com.nibbli.nibbligo.core.model.PetOnboardingProfile) = Unit
     override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
 }
 

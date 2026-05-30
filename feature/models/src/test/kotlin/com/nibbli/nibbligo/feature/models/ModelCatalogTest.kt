@@ -9,6 +9,14 @@ import org.junit.Test
 class ModelCatalogTest {
 
     @Test
+    fun qwen_is_recommended_for_nibbligo() {
+        assertEquals(ModelCatalog.RECOMMENDED_MODEL_ID, "qwen2.5-1.5b-instruct")
+        val model = ModelCatalog.find("qwen2.5-1.5b-instruct")
+        assertTrue(model?.recommendedForNibbliGo == true)
+        assertEquals(1, ModelCatalog.models.count { it.recommendedForNibbliGo })
+    }
+
+    @Test
     fun catalog_contains_litert_models() {
         assertTrue(ModelCatalog.models.any { it.id == "functiongemma-270m" })
         assertTrue(ModelCatalog.models.any { it.id == "gemma-4-e2b-it" })

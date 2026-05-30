@@ -10,6 +10,7 @@ import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
 import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
+import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.SavedPrompt
@@ -73,6 +74,8 @@ interface UserPreferencesRepository {
     val themeMode: Flow<AppThemeMode>
     val showDoTab: Flow<Boolean>
     val litertAccelerator: Flow<LiteRtAcceleratorPreference>
+    val petOnboardingProfile: Flow<PetOnboardingProfile>
+    val onboardingCompleted: Flow<Boolean>
     suspend fun setDefaultModelId(modelId: String?)
     suspend fun setPetModelId(modelId: String?)
     suspend fun setGenerationParams(params: GenerationParams)
@@ -85,4 +88,5 @@ interface UserPreferencesRepository {
     suspend fun setThemeMode(mode: AppThemeMode)
     suspend fun setShowDoTab(show: Boolean)
     suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference)
+    suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile)
 }

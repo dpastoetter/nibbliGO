@@ -17,17 +17,20 @@ enum class HomeTalkPromptTier {
 
 object PetPromptBuilder {
     private const val MAX_REPLY_CHARS = 180
-    private const val MAX_TALK_REPLY_CHARS = 320
     private val expressionNames = PetExpression.entries.joinToString(", ") { it.name }
 
     /** Stable per model — mood pulse, care reactions, ambient lines. */
-    fun buildStaticSystemInstruction(modelId: String): String {
+    fun buildStaticSystemInstruction(modelId: String, onboardingContext: String? = null): String {
         val profile = profileFor(modelId)
         return buildString {
             appendLine("You are a Pixel Friend AI pet in the nibbliGO app.")
             appendLine("All processing is local on the user's phone.")
             appendLine("Reply in 1-2 short sentences. No markdown. Max $MAX_REPLY_CHARS chars.")
             appendLine("Format: dialogue|$expressionNames (example: So cozy!|HAPPY)")
+            if (!onboardingContext.isNullOrBlank()) {
+                appendLine()
+                appendLine(onboardingContext.trim())
+            }
             appendLine()
             append(fewShotExamples(profile))
         }.trim()
@@ -40,8 +43,7 @@ object PetPromptBuilder {
             appendLine("You are a Pixel Friend AI pet in the nibbliGO app.")
             appendLine("All processing is local on the user's phone.")
             appendLine(
-                "Reply to the user in up to 4 short sentences when useful. " +
-                    "No markdown. Max $MAX_TALK_REPLY_CHARS chars.",
+                "Reply to the user naturally in character when useful. No markdown.",
             )
             appendLine("End with one expression tag: dialogue|$expressionNames")
             appendLine()
@@ -83,7 +85,7 @@ object PetPromptBuilder {
                         )
                     } else if (PetGameFaqMatcher.isGameQuestion(request.userMessage)) {
                         appendLine(
-                            "Game help facts (answer accurately, stay in character, max $MAX_TALK_REPLY_CHARS chars):",
+                            "Game help facts (answer accurately, stay in character):",
                         )
                         appendLine(PetGameFaqMatcher.formatForPrompt(request.userMessage, profile.toFaqProfile()))
                     }
@@ -106,11 +108,15 @@ object PetPromptBuilder {
         }.trim()
     }
 
-    fun buildParts(request: PetReactionRequest, modelId: String): PetPromptParts {
+    fun buildParts(
+        request: PetReactionRequest,
+        modelId: String,
+        onboardingContext: String? = null,
+    ): PetPromptParts {
         val systemInstruction = if (request.userMessage != null) {
             buildTalkSystemInstruction(modelId)
         } else {
-            buildStaticSystemInstruction(modelId)
+            buildStaticSystemInstruction(modelId, onboardingContext)
         }
         return PetPromptParts(
             systemInstruction = systemInstruction,
@@ -134,7 +140,7 @@ object PetPromptBuilder {
                     )
                 } else if (PetGameFaqMatcher.isGameQuestion(userMessage)) {
                     appendLine(
-                        "Game help facts (answer accurately, stay in character, max $MAX_TALK_REPLY_CHARS chars):",
+                        "Game help facts (answer accurately, stay in character):",
                     )
                     appendLine(PetGameFaqMatcher.formatForPrompt(userMessage, profile.toFaqProfile()))
                 }
@@ -149,18 +155,25 @@ object PetPromptBuilder {
     fun buildChatTalkParts(request: PetReactionRequest, modelId: String): PetPromptParts =
         buildHomeTalkParts(request, modelId)
 
-    fun buildHomeTalkParts(request: PetReactionRequest, modelId: String): PetPromptParts {
+    fun buildHomeTalkParts(
+        request: PetReactionRequest,
+        modelId: String,
+        onboardingContext: String? = null,
+    ): PetPromptParts {
         val caretakerMessage = request.userMessage.orEmpty()
         val tier = resolveHomeTalkTier(caretakerMessage)
         return PetPromptParts(
-            systemInstruction = homeTalkSystemInstruction(),
+            systemInstruction = homeTalkSystemInstruction(onboardingContext),
             userMessage = buildHomeTalkUserTurn(request, modelId, tier),
         )
     }
 
-    fun buildCompactHomeTalkParts(request: PetReactionRequest): PetPromptParts {
+    fun buildCompactHomeTalkParts(
+        request: PetReactionRequest,
+        onboardingContext: String? = null,
+    ): PetPromptParts {
         return PetPromptParts(
-            systemInstruction = homeTalkSystemInstruction(),
+            systemInstruction = homeTalkSystemInstruction(onboardingContext),
             userMessage = buildCompactHomeTalkUserTurn(request),
         )
     }
@@ -168,7 +181,8 @@ object PetPromptBuilder {
     fun buildCompactChatTalkParts(request: PetReactionRequest, modelId: String): PetPromptParts =
         buildCompactHomeTalkParts(request)
 
-    fun homeTalkSystemInstruction(): String = buildMinimalChatTalkRules()
+    fun homeTalkSystemInstruction(onboardingContext: String? = null): String =
+        buildMinimalChatTalkRules(onboardingContext)
 
     fun resolveHomeTalkTier(message: String): HomeTalkPromptTier = when {
         PetStatusSnapshot.isStatusQuestion(message) || needsStatusContext(message) ->
@@ -198,13 +212,12 @@ object PetPromptBuilder {
                 appendLine(compactStatus(s))
                 if (PetGameFaqMatcher.isGameQuestion(userMessage)) {
                     appendLine(
-                        "Game help facts (answer accurately, stay in character, max $MAX_TALK_REPLY_CHARS chars):",
+                        "Game help facts (answer accurately, stay in character):",
                     )
                     appendLine(PetGameFaqMatcher.formatForPrompt(userMessage, profile.toFaqProfile()))
                 }
                 appendLine(
-                    "Reply in up to 3 short in-character sentences. Max $MAX_TALK_REPLY_CHARS characters. " +
-                        "Format: words|HAPPY (or NEUTRAL, HUNGRY, etc.)",
+                    "Reply in character. Format: words|HAPPY (or NEUTRAL, HUNGRY, etc.)",
                 )
                 appendLine("User: $userMessage")
             }.trim(),
@@ -221,12 +234,14 @@ object PetPromptBuilder {
         }
     }
 
-    private fun buildMinimalChatTalkRules(): String =
+    private fun buildMinimalChatTalkRules(onboardingContext: String? = null): String =
         buildString {
             appendLine("You are a Pixel Friend AI pet in nibbliGO (local on-device).")
-            appendLine(
-                "Reply to the Caretaker in up to 2 short sentences. No markdown. Max $MAX_TALK_REPLY_CHARS chars.",
-            )
+            appendLine("Reply to the Caretaker naturally in character. No markdown.")
+            if (!onboardingContext.isNullOrBlank()) {
+                appendLine()
+                appendLine(onboardingContext.trim())
+            }
             append("Format: dialogue|HAPPY, SLEEPY, HUNGRY, CURIOUS, or NEUTRAL.")
         }.trim()
 
@@ -244,7 +259,10 @@ object PetPromptBuilder {
     }
 
     private fun buildCompactHomeTalkUserTurn(request: PetReactionRequest): String =
-        "Caretaker: ${request.userMessage.orEmpty()}"
+        buildString {
+            appendLine("Keep it brief (1-2 sentences).")
+            append("Caretaker: ${request.userMessage.orEmpty()}")
+        }.trim()
 
     private fun buildStatusHomeTalkUserTurn(request: PetReactionRequest): String {
         val s = request.state
@@ -252,8 +270,11 @@ object PetPromptBuilder {
         return buildString {
             appendLine("Pet name: ${s.name}")
             appendLine("Personality: ${personalityHint(request.personality)}")
-            appendLine(compactStatus(s))
-            appendLine("The caretaker asks about your wellbeing. Answer in character using the status above.")
+            appendLine(statsOnlyStatus(s))
+            appendLine(
+                "The caretaker asks about your wellbeing. Answer in your own words using the stats; " +
+                    "mention hunger, mood, or energy if relevant. Do not repeat status phrases verbatim.",
+            )
             append("Caretaker: $caretakerMessage")
         }.trim()
     }
@@ -263,7 +284,7 @@ object PetPromptBuilder {
         val caretakerMessage = request.userMessage.orEmpty()
         return buildString {
             appendLine(
-                "Game help facts (answer accurately, stay in character, max $MAX_TALK_REPLY_CHARS chars):",
+                "Game help facts (answer accurately, stay in character):",
             )
             appendLine(PetGameFaqMatcher.formatForPrompt(caretakerMessage, profile.toFaqProfile()))
             append("Caretaker: $caretakerMessage")
@@ -360,5 +381,12 @@ object PetPromptBuilder {
         val stats = state.stats
         return "Status: hunger ${stats.hunger}, happiness ${stats.happiness}, energy ${stats.energy}, " +
             "need ${state.activeNeed.name}. ${PetMoodDescriber.describe(state)}"
+    }
+
+    /** Numeric stats only — avoids small models parroting mood adjectives on status questions. */
+    private fun statsOnlyStatus(state: PetState): String {
+        val stats = state.stats
+        return "Status: hunger ${stats.hunger}, happiness ${stats.happiness}, energy ${stats.energy}, " +
+            "mood ${stats.mood}, need ${state.activeNeed.name}."
     }
 }

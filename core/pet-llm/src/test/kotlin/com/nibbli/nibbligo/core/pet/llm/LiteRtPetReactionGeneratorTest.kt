@@ -56,7 +56,27 @@ class LiteRtPetReactionGeneratorTest {
 
         assertEquals(2, runtime.homeTalkCompleteCalls.size)
         assertEquals("Compact reply!", reaction.dialogue)
-        assertEquals("Caretaker: Hello!", runtime.homeTalkCompleteCalls.last().userMessage)
+        assertTrue(runtime.homeTalkCompleteCalls.last().userMessage.contains("Caretaker: Hello!"))
+    }
+
+    @Test
+    fun generate_statusEcho_usesCompactRetryThenFallback() = kotlinx.coroutines.test.runTest {
+        val echoed = "I'm content and cozy, content and cozy, content and cozy, content and cozy|HAPPY"
+        val runtime = RecordingInferenceRuntime(
+            homeTalkLoadResult = RuntimeResult.Success(Unit),
+            homeTalkCompleteResults = listOf(
+                RuntimeResult.Success(echoed),
+                RuntimeResult.Success(echoed),
+            ),
+        )
+        val generator = createGenerator(runtime)
+
+        val reaction = generator.generate(
+            PetReactionRequest(state = PetState(), userMessage = "How are you?"),
+        )
+
+        assertEquals(2, runtime.homeTalkCompleteCalls.size)
+        assertTrue(reaction.dialogue.contains("Hunger") || reaction.dialogue.contains("okay"))
     }
 
     @Test
@@ -133,10 +153,13 @@ class LiteRtPetReactionGeneratorTest {
             override suspend fun setPetMoodPulseMode(mode: com.nibbli.nibbligo.core.model.PetMoodPulseMode) = Unit
             override suspend fun setThemeMode(mode: com.nibbli.nibbligo.core.model.AppThemeMode) = Unit
             override suspend fun setShowDoTab(show: Boolean) = Unit
+            override val petOnboardingProfile = flowOf(com.nibbli.nibbligo.core.model.PetOnboardingProfile(completed = true))
+            override val onboardingCompleted = flowOf(true)
+            override suspend fun setPetOnboardingProfile(profile: com.nibbli.nibbligo.core.model.PetOnboardingProfile) = Unit
             override suspend fun setLitertAccelerator(preference: com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference) = Unit
         }
         val resolver = PetModelResolver(runtime, prefs, gate)
-        val preloader = LiteRtModelPreloader(gate, resolver, runtime)
+        val preloader = LiteRtModelPreloader(gate, resolver, runtime, prefs)
         return LiteRtPetReactionGenerator(runtime, prefs, gate, resolver, preloader)
     }
 }

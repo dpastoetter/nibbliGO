@@ -188,7 +188,7 @@ class LiteRtEnginePool @Inject constructor(
         val catalogMaxTokens = ModelCatalog.find(modelId)?.maxContextTokens
         val maxNumTokens = when (profile) {
             SESSION_PROFILE_PET_CHAT -> PET_MAX_NUM_TOKENS
-            SESSION_PROFILE_HOME_TALK -> HOME_TALK_MAX_NUM_TOKENS
+            SESSION_PROFILE_HOME_TALK -> catalogMaxTokens ?: DEFAULT_MAX_NUM_TOKENS
             else -> catalogMaxTokens ?: DEFAULT_MAX_NUM_TOKENS
         }
         // maxNumTokens is total context capacity (input + output), not output length alone.

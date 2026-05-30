@@ -17,7 +17,7 @@ class PetPromptBuilderTest {
         assertTrue(parts.systemInstruction.contains("Pixel Friend AI pet"))
         assertTrue(parts.systemInstruction.contains("Examples:"))
         assertTrue(parts.systemInstruction.contains("dialogue|"))
-        assertTrue(parts.systemInstruction.contains("up to 4 short sentences"))
+        assertTrue(parts.systemInstruction.contains("naturally in character"))
         assertTrue(!parts.systemInstruction.contains("Pet name: Pixel"))
         assertTrue(parts.userMessage.contains("Pet name: Pixel"))
         assertTrue(parts.userMessage.contains("User: How are you?"))
@@ -127,8 +127,8 @@ class PetPromptBuilderTest {
         assertTrue(parts.userMessage.contains("User: How are you?"))
         assertTrue(parts.userMessage.contains("Format: words|HAPPY"))
         assertTrue(parts.systemInstruction.contains("dialogue|"))
-        assertTrue(parts.systemInstruction.contains("up to 4 short sentences"))
-        assertTrue(!parts.userMessage.contains("Format: dialogue|"))
+        assertTrue(parts.systemInstruction.contains("naturally in character"))
+        assertTrue(!parts.systemInstruction.contains("Max 320"))
     }
 
     @Test
@@ -152,7 +152,8 @@ class PetPromptBuilderTest {
             "smollm2-360m-instruct",
         )
         assertEquals(HomeTalkPromptTier.FAST, PetPromptBuilder.resolveHomeTalkTier("Thanks!"))
-        assertEquals("Caretaker: Thanks!", parts.userMessage)
+        assertTrue(parts.userMessage.contains("Keep it brief"))
+        assertTrue(parts.userMessage.contains("Caretaker: Thanks!"))
     }
 
     @Test
@@ -165,7 +166,9 @@ class PetPromptBuilderTest {
         assertTrue(parts.userMessage.contains("Pet name: Pixel"))
         assertTrue(parts.userMessage.contains("Personality:"))
         assertTrue(parts.userMessage.contains("Status: hunger"))
+        assertTrue(parts.userMessage.contains("mood "))
         assertTrue(parts.userMessage.contains("wellbeing"))
+        assertTrue(!parts.userMessage.contains("content and cozy"))
     }
 
     @Test
@@ -182,9 +185,12 @@ class PetPromptBuilderTest {
     @Test
     fun homeTalkSystemInstruction_isCompact() {
         val rules = PetPromptBuilder.homeTalkSystemInstruction()
-        assertTrue(rules.length in 150..250)
+        assertTrue(rules.length in 120..280)
         assertTrue(rules.contains("HAPPY, SLEEPY, HUNGRY, CURIOUS, or NEUTRAL"))
+        assertTrue(rules.contains("naturally in character"))
         assertTrue(!rules.contains("Examples:"))
+        assertTrue(!rules.contains("Max 320"))
+        assertTrue(!rules.contains("2 short sentences"))
     }
 
     @Test

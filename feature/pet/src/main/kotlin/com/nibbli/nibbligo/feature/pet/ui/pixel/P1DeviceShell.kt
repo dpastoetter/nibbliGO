@@ -48,8 +48,8 @@ fun P1DeviceShell(
     val spriteSequence = selection.toSequence()
 
     LaunchedEffect(pet.isAlive, selection.primary, selection.alternate, pet.animation) {
+        frameIndex = 0
         if (!pet.isAlive) {
-            frameIndex = 0
             return@LaunchedEffect
         }
         while (true) {
@@ -67,7 +67,7 @@ fun P1DeviceShell(
 
     LaunchedEffect(motionBoost) {
         if (motionBoost) {
-            delay(600)
+            delay(1_100)
             motionBoost = false
         }
     }

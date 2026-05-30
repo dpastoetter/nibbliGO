@@ -100,4 +100,38 @@ class PetReactionParserTest {
         )
         assertTrue(reaction.dialogue.isNotBlank())
     }
+
+    @Test
+    fun collapseCommaRepetition_fixes_status_echo() {
+        val echoed = "I'm content and cozy, content and cozy, content and cozy, content and cozy"
+        assertEquals(
+            "I'm content and cozy",
+            PetReactionParser.collapseCommaRepetition(echoed),
+        )
+    }
+
+    @Test
+    fun parseTalk_collapses_repeated_status_phrases() {
+        val reaction = PetReactionParser.parseTalk(
+            "I'm content and cozy, content and cozy, content and cozy, content and cozy|HAPPY",
+        )
+        assertEquals("I'm content and cozy", reaction.dialogue)
+    }
+
+    @Test
+    fun parseTalk_longReply_notTruncatedAt320() {
+        val longBody = "A".repeat(500)
+        val reaction = PetReactionParser.parseTalk("$longBody|HAPPY")
+        assertEquals(500, reaction.dialogue.length)
+    }
+
+    @Test
+    fun hasDegenerateRepetition_detects_status_echo() {
+        assertTrue(
+            PetReactionParser.hasDegenerateRepetition(
+                "I'm content and cozy, content and cozy, content and cozy, content and cozy",
+            ),
+        )
+        assertTrue(!PetReactionParser.hasDegenerateRepetition("I'm cozy and hunger is fine."))
+    }
 }

@@ -11,16 +11,16 @@ import org.junit.Test
 class LcdFrameSequenceTest {
 
     @Test
-    fun eatingCyclesFourFrames() {
+    fun eatingCyclesEightFrames() {
         val selection = SpriteSelection(
             NibbliSpriteAtlas.Frame.EATING_A,
             NibbliSpriteAtlas.Frame.EATING_B,
         )
         val sequence = selection.toSequence()
-        assertEquals(4, sequence.frames.size)
-        assertEquals(220L, sequence.stepMs)
+        assertEquals(8, sequence.frames.size)
+        assertEquals(165L, sequence.stepMs)
         assertEquals(NibbliSpriteAtlas.Frame.EATING_B, frameAt(sequence, 1))
-        assertEquals(NibbliSpriteAtlas.Frame.EATING_A, frameAt(sequence, 2))
+        assertEquals(NibbliSpriteAtlas.Frame.HAPPY, frameAt(sequence, 6))
     }
 
     @Test
@@ -29,10 +29,10 @@ class LcdFrameSequenceTest {
             NibbliSpriteAtlas.Frame.PLAYFUL,
             NibbliSpriteAtlas.Frame.HAPPY,
         )
-        assertEquals(5, selection.lcdFrameSequence().size)
+        assertEquals(8, selection.lcdFrameSequence().size)
         val sequence = selection.toSequence()
-        assertEquals(210L, sequence.stepMs)
+        assertEquals(175L, sequence.stepMs)
         assertEquals(NibbliSpriteAtlas.Frame.HAPPY, frameAt(sequence, 1))
-        assertEquals(NibbliSpriteAtlas.Frame.IDLE_B, frameAt(sequence, 4))
+        assertEquals(NibbliSpriteAtlas.Frame.HAPPY, frameAt(sequence, 7))
     }
 }

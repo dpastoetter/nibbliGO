@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.nibbli.nibbligo.core.model.PetAnimation
 import com.nibbli.nibbligo.core.model.PetCondition
+import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetState
 import kotlin.math.sin
 
@@ -29,12 +30,96 @@ fun DrawScope.drawLcdAmbientEffects(
             frameIndex = frameIndex,
         )
     }
-    if (pet.animation == PetAnimation.PLAY ||
-        pet.animation == PetAnimation.HAPPY ||
-        pet.stats.mood >= 75
-    ) {
-        if (frameIndex % 6 == 0) {
+    when (pet.animation) {
+        PetAnimation.EAT -> drawEatCrumbs(
+            zoneTopPx = zoneTopPx,
+            zoneHeightPx = zoneHeightPx,
+            lcdScale = lcdScale,
+            colors = colors,
+            frameIndex = frameIndex,
+        )
+        PetAnimation.PLAY -> {
+            if (frameIndex % 3 == 0) {
+                drawPlayfulHeart(
+                    zoneTopPx = zoneTopPx,
+                    zoneHeightPx = zoneHeightPx,
+                    lcdScale = lcdScale,
+                    colors = colors,
+                    frameIndex = frameIndex,
+                    offsetXFactor = 0.78f,
+                )
+            }
+            if (frameIndex % 4 == 1) {
+                drawSparkle(
+                    zoneTopPx = zoneTopPx,
+                    zoneHeightPx = zoneHeightPx,
+                    lcdScale = lcdScale,
+                    colors = colors,
+                    frameIndex = frameIndex + 2,
+                    offsetXFactor = 0.22f,
+                )
+            }
+        }
+        PetAnimation.HAPPY, PetAnimation.EVOLVE -> {
+            if (frameIndex % 4 == 0) {
+                drawPlayfulHeart(
+                    zoneTopPx = zoneTopPx,
+                    zoneHeightPx = zoneHeightPx,
+                    lcdScale = lcdScale,
+                    colors = colors,
+                    frameIndex = frameIndex,
+                    offsetXFactor = 0.76f,
+                )
+            }
+            if (frameIndex % 5 == 2) {
+                drawSparkle(
+                    zoneTopPx = zoneTopPx,
+                    zoneHeightPx = zoneHeightPx,
+                    lcdScale = lcdScale,
+                    colors = colors,
+                    frameIndex = frameIndex,
+                    offsetXFactor = 0.24f,
+                )
+            }
+        }
+        PetAnimation.ATTENTION -> if (frameIndex % 2 == 0) {
+            drawAttentionPing(
+                zoneTopPx = zoneTopPx,
+                zoneHeightPx = zoneHeightPx,
+                lcdScale = lcdScale,
+                colors = colors,
+                frameIndex = frameIndex,
+            )
+        }
+        PetAnimation.IDLE -> if (pet.stats.mood >= 75 && frameIndex % 6 == 0) {
             drawPlayfulHeart(
+                zoneTopPx = zoneTopPx,
+                zoneHeightPx = zoneHeightPx,
+                lcdScale = lcdScale,
+                colors = colors,
+                frameIndex = frameIndex,
+                offsetXFactor = 0.78f,
+            )
+        }
+        else -> Unit
+    }
+    if (pet.activeNeed != PetNeed.NONE && pet.animation != PetAnimation.ATTENTION) {
+        if (frameIndex % 4 == 1) {
+            drawAttentionPing(
+                zoneTopPx = zoneTopPx,
+                zoneHeightPx = zoneHeightPx,
+                lcdScale = lcdScale,
+                colors = colors,
+                frameIndex = frameIndex,
+            )
+        }
+    }
+    if (
+        frame == NibbliSpriteAtlas.Frame.HUNGRY &&
+        pet.animation != PetAnimation.EAT
+    ) {
+        if (frameIndex % 3 == 0) {
+            drawHungryDots(
                 zoneTopPx = zoneTopPx,
                 zoneHeightPx = zoneHeightPx,
                 lcdScale = lcdScale,
@@ -61,8 +146,8 @@ private fun DrawScope.drawSleepZzz(
     val baseY = zoneTopPx + zoneHeightPx * 0.15f
     repeat(3) { i ->
         val phase = (frameIndex + i * 5) % 16
-        val driftY = phase * 0.35f
-        val driftX = sin((frameIndex + i * 3) * 0.45f) * 1.2f
+        val driftY = phase * 0.45f
+        val driftX = sin((frameIndex + i * 3) * 0.45f) * 1.6f
         val alpha = (0.35f + (phase / 16f) * 0.55f).coerceIn(0.35f, 0.9f)
         paint.alpha = (alpha * 255).toInt()
         val zText = "z".repeat(i + 1)
@@ -77,15 +162,124 @@ private fun DrawScope.drawSleepZzz(
     }
 }
 
-private fun DrawScope.drawPlayfulHeart(
+private fun DrawScope.drawEatCrumbs(
     zoneTopPx: Float,
     zoneHeightPx: Float,
     lcdScale: Float,
     colors: P1Colors,
     frameIndex: Int,
 ) {
-    val bob = sin(frameIndex * 0.7f) * 1.5f
-    val centerX = P1DisplaySpec.LCD_WIDTH_PX * 0.78f
+    val pixel = lcdScale
+    val color = colors.lcdPixel.copy(alpha = 0.7f)
+    val baseX = P1DisplaySpec.LCD_WIDTH_PX * 0.62f
+    val baseY = zoneTopPx + zoneHeightPx * 0.72f
+    repeat(3) { i ->
+        val phase = (frameIndex + i * 2) % 8
+        val drop = phase * 0.6f
+        val spread = sin((frameIndex + i) * 0.9f) * 2f + i * 2.5f
+        drawRect(
+            color = color.copy(alpha = 0.5f + (1f - phase / 8f) * 0.4f),
+            topLeft = Offset(
+                (baseX + spread) * lcdScale - pixel / 2f,
+                (baseY + drop) * lcdScale - pixel / 2f,
+            ),
+            size = Size(pixel, pixel),
+        )
+    }
+}
+
+private fun DrawScope.drawHungryDots(
+    zoneTopPx: Float,
+    zoneHeightPx: Float,
+    lcdScale: Float,
+    colors: P1Colors,
+    frameIndex: Int,
+) {
+    val pixel = lcdScale
+    val color = colors.lcdPixel.copy(alpha = 0.65f)
+    val baseX = P1DisplaySpec.LCD_WIDTH_PX * 0.68f
+    val baseY = zoneTopPx + zoneHeightPx * 0.18f
+    repeat(3) { i ->
+        val bounce = sin((frameIndex + i * 2) * 0.8f) * 1.2f
+        drawRect(
+            color = color,
+            topLeft = Offset(
+                (baseX + i * 3f) * lcdScale - pixel / 2f,
+                (baseY + bounce - i * 0.5f) * lcdScale - pixel / 2f,
+            ),
+            size = Size(pixel, pixel),
+        )
+    }
+}
+
+private fun DrawScope.drawAttentionPing(
+    zoneTopPx: Float,
+    zoneHeightPx: Float,
+    lcdScale: Float,
+    colors: P1Colors,
+    frameIndex: Int,
+) {
+    val pixel = lcdScale
+    val pulse = 0.55f + sin(frameIndex * 1.1f) * 0.35f
+    val color = colors.lcdPixel.copy(alpha = pulse)
+    val centerX = P1DisplaySpec.LCD_WIDTH_PX * 0.82f
+    val centerY = zoneTopPx + zoneHeightPx * 0.14f
+    listOf(
+        Offset(0f, -2f),
+        Offset(-1f, -1f), Offset(1f, -1f),
+        Offset(-2f, 0f), Offset(0f, 0f), Offset(2f, 0f),
+        Offset(-1f, 1f), Offset(1f, 1f),
+    ).forEach { offset ->
+        drawRect(
+            color = color,
+            topLeft = Offset(
+                (centerX + offset.x) * lcdScale - pixel / 2f,
+                (centerY + offset.y) * lcdScale - pixel / 2f,
+            ),
+            size = Size(pixel, pixel),
+        )
+    }
+}
+
+private fun DrawScope.drawSparkle(
+    zoneTopPx: Float,
+    zoneHeightPx: Float,
+    lcdScale: Float,
+    colors: P1Colors,
+    frameIndex: Int,
+    offsetXFactor: Float,
+) {
+    val pixel = lcdScale
+    val bob = sin(frameIndex * 0.9f) * 1.8f
+    val centerX = P1DisplaySpec.LCD_WIDTH_PX * offsetXFactor
+    val centerY = zoneTopPx + zoneHeightPx * 0.28f + bob
+    val color = colors.lcdPixel.copy(alpha = 0.6f + sin(frameIndex * 0.6f) * 0.25f)
+    listOf(
+        Offset(0f, -2f), Offset(0f, 2f),
+        Offset(-2f, 0f), Offset(2f, 0f),
+        Offset(0f, 0f),
+    ).forEach { offset ->
+        drawRect(
+            color = color,
+            topLeft = Offset(
+                (centerX + offset.x) * lcdScale - pixel / 2f,
+                (centerY + offset.y) * lcdScale - pixel / 2f,
+            ),
+            size = Size(pixel, pixel),
+        )
+    }
+}
+
+private fun DrawScope.drawPlayfulHeart(
+    zoneTopPx: Float,
+    zoneHeightPx: Float,
+    lcdScale: Float,
+    colors: P1Colors,
+    frameIndex: Int,
+    offsetXFactor: Float = 0.78f,
+) {
+    val bob = sin(frameIndex * 0.7f) * 2f
+    val centerX = P1DisplaySpec.LCD_WIDTH_PX * offsetXFactor
     val centerY = zoneTopPx + zoneHeightPx * 0.22f + bob
     val pixel = lcdScale
     val color = colors.lcdPixel.copy(alpha = 0.75f + sin(frameIndex * 0.5f) * 0.2f)

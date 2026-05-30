@@ -24,6 +24,8 @@ data class ModelInfo(
     ),
     /** Total LiteRT context window (input + output), aligned with Edge Gallery allowlist. */
     val maxContextTokens: Int = 2048,
+    /** Highlighted in the Models overview as the top nibbliGO pick. */
+    val recommendedForNibbliGo: Boolean = false,
 ) {
     fun resolveDownloadUrl(): String? {
         downloadUrl?.let { return it }

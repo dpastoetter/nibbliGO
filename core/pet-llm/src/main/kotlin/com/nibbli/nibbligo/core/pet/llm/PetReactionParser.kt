@@ -5,7 +5,6 @@ import com.nibbli.nibbligo.core.model.PetNeedRules
 
 object PetReactionParser {
     private const val MAX_LEN = 180
-    const val MAX_TALK_LEN = 320
     private val LEADING_ROLE_WORD = Regex("""(?i)^(?:system|user|assistant|model)\s*""")
     private val SYSTEM_ROLE_GLUE = Regex("""(?i)^system(?=You are)""")
     private val FEW_SHOT_REPLY = Regex("""(?m)^You:\s""")
@@ -22,12 +21,29 @@ object PetReactionParser {
 
     /** User talk replies — keep all streamed lines, aligned with [stripForStreaming]. */
     fun parseTalk(raw: String): PetReaction {
-        val combined = normalizedLines(raw).joinToString(" ").ifBlank { normalizeRaw(raw) }
-        return reactionFromDialogue(combined, MAX_TALK_LEN)
+        val combined = collapseCommaRepetition(
+            normalizedLines(raw).joinToString(" ").ifBlank { normalizeRaw(raw) },
+        )
+        return reactionFromDialogue(combined, PetTalkLimits.RUNAWAY_MAX_CHARS)
+    }
+
+    /** True when the model loops the same comma-separated phrase (common status-echo failure). */
+    fun hasDegenerateRepetition(dialogue: String): Boolean {
+        val segments = dialogue.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        if (segments.size < 3) return false
+        val normalized = segments.map { it.lowercase() }
+        val dominantCount = normalized.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
+        if (dominantCount >= 3 && dominantCount.toFloat() / segments.size >= 0.6f) return true
+        val suffix = normalized.firstOrNull()?.removePrefix("i'm ")?.trim().orEmpty()
+        if (suffix.length >= 8) {
+            val suffixRepeats = normalized.drop(1).count { it == suffix || it.endsWith(suffix) }
+            if (suffixRepeats >= 2 && suffixRepeats + 1 >= segments.size * 0.6f) return true
+        }
+        return false
     }
 
     fun reconcileTalkStream(parsed: PetReaction, streamedText: String): PetReaction {
-        val streamed = stripForStreaming(streamedText).take(MAX_TALK_LEN)
+        val streamed = stripForStreaming(streamedText).take(PetTalkLimits.RUNAWAY_MAX_CHARS)
         if (streamed.isBlank()) return parsed
         return if (streamed.length > parsed.dialogue.length) {
             parsed.copy(dialogue = streamed)
@@ -135,7 +151,33 @@ object PetReactionParser {
         val normalized = normalizeRaw(partial)
         val pipe = normalized.indexOf('|')
         val body = if (pipe >= 0) normalized.substring(0, pipe) else normalized
-        return normalizedLines(body).joinToString(" ").trim()
+        return collapseCommaRepetition(normalizedLines(body).joinToString(" ").trim())
+    }
+
+    internal fun collapseCommaRepetition(text: String): String {
+        val segments = text.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        if (segments.size < 2) return text
+        val normalized = segments.map { it.lowercase() }
+        val dominant = normalized.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+        if (dominant != null) {
+            val dominantCount = normalized.count { it == dominant }
+            if (dominantCount >= 3 && dominantCount.toFloat() / segments.size >= 0.6f) {
+                return segments.first()
+            }
+            val suffixRepeats = normalized.drop(1).count { it == dominant || it.endsWith(dominant) }
+            if (suffixRepeats >= 2 && suffixRepeats + 1 >= segments.size * 0.6f) {
+                return segments.first()
+            }
+        }
+        val collapsed = buildList {
+            var previous: String? = null
+            for (segment in segments) {
+                if (segment.equals(previous, ignoreCase = true)) continue
+                add(segment)
+                previous = segment
+            }
+        }
+        return if (collapsed.size == 1) collapsed.first() else collapsed.joinToString(", ")
     }
 
     fun fallback(request: PetReactionRequest): PetReaction {
@@ -151,7 +193,7 @@ object PetReactionParser {
             request.lastAction != null -> "After ${request.lastAction}, I'm glad you're here!"
             else -> "Beep! I'm your pocket AI friend."
         }
-        val maxLen = if (request.userMessage != null) MAX_TALK_LEN else MAX_LEN
+        val maxLen = if (request.userMessage != null) PetTalkLimits.RUNAWAY_MAX_CHARS else MAX_LEN
         return PetReaction(dialogue = line.take(maxLen))
     }
 }

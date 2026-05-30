@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.feature.pet.ui
 import android.content.Intent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -108,11 +109,11 @@ fun PetHomeScreen(
                 onLooksClick = { showCosmeticsSheet = true },
             )
 
-            Box(
+            Column(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.TopCenter,
+                    .fillMaxWidth()
+                    .fillMaxSize(),
             ) {
                 Column(
                     modifier = Modifier
@@ -152,19 +153,23 @@ fun PetHomeScreen(
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
-            }
 
-            if (pet.condition == PetCondition.DEAD) {
-                PetDeadBanner(onHatch = { viewModel.hatchNewEgg() })
-            }
+                if (pet.condition == PetCondition.DEAD) {
+                    PetDeadBanner(onHatch = { viewModel.hatchNewEgg() })
+                }
 
-            PetTalkInputBar(
-                enabled = talkEnabled,
-                isGeneratingDialogue = uiState.isGeneratingDialogue,
-                isWarmingModel = uiState.isWarmingModel,
-                onSend = { viewModel.onTalkSend(it) },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-            )
+                Spacer(modifier = Modifier.weight(1f))
+
+                PetTalkInputBar(
+                    enabled = talkEnabled,
+                    isGeneratingDialogue = uiState.isGeneratingDialogue,
+                    isWarmingModel = uiState.isWarmingModel,
+                    onSend = { viewModel.onTalkSend(it) },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
             PetQuickActionStrip(
                 cosmeticsCount = pet.unlockedCosmetics.size,

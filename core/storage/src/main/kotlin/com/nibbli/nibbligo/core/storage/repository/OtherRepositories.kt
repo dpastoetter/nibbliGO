@@ -18,6 +18,7 @@ import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
+import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.SavedPrompt
@@ -109,6 +110,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val themeMode = stringPreferencesKey("theme_mode")
     val showDoTab = booleanPreferencesKey("show_do_tab")
     val litertAccelerator = stringPreferencesKey("litert_accelerator")
+    val onboardingCompleted = booleanPreferencesKey("pet_onboarding_completed")
+    val caretakerName = stringPreferencesKey("pet_caretaker_name")
+    val onboardingAboutYou = stringPreferencesKey("pet_onboarding_about")
+    val onboardingGoal = stringPreferencesKey("pet_onboarding_goal")
   }
 
   override val defaultModelId: Flow<String?> =
@@ -174,6 +179,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
       }.getOrDefault(LiteRtAcceleratorPreference.AUTO)
     }
 
+  override val petOnboardingProfile: Flow<PetOnboardingProfile> =
+    context.dataStore.data.map { prefs -> prefs.toOnboardingProfile() }
+
+  override val onboardingCompleted: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.onboardingCompleted] ?: false }
+
   override suspend fun setDefaultModelId(modelId: String?) {
     context.dataStore.edit { prefs ->
       if (modelId == null) prefs.remove(Keys.defaultModel)
@@ -233,4 +244,24 @@ class UserPreferencesRepositoryImpl @Inject constructor(
   override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) {
     context.dataStore.edit { it[Keys.litertAccelerator] = preference.name }
   }
+
+  override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) {
+    context.dataStore.edit { prefs ->
+      prefs[Keys.onboardingCompleted] = profile.completed
+      if (profile.caretakerName.isBlank()) prefs.remove(Keys.caretakerName)
+      else prefs[Keys.caretakerName] = profile.caretakerName.trim()
+      if (profile.aboutYou.isBlank()) prefs.remove(Keys.onboardingAboutYou)
+      else prefs[Keys.onboardingAboutYou] = profile.aboutYou.trim()
+      if (profile.companionGoal.isBlank()) prefs.remove(Keys.onboardingGoal)
+      else prefs[Keys.onboardingGoal] = profile.companionGoal.trim()
+    }
+  }
+
+  private fun Preferences.toOnboardingProfile(): PetOnboardingProfile =
+    PetOnboardingProfile(
+      caretakerName = this[Keys.caretakerName].orEmpty(),
+      aboutYou = this[Keys.onboardingAboutYou].orEmpty(),
+      companionGoal = this[Keys.onboardingGoal].orEmpty(),
+      completed = this[Keys.onboardingCompleted] ?: false,
+    )
 }

@@ -51,6 +51,8 @@ fun PetState.resolveSprite(): SpriteSelection = when {
         SpriteSelection(NibbliSpriteAtlas.Frame.SICK, NibbliSpriteAtlas.Frame.IDLE_A)
     animation == PetAnimation.EAT ->
         SpriteSelection(NibbliSpriteAtlas.Frame.EATING_A, NibbliSpriteAtlas.Frame.EATING_B)
+    animation == PetAnimation.EVOLVE ->
+        SpriteSelection(NibbliSpriteAtlas.Frame.PLAYFUL, NibbliSpriteAtlas.Frame.HAPPY)
     animation == PetAnimation.ATTENTION || activeNeed != PetNeed.NONE ->
         SpriteSelection(NibbliSpriteAtlas.Frame.ATTENTION, NibbliSpriteAtlas.Frame.IDLE_A)
     expression == PetExpression.HUNGRY || stats.hunger < 35 ->

@@ -3,14 +3,20 @@ package com.nibbli.nibbligo.feature.models.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -40,14 +46,14 @@ fun ModelsScreen(
     NibbliScreen(modifier = modifier) {
         NibbliScreenHeader(
             title = "Models",
-            subtitle = "Download and manage on-device LiteRT models.",
+            subtitle = "Download on-device LiteRT models. ★ marks our nibbliGO favorite.",
             showOnDeviceBadge = true,
         )
         if (uiState.models.any { it.info.requiresHfAuth } && !uiState.hfSignedIn) {
             Text(
-                "SmolLM2 360M installs without sign-in and is a great Pixel Friend model. " +
-                    "Gemma 3 and FunctionGemma are gated — sign in or paste a token in Settings, " +
-                    "accept each model license on huggingface.co, then install.",
+                "Qwen 2.5 1.5B Instruct (★) is our recommended Pixel Friend model and installs without sign-in. " +
+                    "SmolLM2 360M is a lighter alternative. Gemma 3 and FunctionGemma are gated — sign in or " +
+                    "paste a token in Settings, accept each model license on huggingface.co, then install.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -62,7 +68,30 @@ fun ModelsScreen(
         ) {
             items(uiState.models, key = { it.info.id }) { item ->
                 NibbliCard {
-                    Text(item.info.displayName, style = MaterialTheme.typography.titleMedium)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(item.info.displayName, style = MaterialTheme.typography.titleMedium)
+                        if (item.info.recommendedForNibbliGo) {
+                            Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = "Recommended for nibbliGO",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .testTag("recommended_${item.info.id}"),
+                            )
+                        }
+                    }
+                    if (item.info.recommendedForNibbliGo) {
+                        Text(
+                            "Best for nibbliGO",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                     Text(
                         item.info.description,
                         style = MaterialTheme.typography.bodyMedium,

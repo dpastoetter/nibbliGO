@@ -7,6 +7,7 @@ import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
 import com.nibbli.nibbligo.core.model.ModelCapabilities
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
+import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.RuntimeKind
 import com.nibbli.nibbligo.core.model.RuntimeResult
@@ -76,6 +77,8 @@ class LiteRtModelPreloaderTest {
             override val themeMode = flowOf(AppThemeMode.SYSTEM)
             override val showDoTab = flowOf(false)
             override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
+            override val petOnboardingProfile = flowOf(PetOnboardingProfile(completed = true))
+            override val onboardingCompleted = flowOf(true)
             override suspend fun setDefaultModelId(modelId: String?) = Unit
             override suspend fun setPetModelId(modelId: String?) = Unit
             override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -87,10 +90,11 @@ class LiteRtModelPreloaderTest {
             override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
             override suspend fun setThemeMode(mode: AppThemeMode) = Unit
             override suspend fun setShowDoTab(show: Boolean) = Unit
+            override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) = Unit
             override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
         }
         val resolver = PetModelResolver(runtime, prefs, gate)
-        return LiteRtModelPreloader(gate, resolver, runtime)
+        return LiteRtModelPreloader(gate, resolver, runtime, prefs)
     }
 }
 

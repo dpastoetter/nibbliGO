@@ -1,6 +1,8 @@
 package com.nibbli.nibbligo.core.model
 
 object ModelCatalog {
+    const val RECOMMENDED_MODEL_ID = "qwen2.5-1.5b-instruct"
+
     val models: List<ModelInfo> = listOf(
         ModelInfo(
             id = "gemma3-1b-it",
@@ -38,7 +40,7 @@ object ModelCatalog {
         ModelInfo(
             id = "smollm2-360m-instruct",
             displayName = "SmolLM2 360M Instruct",
-            description = "Tiny chat model (~374 MB). Best no-login pick for Pixel Friend on low-RAM devices.",
+            description = "Tiny chat model (~374 MB). Lightweight no-login pick for Pixel Friend on low-RAM devices.",
             sizeBytes = 373_719_040L,
             estimatedRamMb = 768,
             modalities = setOf(Modality.TEXT),
@@ -54,7 +56,8 @@ object ModelCatalog {
         ModelInfo(
             id = "qwen2.5-1.5b-instruct",
             displayName = "Qwen 2.5 1.5B Instruct",
-            description = "Open-weight instruct model (~1.6 GB). Strong small-model chat from LiteRT community.",
+            description = "Open-weight instruct model (~1.6 GB). Best all-round pick for nibbliGO — " +
+                "strong Pixel Friend dialogue and chat with a 4096-token context window.",
             sizeBytes = 1_597_931_520L,
             estimatedRamMb = 2048,
             modalities = setOf(Modality.TEXT),
@@ -66,6 +69,7 @@ object ModelCatalog {
             hfCommitHash = "19edb84c69a0212f29a6ef17ba0d6f278b6a1614",
             preferredAccelerators = listOf(LiteRtAccelerator.GPU, LiteRtAccelerator.CPU),
             maxContextTokens = 4096,
+            recommendedForNibbliGo = true,
         ),
         ModelInfo(
             id = "deepseek-r1-distill-qwen-1.5b",

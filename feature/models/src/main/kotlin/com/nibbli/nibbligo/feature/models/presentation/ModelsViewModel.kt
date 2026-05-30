@@ -88,7 +88,12 @@ class ModelsViewModel @Inject constructor(
                     "Download failed: $it"
                 }
                 ModelsUiState(
-                    models = catalog.map { info ->
+                    models = catalog
+                        .sortedWith(
+                            compareByDescending<ModelInfo> { it.recommendedForNibbliGo }
+                                .thenBy { it.displayName },
+                        )
+                        .map { info ->
                         ModelItemUi(
                             info = info,
                             isInstalled = info.id in installedIds,

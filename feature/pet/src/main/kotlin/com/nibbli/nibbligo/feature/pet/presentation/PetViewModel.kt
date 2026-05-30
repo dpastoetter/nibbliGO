@@ -23,6 +23,7 @@ import com.nibbli.nibbligo.core.pet.llm.PetReactionPort
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
+import com.nibbli.nibbligo.core.pet.llm.PetTalkLimits
 import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.feature.pet.domain.PetDiaryExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
@@ -102,10 +103,14 @@ class PetViewModel @Inject constructor(
                 petRepository.savePetState(state)
                 _uiState.update { it.copy(petState = state) }
                 if (tick.welcomeBack) {
-                    generateReaction(state, lastAction = "returning after a while")
+                    launchBackgroundReaction {
+                        generateReaction(state, lastAction = "returning after a while")
+                    }
                 }
                 if (tick.evolved) {
-                    generateReaction(state, lastAction = "evolving to ${state.stage.name.lowercase()}")
+                    launchBackgroundReaction {
+                        generateReaction(state, lastAction = "evolving to ${state.stage.name.lowercase()}")
+                    }
                 }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
@@ -322,41 +327,48 @@ class PetViewModel @Inject constructor(
         userStoppedGeneration = false
         petInferenceJob?.cancel()
         petInferenceJob = viewModelScope.launch(Dispatchers.Default) {
-            val now = System.currentTimeMillis()
-            _uiState.update {
-                it.copy(
-                    talkLcdMode = true,
-                    talkHistory = appendTalkHistory(
-                        it.talkHistory,
-                        TalkHistoryEntry(TalkHistoryRole.USER, trimmed),
-                    ),
+            try {
+                val now = System.currentTimeMillis()
+                _uiState.update {
+                    it.copy(
+                        talkLcdMode = true,
+                        talkHistory = appendTalkHistory(
+                            it.talkHistory,
+                            TalkHistoryEntry(TalkHistoryRole.USER, trimmed),
+                        ),
+                    )
+                }
+                val warmLoad = async { awaitWarmLoad() }
+                val talkState = async {
+                    val tick = engine.tick(_uiState.value.petState, now)
+                    engine.interact(tick.state, PetInteraction.TALK, now).state
+                }
+                val warmLoaded = warmLoad.await()
+                launch(Dispatchers.Default) {
+                    val modelId = petTalkChatRecorder.resolvePetModelId()
+                    petTalkChatRecorder.recordUserMessage(trimmed, modelId, now)
+                }
+                generateReaction(
+                    state = talkState.await(),
+                    userMessage = trimmed,
+                    userInitiated = true,
+                    coldStart = !warmLoaded,
                 )
+            } finally {
+                if (petInferenceJob == coroutineContext[Job]) {
+                    petInferenceJob = null
+                }
+                clearGeneratingDialogueIfIdle()
             }
-            val warmLoad = async { awaitWarmLoad() }
-            val talkState = async {
-                val tick = engine.tick(_uiState.value.petState, now)
-                engine.interact(tick.state, PetInteraction.TALK, now).state
-            }
-            val warmLoaded = warmLoad.await()
-            launch(Dispatchers.Default) {
-                val modelId = petTalkChatRecorder.resolvePetModelId()
-                petTalkChatRecorder.recordUserMessage(trimmed, modelId, now)
-            }
-            generateReaction(
-                state = talkState.await(),
-                userMessage = trimmed,
-                userInitiated = true,
-                coldStart = !warmLoaded,
-            )
         }
     }
 
     fun stopGeneration() {
-        if (!_uiState.value.isGeneratingDialogue) return
+        if (!_uiState.value.isGeneratingDialogue && petInferenceJob?.isActive != true) return
         userStoppedGeneration = true
         petInferenceJob?.cancel()
         petInferenceJob = null
-        _uiState.update { it.copy(isGeneratingDialogue = false) }
+        clearGeneratingDialogue()
     }
 
     fun onPetTapped() {
@@ -462,6 +474,7 @@ class PetViewModel @Inject constructor(
     private fun launchBackgroundReaction(block: suspend () -> Unit) {
         if (petInferenceJob?.isActive == true) return
         if (_uiState.value.talkLcdMode) return
+        petInferenceJob?.cancel()
         lateinit var job: Job
         job = viewModelScope.launch {
             try {
@@ -470,9 +483,28 @@ class PetViewModel @Inject constructor(
                 if (petInferenceJob == job) {
                     petInferenceJob = null
                 }
+                clearGeneratingDialogueIfIdle()
             }
         }
         petInferenceJob = job
+    }
+
+    private fun clearGeneratingDialogue() {
+        _uiState.update { it.copy(isGeneratingDialogue = false) }
+    }
+
+    private fun clearGeneratingDialogueIfIdle() {
+        if (petInferenceJob?.isActive == true) return
+        clearGeneratingDialogue()
+    }
+
+    private fun markGeneratingDialogue() {
+        _uiState.update { it.copy(isGeneratingDialogue = true) }
+    }
+
+    /** Inference finished; hide Stop before persistence work. */
+    private fun finishGeneratingDialogue() {
+        clearGeneratingDialogue()
     }
 
     private suspend fun generateReaction(
@@ -511,22 +543,23 @@ class PetViewModel @Inject constructor(
         if (userInitiated && userMessage != null) {
             _uiState.update {
                 it.copy(
-                    isGeneratingDialogue = true,
                     talkLcdMode = true,
                     petState = state.copy(dialogueLine = ""),
                 )
             }
+            markGeneratingDialogue()
             generateReactionStreaming(state, request, timeoutMs, moodPulse)
             return
         }
 
-        _uiState.update { it.copy(isGeneratingDialogue = true) }
+        markGeneratingDialogue()
         try {
             val reaction = withTimeoutOrNull(timeoutMs) {
                 withContext(Dispatchers.Default) {
                     petReactionPort.generate(request)
                 }
             }
+            finishGeneratingDialogue()
             if (reaction == null) {
                 if (userStoppedGeneration || moodPulse) return
                 Log.w(TAG, "Pet reaction timed out (non-streaming)")
@@ -535,7 +568,7 @@ class PetViewModel @Inject constructor(
             }
             applyReaction(state, request, reaction)
         } finally {
-            _uiState.update { it.copy(isGeneratingDialogue = false) }
+            clearGeneratingDialogueIfIdle()
         }
     }
 
@@ -586,13 +619,18 @@ class PetViewModel @Inject constructor(
                 val elapsedMs = (System.nanoTime() - streamStart) / 1_000_000
                 Log.d(TAG, "talkStream total=${elapsedMs}ms")
             }
+            finishGeneratingDialogue()
             val reaction = finalReaction
             if (reaction == null) {
                 if (userStoppedGeneration || moodPulse) return
                 val streamed = _uiState.value.petState.dialogueLine.trim()
                 if (request.userMessage != null && streamed.isNotBlank()) {
                     Log.w(TAG, "Pet talk stream ended without Done; keeping streamed dialogue")
-                    applyReaction(state, request, PetReaction(dialogue = streamed.take(PetReactionParser.MAX_TALK_LEN)))
+                    applyReaction(
+                        state,
+                        request,
+                        PetReaction(dialogue = streamed.take(PetTalkLimits.RUNAWAY_MAX_CHARS)),
+                    )
                     return
                 }
                 Log.w(TAG, "Pet talk stream ended without a reaction (timeout or cancel)")
@@ -601,7 +639,7 @@ class PetViewModel @Inject constructor(
             }
             applyReaction(state, request, reaction)
         } finally {
-            _uiState.update { it.copy(isGeneratingDialogue = false) }
+            clearGeneratingDialogueIfIdle()
         }
     }
 

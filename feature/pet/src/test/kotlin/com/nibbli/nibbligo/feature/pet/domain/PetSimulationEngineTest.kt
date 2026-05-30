@@ -130,7 +130,7 @@ class PetSimulationEngineTest {
         val tickSoon = engine.tick(fed.state, nowMillis = 2_000L)
         assertEquals(PetAnimation.EAT, tickSoon.state.animation)
 
-        val tickLater = engine.tick(fed.state, nowMillis = 5_000L)
+        val tickLater = engine.tick(fed.state, nowMillis = 6_000L)
         assertEquals(PetAnimation.IDLE, tickLater.state.animation)
     }
 
@@ -147,7 +147,7 @@ class PetSimulationEngineTest {
         val tickSoon = engine.tick(played.state, nowMillis = 2_000L)
         assertEquals(PetAnimation.PLAY, tickSoon.state.animation)
 
-        val tickLater = engine.tick(played.state, nowMillis = 5_000L)
+        val tickLater = engine.tick(played.state, nowMillis = 6_000L)
         assertEquals(PetAnimation.IDLE, tickLater.state.animation)
     }
 }
