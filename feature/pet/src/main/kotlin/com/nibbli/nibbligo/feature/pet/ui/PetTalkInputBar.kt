@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo.feature.pet.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,78 +32,94 @@ private val PetTalkInputShape = RoundedCornerShape(20.dp)
 fun PetTalkInputBar(
     enabled: Boolean,
     isGeneratingDialogue: Boolean,
-    isWarmingModel: Boolean = false,
+    isVoiceListening: Boolean,
+    onTalkToMeClick: () -> Unit,
     onSend: (String) -> Unit,
+    isWarmingModel: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var text by remember { mutableStateOf("") }
     val inputEnabled = enabled && !isWarmingModel
-    val canSend = inputEnabled && text.isNotBlank()
+    val canSend = inputEnabled && text.isNotBlank() && !isVoiceListening
     val placeholder = when {
         isWarmingModel -> "Warming up model…"
         isGeneratingDialogue -> "nibbli is thinking…"
+        isVoiceListening -> "Listening…"
         else -> "Message nibbli…"
     }
 
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(PetTalkActionHeight),
-        shape = PetTalkInputShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(
-            alpha = if (inputEnabled) 1f else 0.5f,
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shadowElevation = 0.dp,
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
+        PetTalkToMeButton(
+            enabled = enabled,
+            isListening = isVoiceListening,
+            onClick = onTalkToMeClick,
+            iconOnly = true,
+        )
+
+        Surface(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .weight(1f)
+                .height(PetTalkActionHeight),
+            shape = PetTalkInputShape,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(
+                alpha = if (inputEnabled) 1f else 0.5f,
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            shadowElevation = 0.dp,
         ) {
-            BasicTextField(
-                value = text,
-                onValueChange = { text = it },
-                modifier = Modifier.weight(1f),
-                enabled = inputEnabled,
-                singleLine = true,
-                textStyle = MaterialTheme.typography.labelMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
-                ),
-                decorationBox = { innerTextField ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (text.isEmpty()) {
-                            Text(
-                                text = placeholder,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                            )
-                        }
-                        innerTextField()
-                    }
-                },
-            )
-            IconButton(
-                onClick = {
-                    val message = text.trim()
-                    if (message.isEmpty() || !canSend) return@IconButton
-                    text = ""
-                    onSend(message)
-                },
-                enabled = canSend,
-                modifier = Modifier.size(36.dp),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
-                    modifier = Modifier.size(18.dp),
-                    tint = if (canSend) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                BasicTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.weight(1f),
+                    enabled = inputEnabled && !isVoiceListening,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.labelMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (text.isEmpty()) {
+                                Text(
+                                    text = placeholder,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                )
+                            }
+                            innerTextField()
+                        }
                     },
                 )
+                IconButton(
+                    onClick = {
+                        val message = text.trim()
+                        if (message.isEmpty() || !canSend) return@IconButton
+                        text = ""
+                        onSend(message)
+                    },
+                    enabled = canSend,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (canSend) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        },
+                    )
+                }
             }
         }
     }

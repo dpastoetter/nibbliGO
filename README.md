@@ -183,7 +183,7 @@ Unit tests cover `PetSimulationEngine`, `ModelCatalog`, `PetPromptBuilder`, `Pet
 
 ## Google AI Edge Gallery
 
-nibbliGO ports patterns from [Google AI Edge Gallery](https://github.com/google-ai-edge/gallery) (Apache 2.0). See [NOTICE](NOTICE).
+nibbliGO ports patterns from [Google AI Edge Gallery](https://github.com/google-ai-edge/gallery) (Apache 2.0). See [NOTICE](NOTICE) and [LICENSE](LICENSE).
 
 | Module | Role |
 |--------|------|
@@ -216,6 +216,14 @@ Configure StreamableHTTP MCP in the actions/settings flows (see [Gallery MCP gui
 ```bash
 git submodule update --init third_party/gallery
 ```
+
+## License
+
+nibbliGO is licensed under the [Apache License 2.0](LICENSE).
+
+Portions adapt patterns from [Google AI Edge Gallery](https://github.com/google-ai-edge/gallery) (Apache 2.0); see [NOTICE](NOTICE) and `Ported from gallery@...` comments in source.
+
+**Model weights** downloaded via Manage → Models are not part of this repository. Each `.litertlm` file remains under its publisher’s terms on Hugging Face (e.g. Gemma, Qwen, SmolLM).
 
 ## Roadmap
 

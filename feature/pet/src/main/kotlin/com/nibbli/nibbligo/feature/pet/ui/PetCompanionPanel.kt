@@ -14,15 +14,10 @@ import com.nibbli.nibbligo.feature.pet.presentation.TalkHistoryEntry
 @Composable
 fun PetCompanionPanel(
     stats: PetStats,
-    talkEnabled: Boolean,
     isGeneratingDialogue: Boolean,
-    isVoiceListening: Boolean,
     talkHistory: List<TalkHistoryEntry>,
     streamingDialogue: String,
-    talkLcdMode: Boolean,
-    onChipSelected: (String) -> Unit,
     onStopClick: () -> Unit,
-    onTalkToMeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NibbliCard(
@@ -32,12 +27,8 @@ fun PetCompanionPanel(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             PetTalkQuickChips(
-                enabled = talkEnabled,
                 isGeneratingDialogue = isGeneratingDialogue,
-                isVoiceListening = isVoiceListening,
-                onChipSelected = onChipSelected,
                 onStopClick = onStopClick,
-                onTalkToMeClick = onTalkToMeClick,
             )
 
             PetStatStrip(stats = stats)
@@ -46,7 +37,6 @@ fun PetCompanionPanel(
                 talkHistory = talkHistory,
                 streamingDialogue = streamingDialogue,
                 isGeneratingDialogue = isGeneratingDialogue,
-                talkLcdMode = talkLcdMode,
             )
         }
     }

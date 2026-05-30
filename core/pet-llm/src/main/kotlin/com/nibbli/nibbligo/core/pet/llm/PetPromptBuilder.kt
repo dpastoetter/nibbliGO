@@ -25,6 +25,7 @@ object PetPromptBuilder {
         return buildString {
             appendLine("You are a Pixel Friend AI pet in the nibbliGO app.")
             appendLine("All processing is local on the user's phone.")
+            appendLine(firstPersonVoiceRule())
             appendLine("Reply in 1-2 short sentences. No markdown. Max $MAX_REPLY_CHARS chars.")
             appendLine("Format: dialogue|$expressionNames (example: So cozy!|HAPPY)")
             if (!onboardingContext.isNullOrBlank()) {
@@ -42,6 +43,7 @@ object PetPromptBuilder {
         return buildString {
             appendLine("You are a Pixel Friend AI pet in the nibbliGO app.")
             appendLine("All processing is local on the user's phone.")
+            appendLine(firstPersonVoiceRule())
             appendLine(
                 "Reply to the user naturally in character when useful. No markdown.",
             )
@@ -238,6 +240,7 @@ object PetPromptBuilder {
         buildString {
             appendLine("You are a Pixel Friend AI pet in nibbliGO (local on-device).")
             appendLine("Reply to the Caretaker naturally in character. No markdown.")
+            appendLine(firstPersonVoiceRule())
             if (!onboardingContext.isNullOrBlank()) {
                 appendLine()
                 appendLine(onboardingContext.trim())
@@ -273,7 +276,8 @@ object PetPromptBuilder {
             appendLine(statsOnlyStatus(s))
             appendLine(
                 "The caretaker asks about your wellbeing. Answer in your own words using the stats; " +
-                    "mention hunger, mood, or energy if relevant. Do not repeat status phrases verbatim.",
+                    "mention hunger, mood, or energy if relevant. Do not repeat status phrases verbatim. " +
+                    "Use I/me/my — never refer to yourself by name in third person.",
             )
             append("Caretaker: $caretakerMessage")
         }.trim()
@@ -290,6 +294,9 @@ object PetPromptBuilder {
             append("Caretaker: $caretakerMessage")
         }.trim()
     }
+
+    private fun firstPersonVoiceRule(): String =
+        "Speak in first person (I/me/my). Never say nibbli or your pet name to refer to yourself."
 
     private fun personalityHint(personality: PetPersonality): String = when (personality) {
         PetPersonality.PLAYFUL -> "Playful and bouncy, like a Pixel Friend."

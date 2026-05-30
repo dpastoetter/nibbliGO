@@ -100,7 +100,10 @@ class LiteRtPetReactionGenerator @Inject constructor(
                     builder.append(chunk.token)
                     emit(
                         PetReactionStreamEvent.Token(
-                            PetReactionParser.stripForStreaming(builder.toString()),
+                            PetReactionParser.stripForStreaming(
+                                builder.toString(),
+                                request.state.name,
+                            ),
                         ),
                     )
                 }
@@ -188,7 +191,10 @@ class LiteRtPetReactionGenerator @Inject constructor(
                     builder.append(chunk.token)
                     emit(
                         PetReactionStreamEvent.Token(
-                            PetReactionParser.stripForStreaming(builder.toString()),
+                            PetReactionParser.stripForStreaming(
+                                builder.toString(),
+                                request.state.name,
+                            ),
                         ),
                     )
                 }
@@ -335,9 +341,9 @@ class LiteRtPetReactionGenerator @Inject constructor(
                 Log.w(TAG, "User talk degenerate repetition; treating as empty")
                 return null
             }
-            return PetReactionParser.parseTalk(raw)
+            return PetReactionParser.parseTalk(raw, request.state.name)
         }
-        return PetReactionParser.parse(raw)
+        return PetReactionParser.parse(raw, request.state.name)
     }
 
     internal fun isInferenceFailureText(raw: String): Boolean {

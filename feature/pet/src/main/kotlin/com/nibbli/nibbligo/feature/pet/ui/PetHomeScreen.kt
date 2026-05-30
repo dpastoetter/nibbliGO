@@ -140,15 +140,10 @@ fun PetHomeScreen(
 
                     PetCompanionPanel(
                         stats = pet.stats,
-                        talkEnabled = talkEnabled,
                         isGeneratingDialogue = uiState.isGeneratingDialogue,
-                        isVoiceListening = uiState.isVoiceListening,
                         talkHistory = uiState.talkHistory,
                         streamingDialogue = pet.dialogueLine,
-                        talkLcdMode = uiState.talkLcdMode,
-                        onChipSelected = { viewModel.onQuickChip(it) },
                         onStopClick = { viewModel.stopGeneration() },
-                        onTalkToMeClick = launchVoiceTalk,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
@@ -160,6 +155,8 @@ fun PetHomeScreen(
                 PetTalkInputBar(
                     enabled = talkEnabled,
                     isGeneratingDialogue = uiState.isGeneratingDialogue,
+                    isVoiceListening = uiState.isVoiceListening,
+                    onTalkToMeClick = launchVoiceTalk,
                     isWarmingModel = uiState.isWarmingModel,
                     onSend = { viewModel.onTalkSend(it) },
                     modifier = Modifier

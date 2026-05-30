@@ -134,4 +134,24 @@ class PetReactionParserTest {
         )
         assertTrue(!PetReactionParser.hasDegenerateRepetition("I'm cozy and hunger is fine."))
     }
+
+    @Test
+    fun parseTalk_strips_third_person_nibbli_prefix() {
+        val reaction = PetReactionParser.parseTalk("Nibbli, I'm doing great today!|HAPPY")
+        assertEquals("I'm doing great today!", reaction.dialogue)
+    }
+
+    @Test
+    fun parseTalk_rewrites_third_person_pet_name() {
+        val reaction = PetReactionParser.parseTalk("Pixel is feeling sleepy.|SLEEPY", petName = "Pixel")
+        assertEquals("I'm feeling sleepy.", reaction.dialogue)
+    }
+
+    @Test
+    fun normalizeFirstPersonDialogue_strips_nibbli_comma() {
+        assertEquals(
+            "hello there!",
+            PetReactionParser.normalizeFirstPersonDialogue("Nibbli, hello there!"),
+        )
+    }
 }

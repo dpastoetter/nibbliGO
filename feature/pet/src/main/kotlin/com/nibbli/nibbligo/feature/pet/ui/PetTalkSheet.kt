@@ -34,7 +34,7 @@ fun PetTalkSheet(
     var text by remember { mutableStateOf("") }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val chips = listOf("How are you?", "I'm back!", "Good night", "Let's play!")
+    val chips = listOf("I'm back!", "Good night", "Let's play!")
 
     LaunchedEffect(visible) {
         if (!visible) text = ""
