@@ -30,6 +30,28 @@ class PetSimulationEngineTest {
     }
 
     @Test
+    fun feed_meal_when_very_hungry_restores_to_satisfying_level() {
+        val state = PetState(stats = PetStats(hunger = 8, mood = 50))
+        val result = engine.interact(state, PetInteraction.FEED_MEAL, nowMillis = 1000L)
+        assertTrue(result.state.stats.hunger >= 50)
+        assertEquals(PetNeed.NONE, result.state.activeNeed)
+    }
+
+    @Test
+    fun tick_before_feed_applies_elapsed_decay_then_meal_boost() {
+        val state = PetState(
+            stats = PetStats(hunger = 55),
+            lastTickAtMillis = 0L,
+            lastInteractionAtMillis = 0L,
+        )
+        val now = 25 * 60 * 1000L
+        val ticked = engine.tick(state, now).state
+        assertEquals(30, ticked.stats.hunger)
+        val fed = engine.interact(ticked, PetInteraction.FEED_MEAL, now).state
+        assertEquals(52, fed.stats.hunger)
+    }
+
+    @Test
     fun tick_reduces_hunger_over_time() {
         val state = PetState(
             stats = PetStats(hunger = 80),

@@ -68,6 +68,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
@@ -127,6 +129,7 @@ class PetViewModel @Inject constructor(
     private var petInferenceJob: Job? = null
     private var warmLoadDeferred: Deferred<Unit>? = null
     private var userStoppedGeneration = false
+    private val petStateMutex = Mutex()
 
     init {
         viewModelScope.launch {
@@ -345,13 +348,16 @@ class PetViewModel @Inject constructor(
         if (System.currentTimeMillis() - lastReactionAtMillis < MOOD_PULSE_COOLDOWN_MS) return
         if (petInferenceJob?.isActive == true) return
 
-        val now = System.currentTimeMillis()
-        val tick = engine.tick(ui.petState, now)
-        val state = tick.state
-        if (tick.state != ui.petState) {
-            persist(state)
+        val (state, evolved) = petStateMutex.withLock {
+            val now = System.currentTimeMillis()
+            val current = _uiState.value.petState
+            val tick = engine.tick(current, now)
+            if (tick.state != current) {
+                persistUnlocked(tick.state)
+            }
+            tick.state to tick.evolved
         }
-        if (tick.evolved) {
+        if (evolved) {
             launchBackgroundReaction {
                 generateReaction(state, lastAction = "evolving to ${state.stage.name.lowercase()}")
             }
@@ -441,10 +447,16 @@ class PetViewModel @Inject constructor(
         }
         dismissTalkLcdMode()
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            val result = engine.interact(_uiState.value.petState, interaction, now)
-            var state = PetEngagementEngine.recordCareInteraction(result.state, interaction, now)
-            persist(state.copy(dialogueLine = result.templateDialogue))
+            val state = petStateMutex.withLock {
+                val now = System.currentTimeMillis()
+                val current = _uiState.value.petState
+                val ticked = engine.tick(current, now).state
+                val result = engine.interact(ticked, interaction, now)
+                val updated = PetEngagementEngine.recordCareInteraction(result.state, interaction, now)
+                    .copy(dialogueLine = result.templateDialogue)
+                persistUnlocked(updated)
+                updated
+            }
             launchBackgroundReaction {
                 generateReaction(state, lastAction = interaction.name.lowercase().replace('_', ' '))
             }
@@ -907,37 +919,40 @@ class PetViewModel @Inject constructor(
         request: PetReactionRequest,
         reaction: PetReaction,
     ) {
-        lastReactionAtMillis = System.currentTimeMillis()
-        val resolved = if (request.userMessage != null) {
-            PetReactionParser.reconcileTalkStream(
-                reaction,
-                _uiState.value.petState.dialogueLine,
-            )
-        } else {
-            reaction
-        }
-        val expression = resolved.suggestedExpression ?: state.expression
-        var updated = state.copy(
-            dialogueLine = resolved.dialogue,
-            expression = expression,
-        )
-        updated = PetMemoryWriter.withNewFact(updated, request, resolved.dialogue)
-        if (request.userMessage != null) {
-            _uiState.update {
-                it.copy(
-                    petState = updated,
-                    talkHistory = updateLastPetTalkEntry(it.talkHistory, resolved.dialogue),
+        petStateMutex.withLock {
+            lastReactionAtMillis = System.currentTimeMillis()
+            val resolved = if (request.userMessage != null) {
+                PetReactionParser.reconcileTalkStream(
+                    reaction,
+                    _uiState.value.petState.dialogueLine,
                 )
+            } else {
+                reaction
             }
-        } else {
-            _uiState.update { it.copy(petState = updated) }
-        }
-        petRepository.savePetState(updated)
-        PetWidgetSnapshot.write(context, updated)
-        PetWidgetUpdater.refresh(context)
-        if (request.userMessage != null) {
-            val modelId = petTalkChatRecorder.resolvePetModelId()
-            petTalkChatRecorder.recordAssistantMessage(resolved.dialogue, modelId)
+            val current = _uiState.value.petState
+            val expression = resolved.suggestedExpression ?: current.expression
+            var updated = current.copy(
+                dialogueLine = resolved.dialogue,
+                expression = expression,
+            )
+            updated = PetMemoryWriter.withNewFact(updated, request, resolved.dialogue)
+            if (request.userMessage != null) {
+                _uiState.update {
+                    it.copy(
+                        petState = updated,
+                        talkHistory = updateLastPetTalkEntry(it.talkHistory, resolved.dialogue),
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(petState = updated) }
+            }
+            petRepository.savePetState(updated)
+            PetWidgetSnapshot.write(context, updated)
+            PetWidgetUpdater.refresh(context)
+            if (request.userMessage != null) {
+                val modelId = petTalkChatRecorder.resolvePetModelId()
+                petTalkChatRecorder.recordAssistantMessage(resolved.dialogue, modelId)
+            }
         }
     }
 
@@ -946,6 +961,12 @@ class PetViewModel @Inject constructor(
     }
 
     private suspend fun persist(state: PetState) {
+        petStateMutex.withLock {
+            persistUnlocked(state)
+        }
+    }
+
+    private suspend fun persistUnlocked(state: PetState) {
         val ui = _uiState.value
         val toPersist = if (ui.isGeneratingDialogue && ui.petState.dialogueLine.isNotBlank()) {
             state.copy(dialogueLine = ui.petState.dialogueLine)

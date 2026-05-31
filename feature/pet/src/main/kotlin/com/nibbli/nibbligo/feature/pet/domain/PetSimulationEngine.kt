@@ -194,7 +194,13 @@ class PetSimulationEngine {
                     stats = stats.copy(weight = stats.weight + 3, mood = stats.mood - 2)
                     "I'm stuffed! Maybe a snack later?"
                 } else {
-                    stats = stats.copy(hunger = stats.hunger + 22, weight = stats.weight + 2, mood = stats.mood + 3)
+                    val boosted = stats.hunger + 22
+                    val hunger = if (stats.hunger < PetGameReference.NEED_HUNGRY_THRESHOLD) {
+                        boosted.coerceAtLeast(50)
+                    } else {
+                        boosted
+                    }
+                    stats = stats.copy(hunger = hunger, weight = stats.weight + 2, mood = stats.mood + 3)
                     animation = PetAnimation.EAT
                     "Yum! That meal hit the spot."
                 }
