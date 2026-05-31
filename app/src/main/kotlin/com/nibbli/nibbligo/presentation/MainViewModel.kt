@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,6 +18,9 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
     val themeMode: StateFlow<AppThemeMode> = userPreferencesRepository.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppThemeMode.SYSTEM)
+
+    val accentPalette: StateFlow<AppAccentPalette> = userPreferencesRepository.accentPalette
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppAccentPalette.TEAL)
 
     val showOnboarding: StateFlow<Boolean> = userPreferencesRepository.onboardingCompleted
         .map { completed -> !completed }

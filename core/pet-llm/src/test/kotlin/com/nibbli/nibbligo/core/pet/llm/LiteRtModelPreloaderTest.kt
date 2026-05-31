@@ -77,10 +77,12 @@ class LiteRtModelPreloaderTest {
             override val petCommentOnAgentWork = flowOf(true)
             override val petMoodPulseMode = flowOf(PetMoodPulseMode.NORMAL)
             override val themeMode = flowOf(AppThemeMode.SYSTEM)
+            override val accentPalette = flowOf(com.nibbli.nibbligo.core.model.AppAccentPalette.TEAL)
             override val showDoTab = flowOf(false)
             override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
             override val petOnboardingProfile = flowOf(PetOnboardingProfile(completed = true))
             override val onboardingCompleted = flowOf(true)
+            override val modelSetupPromptDismissed = flowOf(false)
             override suspend fun setDefaultModelId(modelId: String?) = Unit
             override suspend fun setPetModelId(modelId: String?) = Unit
             override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -91,8 +93,10 @@ class LiteRtModelPreloaderTest {
             override suspend fun setPetCommentOnAgentWork(enabled: Boolean) = Unit
             override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
             override suspend fun setThemeMode(mode: AppThemeMode) = Unit
+            override suspend fun setAccentPalette(palette: com.nibbli.nibbligo.core.model.AppAccentPalette) = Unit
             override suspend fun setShowDoTab(show: Boolean) = Unit
             override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) = Unit
+            override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
             override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
         }
         val resolver = PetModelResolver(runtime, prefs, gate)

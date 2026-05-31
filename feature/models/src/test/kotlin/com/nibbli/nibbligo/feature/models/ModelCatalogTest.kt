@@ -11,9 +11,16 @@ class ModelCatalogTest {
     @Test
     fun qwen_is_recommended_for_nibbligo() {
         assertEquals(ModelCatalog.RECOMMENDED_MODEL_ID, "qwen2.5-1.5b-instruct")
+        assertEquals(ModelCatalog.RECOMMENDED_PET_MODEL_ID, ModelCatalog.RECOMMENDED_MODEL_ID)
         val model = ModelCatalog.find("qwen2.5-1.5b-instruct")
         assertTrue(model?.recommendedForNibbliGo == true)
         assertEquals(1, ModelCatalog.models.count { it.recommendedForNibbliGo })
+    }
+
+    @Test
+    fun approximateSizeLabel_formatsQwenAsGb() {
+        assertEquals("~1.5 GB", ModelCatalog.approximateSizeLabel("qwen2.5-1.5b-instruct"))
+        assertEquals("~373 MB", ModelCatalog.approximateSizeLabel("smollm2-360m-instruct"))
     }
 
     @Test

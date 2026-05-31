@@ -28,15 +28,14 @@ data class PetOnboardingUiState(
     val companionGoal: String = "",
     val isSaving: Boolean = false,
 ) {
-    val stepCount: Int = 6
+    val stepCount: Int = 5
 
     val canContinue: Boolean
         get() = when (stepIndex) {
             0 -> true
             1 -> petName.trim().isNotBlank()
             2 -> caretakerName.trim().isNotBlank()
-            3 -> true
-            4, 5 -> true
+            3, 4 -> true
             else -> false
         }
 }
@@ -139,6 +138,6 @@ class PetOnboardingViewModel @Inject constructor(
     }
 
     private companion object {
-        const val STEP_COUNT = 6
+        const val STEP_COUNT = 5
     }
 }

@@ -43,4 +43,4 @@ jobs:
 
             **Install:** Download `nibbliGO-debug.apk`, allow installs from your browser or file manager, then open the APK.
 
-            **Note:** Chat and Pixel Friend Talk need a downloaded LiteRT model first (Manage → Models → FunctionGemma 270M, ~289 MB).
+            **Note:** Pixel Friend Talk needs a downloaded LiteRT model first (Manage → Models → Qwen 2.5 1.5B Instruct, ~1.6 GB, no sign-in).

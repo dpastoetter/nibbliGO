@@ -115,6 +115,17 @@ fun PetHomeScreen(
                 isWarmingModel = uiState.isWarmingModel,
             )
 
+            if (!uiState.petModelInstalled) {
+                PetModelSetupBanner(
+                    visible = true,
+                    isDownloading = uiState.isPetModelDownloading,
+                    downloadProgress = uiState.petModelDownloadProgress,
+                    onDownload = viewModel::downloadRecommendedPetModel,
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -253,5 +264,14 @@ fun PetHomeScreen(
         },
         onDismissVisit = viewModel::endPostcardVisit,
         onDismiss = viewModel::dismissPostcardSheet,
+    )
+    PetModelSetupSheet(
+        visible = uiState.showModelSetupSheet,
+        isDownloading = uiState.isPetModelDownloading,
+        downloadProgress = uiState.petModelDownloadProgress,
+        message = uiState.petModelSetupMessage,
+        onDownload = viewModel::downloadRecommendedPetModel,
+        onDismiss = viewModel::dismissModelSetupSheet,
+        onClearMessage = viewModel::clearPetModelSetupMessage,
     )
 }

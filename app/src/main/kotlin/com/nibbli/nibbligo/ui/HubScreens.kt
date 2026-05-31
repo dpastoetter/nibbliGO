@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,8 +62,14 @@ fun ManageHubScreen(navController: NavController) {
     NibbliScreen {
         NibbliScreenHeader(
             title = "Manage",
-            subtitle = "Download LiteRT models and privacy controls.",
+            subtitle = "Models, companion, and privacy controls.",
         )
+        NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
+            Text(
+                "Download LiteRT models, tune your Pixel Friend, and adjust app settings.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -73,6 +80,12 @@ fun ManageHubScreen(navController: NavController) {
                 icon = Icons.Outlined.Storage,
                 label = "Models",
                 onClick = { navController.navigate(Routes.MODELS) },
+                modifier = Modifier.weight(1f),
+            )
+            NibbliActionTile(
+                icon = Icons.Outlined.SmartToy,
+                label = "Companion",
+                onClick = { navController.navigate(Routes.COMPANION) },
                 modifier = Modifier.weight(1f),
             )
             NibbliActionTile(

@@ -6,6 +6,7 @@ import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AgentRequest
 import com.nibbli.nibbligo.core.model.AgentTurn
+import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.BenchmarkMetrics
 import com.nibbli.nibbligo.core.model.ChatInferenceRequest
@@ -114,14 +115,48 @@ class ChatViewModelTest {
         assertEquals(listOf(MessageRole.USER, MessageRole.ASSISTANT), roles)
         assertEquals("Two", viewModel.uiState.value.messages[0].content)
     }
+
+    @Test
+    fun init_restoresPersistedAssistChat() = runTest(testDispatcher) {
+        val chatRepo = FakeChatRepository()
+        val modelId = "functiongemma-270m"
+        val conversationId = chatRepo.getOrCreateConversation(
+            ChatViewModel.ASSIST_CONVERSATION_TITLE,
+            modelId,
+        )
+        chatRepo.saveMessage(
+            ChatMessage(
+                conversationId = conversationId,
+                role = MessageRole.USER,
+                content = "Earlier message",
+                timestampMillis = 1L,
+                modelId = modelId,
+            ),
+        )
+
+        val viewModel = ChatViewModel(
+            chatRepository = chatRepo,
+            modelRepository = FakeModelRepository(),
+            userPreferencesRepository = FakeUserPreferencesRepository(),
+            inferenceRuntime = FakeInferenceRuntime(reply = "unused"),
+            petEventBus = PetEventBus(),
+        )
+        advanceUntilIdle()
+
+        assertEquals(conversationId, viewModel.uiState.value.conversationId)
+        assertEquals(1, viewModel.uiState.value.messages.size)
+        assertEquals("Earlier message", viewModel.uiState.value.messages[0].content)
+    }
 }
 
 private class FakeChatRepository : ChatRepository {
     private var nextConversationId = 1L
     private var nextMessageId = 1L
     private val messagesByConversation = mutableMapOf<Long, MutableStateFlow<List<ChatMessage>>>()
+    private val conversationsByTitle = mutableMapOf<String, Conversation>()
 
-    override fun observeConversations(): Flow<List<Conversation>> = flowOf(emptyList())
+    override fun observeConversations(): Flow<List<Conversation>> =
+        flowOf(conversationsByTitle.values.toList())
 
     override fun observeMessages(conversationId: Long): Flow<List<ChatMessage>> =
         messagesByConversation.getOrPut(conversationId) { MutableStateFlow(emptyList()) }
@@ -129,13 +164,24 @@ private class FakeChatRepository : ChatRepository {
     override suspend fun createConversation(modelId: String, title: String): Long {
         val id = nextConversationId++
         messagesByConversation[id] = MutableStateFlow(emptyList())
+        conversationsByTitle[title] = Conversation(
+            id = id,
+            title = title,
+            modelId = modelId,
+            createdAtMillis = 0L,
+            updatedAtMillis = 0L,
+        )
         return id
     }
 
-    override suspend fun findConversationByTitle(title: String): Conversation? = null
+    override suspend fun findConversationByTitle(title: String): Conversation? =
+        conversationsByTitle[title]
 
-    override suspend fun getOrCreateConversation(title: String, modelId: String): Long =
-        createConversation(modelId, title)
+    override suspend fun getOrCreateConversation(title: String, modelId: String): Long {
+        val existing = conversationsByTitle[title]
+        if (existing != null) return existing.id
+        return createConversation(modelId, title)
+    }
 
     override suspend fun saveMessage(message: ChatMessage) {
         val flow = messagesByConversation.getValue(message.conversationId)
@@ -172,10 +218,12 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val petCommentOnAgentWork = flowOf(true)
     override val petMoodPulseMode = flowOf(PetMoodPulseMode.NORMAL)
     override val themeMode = flowOf(AppThemeMode.SYSTEM)
+    override val accentPalette = flowOf(AppAccentPalette.TEAL)
     override val showDoTab = flowOf(false)
     override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
     override val petOnboardingProfile = flowOf(com.nibbli.nibbligo.core.model.PetOnboardingProfile(completed = true))
     override val onboardingCompleted = flowOf(true)
+    override val modelSetupPromptDismissed = flowOf(false)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -186,8 +234,10 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun setPetCommentOnAgentWork(enabled: Boolean) = Unit
     override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
     override suspend fun setThemeMode(mode: AppThemeMode) = Unit
+    override suspend fun setAccentPalette(palette: AppAccentPalette) = Unit
     override suspend fun setShowDoTab(show: Boolean) = Unit
     override suspend fun setPetOnboardingProfile(profile: com.nibbli.nibbligo.core.model.PetOnboardingProfile) = Unit
+    override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
     override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
 }
 

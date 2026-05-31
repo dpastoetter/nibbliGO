@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":core:hf-download"))
     implementation(project(":core:litert-engine"))
     implementation(project(":core:pet-llm"))
+    implementation(project(":core:runtime"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)

@@ -15,6 +15,7 @@ import com.nibbli.nibbligo.core.domain.repository.RecordingRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
+import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
@@ -108,12 +109,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val petCommentOnAgent = booleanPreferencesKey("pet_comment_on_agent")
     val petMoodPulseMode = stringPreferencesKey("pet_mood_pulse_mode")
     val themeMode = stringPreferencesKey("theme_mode")
+    val accentPalette = stringPreferencesKey("accent_palette")
     val showDoTab = booleanPreferencesKey("show_do_tab")
     val litertAccelerator = stringPreferencesKey("litert_accelerator")
     val onboardingCompleted = booleanPreferencesKey("pet_onboarding_completed")
     val caretakerName = stringPreferencesKey("pet_caretaker_name")
     val onboardingAboutYou = stringPreferencesKey("pet_onboarding_about")
     val onboardingGoal = stringPreferencesKey("pet_onboarding_goal")
+    val modelSetupPromptDismissed = booleanPreferencesKey("model_setup_prompt_dismissed")
   }
 
   override val defaultModelId: Flow<String?> =
@@ -167,6 +170,13 @@ class UserPreferencesRepositoryImpl @Inject constructor(
       }.getOrDefault(AppThemeMode.SYSTEM)
     }
 
+  override val accentPalette: Flow<AppAccentPalette> =
+    context.dataStore.data.map { prefs ->
+      runCatching {
+        AppAccentPalette.valueOf(prefs[Keys.accentPalette] ?: AppAccentPalette.TEAL.name)
+      }.getOrDefault(AppAccentPalette.TEAL)
+    }
+
   override val showDoTab: Flow<Boolean> =
     context.dataStore.data.map { it[Keys.showDoTab] ?: false }
 
@@ -184,6 +194,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override val onboardingCompleted: Flow<Boolean> =
     context.dataStore.data.map { it[Keys.onboardingCompleted] ?: false }
+
+  override val modelSetupPromptDismissed: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.modelSetupPromptDismissed] ?: false }
 
   override suspend fun setDefaultModelId(modelId: String?) {
     context.dataStore.edit { prefs ->
@@ -237,12 +250,20 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     context.dataStore.edit { it[Keys.themeMode] = mode.name }
   }
 
+  override suspend fun setAccentPalette(palette: AppAccentPalette) {
+    context.dataStore.edit { it[Keys.accentPalette] = palette.name }
+  }
+
   override suspend fun setShowDoTab(show: Boolean) {
     context.dataStore.edit { it[Keys.showDoTab] = show }
   }
 
   override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) {
     context.dataStore.edit { it[Keys.litertAccelerator] = preference.name }
+  }
+
+  override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) {
+    context.dataStore.edit { it[Keys.modelSetupPromptDismissed] = dismissed }
   }
 
   override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) {

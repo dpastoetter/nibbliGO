@@ -10,9 +10,11 @@ import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
+import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.LifeStage
+import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.feature.pet.ui.pixel.LcdPickerEntry
 import com.nibbli.nibbligo.feature.pet.ui.pixel.applyPickerEquip
@@ -37,8 +39,12 @@ import com.nibbli.nibbligo.feature.pet.domain.PetVisitQrExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetPostcardStore
 import com.nibbli.nibbligo.feature.pet.domain.PetShareExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
+import com.nibbli.nibbligo.feature.pet.widget.PetWidgetActions
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.nibbli.nibbligo.core.storage.work.ModelDownloadWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -58,6 +64,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -77,6 +84,10 @@ data class PetUiState(
     val isVoiceListening: Boolean = false,
     val petModelLabel: String = "No model",
     val petModelInstalled: Boolean = false,
+    val showModelSetupSheet: Boolean = false,
+    val isPetModelDownloading: Boolean = false,
+    val petModelDownloadProgress: Int = 0,
+    val petModelSetupMessage: String? = null,
     val isWarmingModel: Boolean = false,
     val evolutionShareStage: LifeStage? = null,
     val showPostcardSheet: Boolean = false,
@@ -100,7 +111,10 @@ class PetViewModel @Inject constructor(
     private val liteRtModelPreloader: LiteRtModelPreloader,
     private val petDeepLinkBus: PetDeepLinkBus,
     private val modelAvailabilityGate: ModelAvailabilityGate,
+    private val modelRepository: ModelRepository,
 ) : ViewModel() {
+
+    private val workManager by lazy { WorkManager.getInstance(context) }
 
     private val postcardStore = PetPostcardStore(context)
 
@@ -174,7 +188,95 @@ class PetViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            petDeepLinkBus.pendingWidgetAction.collect { action ->
+                if (action == null) return@collect
+                when (petDeepLinkBus.consumeWidgetAction()) {
+                    PetWidgetActions.FEED -> onInteraction(PetInteraction.FEED_MEAL)
+                    PetWidgetActions.TALK -> onQuickChip("How are you?")
+                }
+            }
+        }
+        observeModelSetupState()
     }
+
+    private fun observeModelSetupState() {
+        viewModelScope.launch {
+            val downloadFlow = runCatching {
+                workManager.getWorkInfosByTagFlow(ModelDownloadWorker.WORK_TAG)
+            }.getOrElse { flowOf(emptyList()) }
+            combine(
+                userPreferencesRepository.onboardingCompleted,
+                userPreferencesRepository.modelSetupPromptDismissed,
+                modelRepository.observeInstalled(),
+                downloadFlow,
+            ) { onboardingDone, promptDismissed, installed, workInfos ->
+                val petModelId = ModelCatalog.RECOMMENDED_PET_MODEL_ID
+                val hasModel = installed.isNotEmpty()
+                val activeWorks = workInfos.filter {
+                    it.state in ACTIVE_DOWNLOAD_STATES &&
+                        it.tags.any { tag -> tag == "hf_download_$petModelId" }
+                }
+                val downloading = activeWorks.isNotEmpty()
+                val progress = activeWorks.firstOrNull()
+                    ?.progress
+                    ?.getInt(ModelDownloadWorker.KEY_PROGRESS, 0) ?: 0
+                val showSheet = onboardingDone && !hasModel && !promptDismissed
+                ModelSetupSnapshot(
+                    hasModel = hasModel,
+                    showSheet = showSheet,
+                    downloading = downloading,
+                    progress = progress,
+                )
+            }.collect { snapshot ->
+                _uiState.update {
+                    it.copy(
+                        petModelInstalled = snapshot.hasModel,
+                        showModelSetupSheet = snapshot.showSheet,
+                        isPetModelDownloading = snapshot.downloading,
+                        petModelDownloadProgress = snapshot.progress,
+                    )
+                }
+                if (snapshot.hasModel) {
+                    launch { refreshPetModelLabel() }
+                }
+            }
+        }
+    }
+
+    fun downloadRecommendedPetModel() {
+        viewModelScope.launch {
+            modelRepository.install(ModelCatalog.RECOMMENDED_PET_MODEL_ID)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(petModelSetupMessage = "Downloading Pixel Friend model…")
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(petModelSetupMessage = e.message ?: "Download failed")
+                    }
+                }
+        }
+    }
+
+    fun dismissModelSetupSheet() {
+        viewModelScope.launch {
+            userPreferencesRepository.setModelSetupPromptDismissed(true)
+            _uiState.update { it.copy(showModelSetupSheet = false) }
+        }
+    }
+
+    fun clearPetModelSetupMessage() {
+        _uiState.update { it.copy(petModelSetupMessage = null) }
+    }
+
+    private data class ModelSetupSnapshot(
+        val hasModel: Boolean,
+        val showSheet: Boolean,
+        val downloading: Boolean,
+        val progress: Int,
+    )
 
     private suspend fun refreshPetModelLabel() {
         val label = petReactionPort.activeModelDisplayName()
@@ -858,6 +960,10 @@ class PetViewModel @Inject constructor(
 
     private companion object {
         private const val TAG = "PetViewModel"
+        private val ACTIVE_DOWNLOAD_STATES = setOf(
+            WorkInfo.State.RUNNING,
+            WorkInfo.State.ENQUEUED,
+        )
         private const val GENERATION_TIMEOUT_MS = 90_000L
         private const val USER_TALK_TIMEOUT_MS = 90_000L
         private const val USER_TALK_COLD_TIMEOUT_MS = 120_000L

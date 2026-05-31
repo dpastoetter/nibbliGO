@@ -37,4 +37,5 @@ object Routes {
     const val MODELS = "models"
     const val BENCHMARK = "benchmark"
     const val SETTINGS = "settings"
+    const val COMPANION = "companion"
 }

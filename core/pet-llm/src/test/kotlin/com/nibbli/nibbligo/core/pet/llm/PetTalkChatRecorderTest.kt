@@ -109,10 +109,12 @@ private class FakeUserPreferencesRepository(
     override val petCommentOnAgentWork = flowOf(true)
     override val petMoodPulseMode = flowOf(com.nibbli.nibbligo.core.model.PetMoodPulseMode.NORMAL)
     override val themeMode = flowOf(com.nibbli.nibbligo.core.model.AppThemeMode.SYSTEM)
+    override val accentPalette = flowOf(com.nibbli.nibbligo.core.model.AppAccentPalette.TEAL)
     override val showDoTab = flowOf(false)
     override val litertAccelerator = flowOf(com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference.AUTO)
     override val petOnboardingProfile = flowOf(com.nibbli.nibbligo.core.model.PetOnboardingProfile(completed = true))
     override val onboardingCompleted = flowOf(true)
+    override val modelSetupPromptDismissed = flowOf(false)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: com.nibbli.nibbligo.core.model.GenerationParams) = Unit
@@ -123,7 +125,9 @@ private class FakeUserPreferencesRepository(
     override suspend fun setPetCommentOnAgentWork(enabled: Boolean) = Unit
     override suspend fun setPetMoodPulseMode(mode: com.nibbli.nibbligo.core.model.PetMoodPulseMode) = Unit
     override suspend fun setThemeMode(mode: com.nibbli.nibbligo.core.model.AppThemeMode) = Unit
+    override suspend fun setAccentPalette(palette: com.nibbli.nibbligo.core.model.AppAccentPalette) = Unit
     override suspend fun setShowDoTab(show: Boolean) = Unit
     override suspend fun setPetOnboardingProfile(profile: com.nibbli.nibbligo.core.model.PetOnboardingProfile) = Unit
+    override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
     override suspend fun setLitertAccelerator(preference: com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference) = Unit
 }

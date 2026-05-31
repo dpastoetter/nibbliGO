@@ -15,10 +15,11 @@ import com.nibbli.nibbligo.presentation.MainViewModel
 @Composable
 fun NibbliAppWithTheme(viewModel: MainViewModel = hiltViewModel()) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val accentPalette by viewModel.accentPalette.collectAsStateWithLifecycle()
     val showOnboarding by viewModel.showOnboarding.collectAsStateWithLifecycle()
     var onboardingDismissed by rememberSaveable { mutableStateOf(false) }
 
-    NibbliTheme(themeMode = themeMode) {
+    NibbliTheme(themeMode = themeMode, accentPalette = accentPalette) {
         if (showOnboarding && !onboardingDismissed) {
             PetOnboardingScreen(onFinished = { onboardingDismissed = true })
         } else {

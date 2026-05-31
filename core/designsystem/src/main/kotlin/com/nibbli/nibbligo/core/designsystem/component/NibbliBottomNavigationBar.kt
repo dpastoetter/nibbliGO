@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,7 +29,7 @@ data class NibbliBottomNavItem(
     val onClick: () -> Unit,
 )
 
-private val BarContentHeight = 52.dp
+private val BarContentHeight = 56.dp
 private val IconSize = 22.dp
 
 @Composable
@@ -37,8 +38,8 @@ fun NibbliBottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp,
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
@@ -46,7 +47,7 @@ fun NibbliBottomNavigationBar(
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .height(BarContentHeight)
-                .padding(horizontal = 4.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -62,15 +63,20 @@ private fun RowScope.NibbliBottomNavDestination(item: NibbliBottomNavItem) {
     val contentColor = if (item.selected) {
         MaterialTheme.colorScheme.primary
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
     }
     Surface(
         onClick = item.onClick,
-        color = MaterialTheme.colorScheme.surface,
+        color = if (item.selected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.weight(1f),
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 6.dp),
+            modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

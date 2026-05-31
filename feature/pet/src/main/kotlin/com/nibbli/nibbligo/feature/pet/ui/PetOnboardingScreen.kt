@@ -1,7 +1,7 @@
 package com.nibbli.nibbligo.feature.pet.ui
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,28 +9,33 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
-import com.nibbli.nibbligo.core.designsystem.component.OnDeviceBadge
+import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
+import com.nibbli.nibbligo.core.designsystem.component.NibbliSecondaryButton
+import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
+import com.nibbli.nibbligo.core.designsystem.component.NibbliTextField
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.feature.pet.presentation.PetOnboardingViewModel
 
@@ -49,8 +54,8 @@ fun PetOnboardingScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 20.dp, vertical = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Column(
                 modifier = Modifier
@@ -58,15 +63,19 @@ fun PetOnboardingScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                OnDeviceBadge(compact = true)
                 LinearProgressIndicator(
                     progress = { (uiState.stepIndex + 1f) / uiState.stepCount },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 )
                 Text(
                     text = "Step ${uiState.stepIndex + 1} of ${uiState.stepCount}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 )
 
                 NibbliCard {
@@ -85,15 +94,12 @@ fun PetOnboardingScreen(
                             selected = uiState.personality,
                             onSelect = viewModel::updatePersonality,
                         )
-                        4 -> AboutYouStep(
+                        4 -> PersonalTouchStep(
                             petName = uiState.petName.trim().ifBlank { "Pixel Friend" },
-                            value = uiState.aboutYou,
-                            onValueChange = viewModel::updateAboutYou,
-                        )
-                        else -> CompanionGoalStep(
-                            petName = uiState.petName.trim().ifBlank { "Pixel Friend" },
-                            value = uiState.companionGoal,
-                            onValueChange = viewModel::updateCompanionGoal,
+                            aboutYou = uiState.aboutYou,
+                            companionGoal = uiState.companionGoal,
+                            onAboutYouChange = viewModel::updateAboutYou,
+                            onCompanionGoalChange = viewModel::updateCompanionGoal,
                         )
                     }
                 }
@@ -104,34 +110,30 @@ fun PetOnboardingScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 if (uiState.stepIndex > 0) {
-                    OutlinedButton(
+                    NibbliSecondaryButton(
+                        text = "Back",
                         onClick = viewModel::previousStep,
                         enabled = !uiState.isSaving,
                         modifier = Modifier.weight(1f),
-                    ) {
-                        Text("Back")
-                    }
+                    )
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
                 }
 
                 val isLastStep = uiState.stepIndex >= uiState.stepCount - 1
-                Button(
+                NibbliPrimaryButton(
+                    text = when {
+                        uiState.isSaving -> "Saving…"
+                        isLastStep -> "Meet ${uiState.petName.trim().ifBlank { "Pixel Friend" }}"
+                        else -> "Continue"
+                    },
                     onClick = {
                         if (isLastStep) viewModel.complete(onFinished)
                         else viewModel.nextStep()
                     },
                     enabled = uiState.canContinue && !uiState.isSaving,
                     modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        when {
-                            uiState.isSaving -> "Saving…"
-                            isLastStep -> "Meet ${uiState.petName.trim().ifBlank { "Pixel Friend" }}"
-                            else -> "Continue"
-                        },
-                    )
-                }
+                )
             }
         }
     }
@@ -139,11 +141,27 @@ fun PetOnboardingScreen(
 
 @Composable
 private fun WelcomeStep() {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                modifier = Modifier.size(10.dp),
+            ) {}
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                modifier = Modifier.size(10.dp),
+            ) {}
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(10.dp),
+            ) {}
+        }
         Text(
             text = "Welcome to nibbliGO",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.displaySmall,
         )
         Text(
             text = "Your Pixel Friend runs entirely on your phone. " +
@@ -160,13 +178,12 @@ private fun CaretakerNameStep(
     value: String,
     onValueChange: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = "What should $petName call you?",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
         )
-        OutlinedTextField(
+        NibbliTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
@@ -181,13 +198,12 @@ private fun PetNameStep(
     value: String,
     onValueChange: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = "Name your Pixel Friend",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
         )
-        OutlinedTextField(
+        NibbliTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
@@ -207,14 +223,13 @@ private fun PersonalityStep(
         Text(
             text = "Pick a personality",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PetPersonality.entries.forEach { personality ->
-                FilterChip(
+                NibbliSuggestionChip(
+                    label = personality.name.lowercase().replaceFirstChar { it.titlecase() },
                     selected = selected == personality,
                     onClick = { onSelect(personality) },
-                    label = { Text(personality.name.lowercase().replaceFirstChar { it.uppercase() }) },
                 )
             }
         }
@@ -226,67 +241,46 @@ private fun PersonalityStep(
     }
 }
 
-@Composable
-private fun AboutYouStep(
-    petName: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "Tell $petName a little about you",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = "Optional — hobbies, how you like to chat, anything that helps $petName feel like yours.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("I love retro gadgets and on-device AI…") },
-            minLines = 3,
-        )
-    }
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CompanionGoalStep(
+private fun PersonalTouchStep(
     petName: String,
-    value: String,
-    onValueChange: (String) -> Unit,
+    aboutYou: String,
+    companionGoal: String,
+    onAboutYouChange: (String) -> Unit,
+    onCompanionGoalChange: (String) -> Unit,
 ) {
-    val suggestions = listOf(
-        "A cozy companion on my home screen",
-        "Help explaining on-device AI",
-        "Someone to check in on my pet stats",
-        "Light chat while I tinker with models",
+    val vibeSuggestions = listOf(
+        "Cheer me up when I'm having a rough day",
+        "Keep me company on my home screen",
+        "Playful back-and-forth",
+        "Gentle, low-key buddy",
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "What do you want from $petName?",
+            text = "Anything $petName should remember?",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = "Optional — helps talk feel personal. Skip with Continue.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            suggestions.forEach { suggestion ->
-                FilterChip(
-                    selected = value == suggestion,
-                    onClick = { onValueChange(suggestion) },
-                    label = { Text(suggestion) },
+            vibeSuggestions.forEach { suggestion ->
+                NibbliSuggestionChip(
+                    label = suggestion,
+                    selected = companionGoal == suggestion,
+                    onClick = { onCompanionGoalChange(suggestion) },
                 )
             }
         }
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
+        NibbliTextField(
+            value = aboutYou,
+            onValueChange = onAboutYouChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Or write your own…") },
-            minLines = 2,
+            placeholder = { Text("Night owl, coffee fan, loves hiking…") },
+            minLines = 3,
         )
     }
 }

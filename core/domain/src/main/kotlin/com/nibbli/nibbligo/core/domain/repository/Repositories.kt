@@ -1,5 +1,6 @@
 package com.nibbli.nibbligo.core.domain.repository
 
+import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
@@ -72,10 +73,12 @@ interface UserPreferencesRepository {
     val petCommentOnAgentWork: Flow<Boolean>
     val petMoodPulseMode: Flow<PetMoodPulseMode>
     val themeMode: Flow<AppThemeMode>
+    val accentPalette: Flow<AppAccentPalette>
     val showDoTab: Flow<Boolean>
     val litertAccelerator: Flow<LiteRtAcceleratorPreference>
     val petOnboardingProfile: Flow<PetOnboardingProfile>
     val onboardingCompleted: Flow<Boolean>
+    val modelSetupPromptDismissed: Flow<Boolean>
     suspend fun setDefaultModelId(modelId: String?)
     suspend fun setPetModelId(modelId: String?)
     suspend fun setGenerationParams(params: GenerationParams)
@@ -86,7 +89,9 @@ interface UserPreferencesRepository {
     suspend fun setPetCommentOnAgentWork(enabled: Boolean)
     suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode)
     suspend fun setThemeMode(mode: AppThemeMode)
+    suspend fun setAccentPalette(palette: AppAccentPalette)
     suspend fun setShowDoTab(show: Boolean)
     suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference)
     suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile)
+    suspend fun setModelSetupPromptDismissed(dismissed: Boolean)
 }

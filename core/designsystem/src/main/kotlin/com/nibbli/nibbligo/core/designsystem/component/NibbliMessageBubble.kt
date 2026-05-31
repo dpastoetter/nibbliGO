@@ -38,7 +38,12 @@ fun NibbliMessageBubble(
     bubbleColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
     val isUser = role == NibbliMessageRole.USER
-    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+    val resolvedBubbleColor = if (isUser && bubbleColor == MaterialTheme.colorScheme.surfaceContainerHigh) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    } else {
+        bubbleColor
+    }
+    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
     val bubbleShape = if (isUser) {
         RoundedCornerShape(
             topStart = 20.dp,
@@ -74,7 +79,7 @@ fun NibbliMessageBubble(
         ) {
             Surface(
                 shape = bubbleShape,
-                color = bubbleColor,
+                color = resolvedBubbleColor,
                 border = BorderStroke(1.dp, borderColor),
             ) {
                 Text(
@@ -99,7 +104,7 @@ fun NibbliMessageBubble(
                         lineTo(size.width * 0.85f, size.height)
                         close()
                     }
-                    drawPath(path, bubbleColor)
+                    drawPath(path, resolvedBubbleColor)
                 }
             } else {
                 Canvas(
@@ -114,7 +119,7 @@ fun NibbliMessageBubble(
                         lineTo(size.width * 0.15f, size.height)
                         close()
                     }
-                    drawPath(path, bubbleColor)
+                    drawPath(path, resolvedBubbleColor)
                 }
             }
         }

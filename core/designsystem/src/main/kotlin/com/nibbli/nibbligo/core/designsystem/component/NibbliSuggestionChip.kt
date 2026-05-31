@@ -8,6 +8,7 @@ import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 private val NibbliChipShape = RoundedCornerShape(20.dp)
@@ -20,11 +21,15 @@ fun NibbliSuggestionChip(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val borderColor = MaterialTheme.colorScheme.outlineVariant
-    val containerColor = if (selected) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
     } else {
-        MaterialTheme.colorScheme.surfaceContainerHigh
+        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+    }
+    val containerColor = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+    } else {
+        Color.Transparent
     }
 
     SuggestionChip(

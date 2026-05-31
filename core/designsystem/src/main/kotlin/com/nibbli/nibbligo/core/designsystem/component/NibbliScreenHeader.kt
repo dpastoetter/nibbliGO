@@ -24,8 +24,8 @@ fun NibbliScreenHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -35,7 +35,7 @@ fun NibbliScreenHeader(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
             )
             trailingContent?.invoke()
@@ -47,7 +47,7 @@ fun NibbliScreenHeader(
             Text(
                 text = it,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
             )
         }
         if (showOnDeviceBadge && trailingContent != null) {

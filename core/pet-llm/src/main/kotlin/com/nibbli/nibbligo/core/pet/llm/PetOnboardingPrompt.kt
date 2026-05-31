@@ -21,7 +21,7 @@ object PetOnboardingPrompt {
                 appendLine("- About them: ${profile.aboutYou.trim()}")
             }
             if (profile.companionGoal.isNotBlank()) {
-                appendLine("- They want from you: ${profile.companionGoal.trim()}")
+                appendLine("- How they want you to show up: ${profile.companionGoal.trim()}")
             }
             append(
                 "Address the caretaker by name when it fits. " +

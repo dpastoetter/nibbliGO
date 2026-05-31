@@ -1,18 +1,21 @@
 package com.nibbli.nibbligo.core.designsystem.component
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,9 +39,10 @@ fun NibbliCard(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-        shadowElevation = 1.dp,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
     ) {
         Column(Modifier.padding(16.dp)) { content() }
     }
@@ -147,6 +151,27 @@ fun ModelCapabilityChip(label: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun NibbliComposerStrip(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+        )
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
 fun ConfirmActionDialog(
     title: String,
     description: String,
@@ -160,22 +185,33 @@ fun ConfirmActionDialog(
         text = {
             Column {
                 Text(description, style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    preview,
-                    modifier = Modifier.padding(top = 12.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
+                    Text(
+                        preview,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(
+            NibbliPrimaryButton(
+                text = "Confirm",
                 onClick = onConfirm,
-                modifier = Modifier.testTag("confirm_action"),
-            ) { Text("Confirm") }
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .testTag("confirm_action"),
+            )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            NibbliSecondaryButton(
+                text = "Cancel",
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+            )
         },
     )
 }

@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
+import com.nibbli.nibbligo.feature.pet.widget.PetWidgetActions
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,6 +35,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             NibbliAppWithTheme()
         }
+        handleWidgetAction(intent)
         handleDeepLink(intent)
         handleHuggingFaceRedirect(intent)
     }
@@ -41,6 +43,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        handleWidgetAction(intent)
         handleDeepLink(intent)
         handleHuggingFaceRedirect(intent)
     }
@@ -53,6 +56,12 @@ class MainActivity : ComponentActivity() {
             return
         }
         requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun handleWidgetAction(intent: Intent?) {
+        intent?.getStringExtra(PetWidgetActions.EXTRA)?.let { action ->
+            petDeepLinkBus.submitWidgetAction(action)
+        }
     }
 
     private fun handleDeepLink(intent: Intent?) {

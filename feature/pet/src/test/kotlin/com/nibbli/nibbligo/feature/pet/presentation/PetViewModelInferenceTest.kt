@@ -6,8 +6,10 @@ import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
+import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.GenerationParams
@@ -18,7 +20,9 @@ import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.ChatMessage
+import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.ModelCapabilities
+import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.pet.llm.PetReaction
 import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
@@ -131,6 +135,7 @@ class PetViewModelInferenceTest {
                 override suspend fun hasUsableModel(): Boolean = true
                 override suspend fun firstUsableModelId(): String = "smollm2-360m-instruct"
             },
+            modelRepository = FakeModelRepository(),
         )
     }
 
@@ -298,10 +303,13 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val petCommentOnAgentWork = flowOf(false)
     override val petMoodPulseMode = flowOf(PetMoodPulseMode.OFF)
     override val themeMode = flowOf(AppThemeMode.SYSTEM)
+    override val accentPalette = flowOf(AppAccentPalette.TEAL)
     override val showDoTab = flowOf(false)
     override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
     override val petOnboardingProfile = flowOf(PetOnboardingProfile(completed = true))
     override val onboardingCompleted = flowOf(true)
+    override val modelSetupPromptDismissed = flowOf(true)
+    override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -312,7 +320,28 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun setPetCommentOnAgentWork(enabled: Boolean) = Unit
     override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
     override suspend fun setThemeMode(mode: AppThemeMode) = Unit
+    override suspend fun setAccentPalette(palette: AppAccentPalette) = Unit
     override suspend fun setShowDoTab(show: Boolean) = Unit
     override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) = Unit
     override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
+}
+
+private class FakeModelRepository : ModelRepository {
+    override fun observeCatalog(): Flow<List<ModelInfo>> = flowOf(emptyList())
+    override fun observeInstalled(): Flow<List<InstalledModel>> = flowOf(
+        listOf(
+            InstalledModel(
+                modelId = "smollm2-360m-instruct",
+                localPath = "/tmp/model.litertlm",
+                installedAtMillis = 0L,
+                sizeBytes = 1_000_000L,
+            ),
+        ),
+    )
+    override suspend fun getCatalog(): List<ModelInfo> = emptyList()
+    override suspend fun getInstalled(): List<InstalledModel> = emptyList()
+    override suspend fun isInstalled(modelId: String): Boolean = true
+    override suspend fun install(modelId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun uninstall(modelId: String): Result<Unit> = Result.success(Unit)
+    override suspend fun getInstalledModelIds(): List<String> = listOf("smollm2-360m-instruct")
 }

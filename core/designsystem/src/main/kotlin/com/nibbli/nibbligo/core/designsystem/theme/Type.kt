@@ -9,31 +9,33 @@ import androidx.compose.ui.unit.sp
 val NibbliTypography = Typography(
     displaySmall = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Normal,
         fontSize = 28.sp,
-        lineHeight = 34.sp,
+        lineHeight = 36.sp,
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 22.sp,
+        lineHeight = 28.sp,
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
         fontSize = 18.sp,
+        lineHeight = 24.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 24.sp,
+        lineHeight = 26.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 20.sp,
+        lineHeight = 22.sp,
     ),
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,

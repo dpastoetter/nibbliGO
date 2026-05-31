@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.luminance
+import com.nibbli.nibbligo.core.designsystem.theme.LocalAccentGlow
 import com.nibbli.nibbligo.core.designsystem.theme.SuperDarkGlowLavender
 import com.nibbli.nibbligo.core.designsystem.theme.SuperDarkGlowTeal
 
@@ -16,13 +17,14 @@ fun NibbliAmbientBackground(modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val isDark = scheme.background.luminance() < 0.5f
     val isSuperDark = scheme.background.luminance() < 0.04f
+    val accentGlow = LocalAccentGlow.current
     val centerY = 0.32f
     val base = scheme.background
 
     val edge = when {
         isSuperDark -> SuperDarkGlowTeal.copy(alpha = 0.55f)
-        isDark -> scheme.surface.copy(alpha = 0.35f)
-        else -> scheme.primary.copy(alpha = 0.06f)
+        isDark -> accentGlow.copy(alpha = 0.35f)
+        else -> accentGlow.copy(alpha = 0.5f)
     }
     val mid = when {
         isSuperDark -> SuperDarkGlowLavender.copy(alpha = 0.22f)
@@ -34,13 +36,17 @@ fun NibbliAmbientBackground(modifier: Modifier = Modifier) {
             brush = Brush.radialGradient(
                 colors = if (isSuperDark) {
                     listOf(
-                        SuperDarkGlowTeal.copy(alpha = 0.35f),
+                        accentGlow.copy(alpha = 0.35f),
                         mid,
                         base,
                         edge,
                     )
                 } else {
-                    listOf(base, edge)
+                    listOf(
+                        accentGlow.copy(alpha = if (isDark) 0.28f else 0.12f),
+                        base,
+                        edge.copy(alpha = if (isDark) 0.25f else 0.08f),
+                    )
                 },
                 center = Offset(size.width * 0.5f, size.height * centerY),
                 radius = size.maxDimension * 0.9f,

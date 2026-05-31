@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,12 +18,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nibbli.nibbligo.core.designsystem.component.NibbliComposerStrip
+import com.nibbli.nibbligo.core.designsystem.component.NibbliInlineChatInputBar
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageBubble
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageRole
 import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
+import com.nibbli.nibbligo.core.designsystem.component.NibbliTextField
 import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.ui.EmptyState
 import com.nibbli.nibbligo.feature.chat.presentation.ChatViewModel
@@ -57,19 +59,6 @@ fun ChatScreen(
             subtitle = "On-device conversation with an installed LiteRT model.",
             showOnDeviceBadge = true,
         )
-
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(bottom = 8.dp),
-        ) {
-            uiState.installedModelIds.forEach { id ->
-                NibbliSuggestionChip(
-                    label = id,
-                    selected = uiState.selectedModelId == id,
-                    onClick = { viewModel.selectModel(id) },
-                )
-            }
-        }
 
         NibbliPrimaryButton(
             text = "New conversation",
@@ -124,45 +113,47 @@ fun ChatScreen(
             }
         }
 
-        NibbliSuggestionChip(
-            label = "Working notes",
-            selected = uiState.showReasoning,
-            onClick = { viewModel.toggleReasoning() },
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        if (uiState.showReasoning) {
-            OutlinedTextField(
-                value = uiState.reasoningNotes,
-                onValueChange = viewModel::updateReasoningNotes,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Optional notes (visible, not hidden reasoning)") },
+        NibbliComposerStrip {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                uiState.installedModelIds.forEach { id ->
+                    NibbliSuggestionChip(
+                        label = id,
+                        selected = uiState.selectedModelId == id,
+                        onClick = { viewModel.selectModel(id) },
+                    )
+                }
+            }
+            NibbliSuggestionChip(
+                label = "Working notes",
+                selected = uiState.showReasoning,
+                onClick = { viewModel.toggleReasoning() },
             )
-        }
-
-        OutlinedTextField(
-            value = uiState.input,
-            onValueChange = viewModel::updateInput,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("chat_input"),
-            label = { Text("Message") },
-        )
-        NibbliPrimaryButton(
-            text = if (uiState.isStreaming) "Sending…" else "Send",
-            onClick = { viewModel.sendMessage() },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp)
-                .testTag("send_message"),
-            enabled = !uiState.isStreaming,
-        )
-
-        uiState.error?.let {
-            Text(
-                it,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp),
+            if (uiState.showReasoning) {
+                NibbliTextField(
+                    value = uiState.reasoningNotes,
+                    onValueChange = viewModel::updateReasoningNotes,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Optional notes (visible, not hidden reasoning)") },
+                )
+            }
+            NibbliInlineChatInputBar(
+                value = uiState.input,
+                onValueChange = viewModel::updateInput,
+                onSend = viewModel::sendMessage,
+                enabled = !uiState.isStreaming,
+                placeholder = if (uiState.isStreaming) "nibbli is thinking…" else "Message nibbli…",
+                isGenerating = uiState.isStreaming,
+                inputTestTag = "chat_input",
+                sendTestTag = "send_message",
             )
+            uiState.error?.let {
+                Text(
+                    it,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     }
 }

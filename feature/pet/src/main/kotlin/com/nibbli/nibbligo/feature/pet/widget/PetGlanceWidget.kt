@@ -10,67 +10,152 @@ import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
+import androidx.glance.background
+import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
+import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 
 class PetGlanceWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val snapshot = PetWidgetSnapshot.read(context)
-        val launch = Intent(Intent.ACTION_MAIN).apply {
-            setClassName(context.packageName, "com.nibbli.nibbligo.MainActivity")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
+        val launch = homeIntent(context)
         provideContent {
-            PetWidgetContent(snapshot, launch)
+            PetWidgetContent(context, snapshot, launch)
         }
     }
 }
 
+private fun homeIntent(context: Context): Intent =
+    Intent(Intent.ACTION_MAIN).apply {
+        setClassName(context.packageName, "com.nibbli.nibbligo.MainActivity")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+
+private fun widgetActionIntent(context: Context, action: String): Intent =
+    homeIntent(context).putExtra(PetWidgetActions.EXTRA, action)
+
 @Composable
-private fun PetWidgetContent(snapshot: PetWidgetSnapshot.Snapshot, launch: Intent) {
+private fun PetWidgetContent(
+    context: Context,
+    snapshot: PetWidgetSnapshot.Snapshot,
+    launch: Intent,
+) {
+    val lcdGreen = ColorProvider(android.graphics.Color.parseColor("#8BAF6A"))
+    val lcdBg = ColorProvider(android.graphics.Color.parseColor("#2A4A2E"))
+    val lcdBorder = ColorProvider(android.graphics.Color.parseColor("#1E3320"))
+    val accent = ColorProvider(android.graphics.Color.parseColor("#9AE66E"))
+    val muted = ColorProvider(android.graphics.Color.parseColor("#B8C4B0"))
+
     Column(
         modifier = GlanceModifier
-            .padding(12.dp)
+            .padding(10.dp)
             .clickable(actionStartActivity(launch)),
     ) {
-        Row(modifier = GlanceModifier.padding(bottom = 4.dp)) {
-            Text(
-                text = snapshot.glyph,
-                style = TextStyle(fontSize = 28.sp, color = ColorProvider(android.graphics.Color.parseColor("#9AE66E"))),
-                modifier = GlanceModifier.padding(end = 8.dp),
-            )
-            Column {
+        Box(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .height(72.dp)
+                .cornerRadius(6.dp)
+                .background(lcdBorder)
+                .padding(3.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .height(66.dp)
+                    .cornerRadius(4.dp)
+                    .background(lcdBg)
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = snapshot.glyph,
+                        style = TextStyle(
+                            fontSize = 26.sp,
+                            color = lcdGreen,
+                            textAlign = TextAlign.Center,
+                        ),
+                    )
+                    if (snapshot.need != "NONE") {
+                        Text(
+                            text = "Needs ${snapshot.need.lowercase()}",
+                            style = TextStyle(fontSize = 9.sp, color = accent),
+                        )
+                    }
+                }
+            }
+        }
+        Row(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .padding(top = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = GlanceModifier.defaultWeight()) {
                 Text(
                     text = snapshot.name,
-                    style = TextStyle(fontSize = 16.sp, color = ColorProvider(android.graphics.Color.WHITE)),
+                    style = TextStyle(fontSize = 14.sp, color = ColorProvider(android.graphics.Color.WHITE)),
                 )
                 Text(
                     text = snapshot.stage.lowercase().replaceFirstChar { it.titlecase() },
-                    style = TextStyle(fontSize = 12.sp, color = ColorProvider(android.graphics.Color.LTGRAY)),
+                    style = TextStyle(fontSize = 11.sp, color = muted),
                 )
             }
         }
-        if (snapshot.cosmetic.isNotBlank()) {
+        Row(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        ) {
             Text(
-                text = snapshot.cosmetic.replace('_', ' ').lowercase(),
-                style = TextStyle(fontSize = 10.sp, color = ColorProvider(android.graphics.Color.parseColor("#9AE66E"))),
+                text = "Feed",
+                modifier = GlanceModifier
+                    .defaultWeight()
+                    .padding(end = 4.dp)
+                    .cornerRadius(8.dp)
+                    .background(lcdBorder)
+                    .padding(vertical = 6.dp)
+                    .clickable(actionStartActivity(widgetActionIntent(context, PetWidgetActions.FEED))),
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = accent,
+                    textAlign = TextAlign.Center,
+                ),
             )
-        }
-        if (snapshot.need != "NONE") {
             Text(
-                text = "Needs: ${snapshot.need.lowercase()}",
-                style = TextStyle(fontSize = 11.sp, color = ColorProvider(android.graphics.Color.YELLOW)),
+                text = "Talk",
+                modifier = GlanceModifier
+                    .defaultWeight()
+                    .padding(start = 4.dp)
+                    .cornerRadius(8.dp)
+                    .background(lcdBorder)
+                    .padding(vertical = 6.dp)
+                    .clickable(actionStartActivity(widgetActionIntent(context, PetWidgetActions.TALK))),
+                style = TextStyle(
+                    fontSize = 12.sp,
+                    color = accent,
+                    textAlign = TextAlign.Center,
+                ),
             )
         }
         if (snapshot.streakDays > 0) {
             Text(
                 text = "Streak ${snapshot.streakDays}d · mood ${snapshot.mood}",
-                style = TextStyle(fontSize = 10.sp, color = ColorProvider(android.graphics.Color.LTGRAY)),
+                modifier = GlanceModifier.padding(top = 4.dp),
+                style = TextStyle(fontSize = 10.sp, color = muted),
             )
         }
     }

@@ -2,6 +2,7 @@ package com.nibbli.nibbligo.core.model
 
 object ModelCatalog {
     const val RECOMMENDED_MODEL_ID = "qwen2.5-1.5b-instruct"
+    const val RECOMMENDED_PET_MODEL_ID = RECOMMENDED_MODEL_ID
 
     val models: List<ModelInfo> = listOf(
         ModelInfo(
@@ -108,4 +109,9 @@ object ModelCatalog {
     fun find(modelId: String): ModelInfo? = models.find { it.id == modelId }
 
     fun displayName(modelId: String): String = find(modelId)?.displayName ?: modelId
+
+    fun approximateSizeLabel(modelId: String): String {
+        val mb = (find(modelId)?.sizeBytes ?: 0L) / 1_000_000
+        return if (mb >= 1000) "~${mb / 1000}.${(mb % 1000) / 100} GB" else "~$mb MB"
+    }
 }

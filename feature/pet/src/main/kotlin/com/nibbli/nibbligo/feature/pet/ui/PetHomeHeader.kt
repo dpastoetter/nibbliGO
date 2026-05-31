@@ -14,8 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.component.OnDeviceBadge
 import com.nibbli.nibbligo.core.model.PetEngagementRules
@@ -37,8 +35,8 @@ fun PetHomeHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -46,25 +44,24 @@ fun PetHomeHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
                     text = pet.name,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "· ${pet.stage.name.lowercase().replaceFirstChar { it.titlecase() }}",
+                    text = pet.stage.name.lowercase().replaceFirstChar { it.titlecase() },
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                 )
             }
             need?.let {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f),
                 ) {
                     Text(
                         text = needLabel(it),
@@ -82,13 +79,13 @@ fun PetHomeHeader(
         ) {
             Text(
                 text = buildString {
-                    append("Care ${pet.careScore} · Age ${pet.ageMinutes}m")
+                    append("Care ${pet.careScore}")
                     if (pet.engagement.careStreakDays > 0) {
                         append(" · ${pet.engagement.careStreakDays}d streak")
                     }
                 },
-                style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
             )
             OnDeviceBadge(compact = true, label = petModelLabel)
         }
@@ -99,10 +96,10 @@ fun PetHomeHeader(
                 if (!pet.engagement.dailyQuestTalk) add("talk")
             }.joinToString(" · ")
             Text(
-                text = "Daily quest: $quest · Play goal ${pet.engagement.dailyCatchTargetScore}",
+                text = "Daily quest: $quest",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary,
-                maxLines = 2,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 1,
             )
         }
         if (isWarmingModel) {
@@ -113,11 +110,12 @@ fun PetHomeHeader(
                 CircularProgressIndicator(
                     modifier = Modifier.size(12.dp),
                     strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
                     text = "Warming up model…",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
                     maxLines = 1,
                 )
             }
@@ -126,7 +124,7 @@ fun PetHomeHeader(
             Text(
                 text = it,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
                 maxLines = 1,
             )
         }

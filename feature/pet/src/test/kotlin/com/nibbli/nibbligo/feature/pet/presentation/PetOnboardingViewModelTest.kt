@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.feature.pet.presentation
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
@@ -53,6 +54,11 @@ class PetOnboardingViewModelTest {
     fun canContinue_step2_requiresCaretakerName() {
         assertFalse(PetOnboardingUiState(stepIndex = 2, caretakerName = "").canContinue)
         assertTrue(PetOnboardingUiState(stepIndex = 2, caretakerName = "Alex").canContinue)
+    }
+
+    @Test
+    fun stepCount_isFive() {
+        assertEquals(5, PetOnboardingUiState().stepCount)
     }
 
     @Test
@@ -140,10 +146,12 @@ private class OnboardingFakePrefs(
     override val petCommentOnAgentWork = flowOf(true)
     override val petMoodPulseMode = flowOf(PetMoodPulseMode.NORMAL)
     override val themeMode = flowOf(AppThemeMode.SYSTEM)
+    override val accentPalette = flowOf(AppAccentPalette.TEAL)
     override val showDoTab = flowOf(false)
     override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
     override val petOnboardingProfile = flowOf(profile)
     override val onboardingCompleted = flowOf(profile.completed)
+    override val modelSetupPromptDismissed = flowOf(false)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -154,7 +162,9 @@ private class OnboardingFakePrefs(
     override suspend fun setPetCommentOnAgentWork(enabled: Boolean) = Unit
     override suspend fun setPetMoodPulseMode(mode: PetMoodPulseMode) = Unit
     override suspend fun setThemeMode(mode: AppThemeMode) = Unit
+    override suspend fun setAccentPalette(palette: AppAccentPalette) = Unit
     override suspend fun setShowDoTab(show: Boolean) = Unit
     override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) = Unit
+    override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
     override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
 }

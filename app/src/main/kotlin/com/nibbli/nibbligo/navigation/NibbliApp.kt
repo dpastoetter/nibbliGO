@@ -19,6 +19,7 @@ import com.nibbli.nibbligo.feature.chat.ui.ChatScreen
 import com.nibbli.nibbligo.feature.image.ui.AskImageScreen
 import com.nibbli.nibbligo.feature.models.ui.ModelsScreen
 import com.nibbli.nibbligo.feature.pet.ui.PetHomeScreen
+import com.nibbli.nibbligo.feature.settings.ui.CompanionScreen
 import com.nibbli.nibbligo.feature.settings.ui.SettingsScreen
 import com.nibbli.nibbligo.ui.ManageHubScreen
 import com.nibbli.nibbligo.ui.SenseHubScreen
@@ -52,6 +53,7 @@ fun NibbliApp() {
                             TopLevelDestination.Manage -> currentRoute in listOf(
                                 Routes.MODELS,
                                 Routes.SETTINGS,
+                                Routes.COMPANION,
                             )
                             else -> false
                         }
@@ -89,6 +91,7 @@ fun NibbliApp() {
             composable(Routes.MODELS) { ModelsScreen() }
             composable(Routes.BENCHMARK) { BenchmarkScreen() }
             composable(Routes.SETTINGS) { SettingsScreen() }
+            composable(Routes.COMPANION) { CompanionScreen() }
             composable(Routes.MANAGE) { ManageHubScreen(navController) }
         }
     }

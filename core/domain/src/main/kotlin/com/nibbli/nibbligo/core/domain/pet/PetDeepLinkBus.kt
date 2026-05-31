@@ -12,6 +12,9 @@ class PetDeepLinkBus @Inject constructor() {
     private val _pendingCatchChallengeScore = MutableStateFlow<Int?>(null)
     val pendingCatchChallengeScore: StateFlow<Int?> = _pendingCatchChallengeScore.asStateFlow()
 
+    private val _pendingWidgetAction = MutableStateFlow<String?>(null)
+    val pendingWidgetAction: StateFlow<String?> = _pendingWidgetAction.asStateFlow()
+
     fun submitCatchChallenge(score: Int) {
         if (score > 0) _pendingCatchChallengeScore.value = score
     }
@@ -20,5 +23,15 @@ class PetDeepLinkBus @Inject constructor() {
         val score = _pendingCatchChallengeScore.value ?: return null
         _pendingCatchChallengeScore.value = null
         return score
+    }
+
+    fun submitWidgetAction(action: String) {
+        if (action.isNotBlank()) _pendingWidgetAction.value = action
+    }
+
+    fun consumeWidgetAction(): String? {
+        val action = _pendingWidgetAction.value ?: return null
+        _pendingWidgetAction.value = null
+        return action
     }
 }

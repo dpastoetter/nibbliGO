@@ -9,12 +9,11 @@ import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthRepository
 import com.nibbli.nibbligo.core.litert.engine.LiteRtEnginePool
-import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
+import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
-import com.nibbli.nibbligo.core.model.PetMoodPulseMode
-import com.nibbli.nibbligo.core.model.PetPersonality
+import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,17 +27,14 @@ data class SettingsUiState(
     val installedCount: Int = 0,
     val installedModelIds: List<String> = emptyList(),
     val defaultModelId: String? = null,
-    val petModelId: String? = null,
     val allowDownloads: Boolean = true,
     val storageSummary: String = "Calculating…",
     val hfSignedIn: Boolean = false,
     val hfConfigured: Boolean = false,
     val hfAuthMessage: String? = null,
     val hfManualTokenInput: String = "",
-    val petPersonality: PetPersonality = PetPersonality.PLAYFUL,
-    val petCommentOnAgentWork: Boolean = true,
-    val petMoodPulseMode: PetMoodPulseMode = PetMoodPulseMode.NORMAL,
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    val accentPalette: AppAccentPalette = AppAccentPalette.TEAL,
     val litertAccelerator: LiteRtAcceleratorPreference = LiteRtAcceleratorPreference.AUTO,
 )
 
@@ -61,40 +57,31 @@ class SettingsViewModel @Inject constructor(
             combine(
                 modelRepository.observeInstalled(),
                 userPreferencesRepository.defaultModelId,
-                userPreferencesRepository.petModelId,
                 userPreferencesRepository.allowDownloads,
-                userPreferencesRepository.petPersonality,
-                userPreferencesRepository.petCommentOnAgentWork,
-                userPreferencesRepository.petMoodPulseMode,
                 userPreferencesRepository.themeMode,
+                userPreferencesRepository.accentPalette,
                 userPreferencesRepository.litertAccelerator,
                 huggingFaceAuthRepository.accessToken,
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val installed = values[0] as List<InstalledModel>
                 val defaultModelId = values[1] as String?
-                val petModelId = values[2] as String?
-                val allowDownloads = values[3] as Boolean
-                val personality = values[4] as PetPersonality
-                val commentOnAgent = values[5] as Boolean
-                val moodPulse = values[6] as PetMoodPulseMode
-                val themeMode = values[7] as AppThemeMode
-                val litertAccelerator = values[8] as LiteRtAcceleratorPreference
-                val token = values[9] as String?
+                val allowDownloads = values[2] as Boolean
+                val themeMode = values[3] as AppThemeMode
+                val accentPalette = values[4] as AppAccentPalette
+                val litertAccelerator = values[5] as LiteRtAcceleratorPreference
+                val token = values[6] as String?
                 val bytes = installed.sumOf { it.sizeBytes }
                 SettingsUiState(
                     installedCount = installed.size,
                     installedModelIds = installed.map { it.modelId },
                     defaultModelId = defaultModelId,
-                    petModelId = petModelId,
                     allowDownloads = allowDownloads,
                     storageSummary = "~${bytes / 1_000_000} MB in models (local)",
                     hfSignedIn = !token.isNullOrBlank(),
                     hfConfigured = huggingFaceAuthRepository.isConfigured(),
-                    petPersonality = personality,
-                    petCommentOnAgentWork = commentOnAgent,
-                    petMoodPulseMode = moodPulse,
                     themeMode = themeMode,
+                    accentPalette = accentPalette,
                     litertAccelerator = litertAccelerator,
                 )
             }.collect { state ->
@@ -114,10 +101,6 @@ class SettingsViewModel @Inject constructor(
 
     fun setDefaultModelId(modelId: String?) {
         viewModelScope.launch { userPreferencesRepository.setDefaultModelId(modelId) }
-    }
-
-    fun setPetModelId(modelId: String?) {
-        viewModelScope.launch { userPreferencesRepository.setPetModelId(modelId) }
     }
 
     fun clearChatHistory() {
@@ -153,20 +136,12 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(hfManualTokenInput = value) }
     }
 
-    fun setPetPersonality(personality: PetPersonality) {
-        viewModelScope.launch { userPreferencesRepository.setPetPersonality(personality) }
-    }
-
-    fun setPetCommentOnAgentWork(enabled: Boolean) {
-        viewModelScope.launch { userPreferencesRepository.setPetCommentOnAgentWork(enabled) }
-    }
-
-    fun setPetMoodPulseMode(mode: PetMoodPulseMode) {
-        viewModelScope.launch { userPreferencesRepository.setPetMoodPulseMode(mode) }
-    }
-
     fun setThemeMode(mode: AppThemeMode) {
         viewModelScope.launch { userPreferencesRepository.setThemeMode(mode) }
+    }
+
+    fun setAccentPalette(palette: AppAccentPalette) {
+        viewModelScope.launch { userPreferencesRepository.setAccentPalette(palette) }
     }
 
     fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) {

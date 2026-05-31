@@ -26,7 +26,7 @@ class PetOnboardingPromptTest {
         assertTrue(block.contains("Alex"))
         assertTrue(block.contains("retro tech"))
         assertTrue(block.contains("cozy home-screen buddy"))
-        assertTrue(block.contains("Never refer to yourself by name in third person"))
+        assertTrue(block.contains("How they want you to show up"))
     }
 
     @Test

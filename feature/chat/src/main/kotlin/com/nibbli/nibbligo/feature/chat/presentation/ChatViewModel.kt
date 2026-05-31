@@ -59,12 +59,20 @@ class ChatViewModel @Inject constructor(
             val installed = modelRepository.getInstalledModelIds()
             val defaultModel = userPreferencesRepository.defaultModelId.first()
             val params = userPreferencesRepository.generationParams.first()
+            val modelId = defaultModel ?: installed.firstOrNull()
             _uiState.update {
                 it.copy(
                     installedModelIds = installed,
-                    selectedModelId = defaultModel ?: installed.firstOrNull(),
+                    selectedModelId = modelId,
                     generationParams = params,
                 )
+            }
+            if (modelId != null) {
+                val conversationId = chatRepository.getOrCreateConversation(
+                    title = ASSIST_CONVERSATION_TITLE,
+                    modelId = modelId,
+                )
+                setActiveConversation(conversationId)
             }
         }
         viewModelScope.launch {
@@ -97,16 +105,19 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMessage() {
+    fun sendMessage(text: String = _uiState.value.input) {
         val state = _uiState.value
         val modelId = state.selectedModelId
-        val text = state.input.trim()
-        if (modelId == null || text.isBlank() || state.isStreaming) return
+        val trimmed = text.trim()
+        if (modelId == null || trimmed.isBlank() || state.isStreaming) return
 
         viewModelScope.launch {
             var conversationId = state.conversationId
             if (conversationId == null) {
-                conversationId = chatRepository.createConversation(modelId, text.take(32))
+                conversationId = chatRepository.getOrCreateConversation(
+                    title = ASSIST_CONVERSATION_TITLE,
+                    modelId = modelId,
+                )
                 setActiveConversation(conversationId)
             }
 
@@ -114,7 +125,7 @@ class ChatViewModel @Inject constructor(
             val userMessage = ChatMessage(
                 conversationId = conversationId,
                 role = MessageRole.USER,
-                content = text,
+                content = trimmed,
                 notes = if (state.showReasoning) state.reasoningNotes.takeIf { it.isNotBlank() } else null,
                 timestampMillis = now,
                 modelId = modelId,
@@ -176,5 +187,10 @@ class ChatViewModel @Inject constructor(
     private fun setActiveConversation(id: Long?) {
         conversationIdFlow.value = id
         _uiState.update { it.copy(conversationId = id, error = null) }
+    }
+
+    companion object {
+        /** Persistent Assist tab thread — separate from Home {@code PetTalkChatRecorder}. */
+        const val ASSIST_CONVERSATION_TITLE = "Assist Chat"
     }
 }
