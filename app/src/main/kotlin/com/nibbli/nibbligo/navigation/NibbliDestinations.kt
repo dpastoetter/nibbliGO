@@ -38,4 +38,6 @@ object Routes {
     const val BENCHMARK = "benchmark"
     const val SETTINGS = "settings"
     const val COMPANION = "companion"
+    const val AGENT = "agent"
+    const val PROMPT_LAB = "prompt_lab"
 }

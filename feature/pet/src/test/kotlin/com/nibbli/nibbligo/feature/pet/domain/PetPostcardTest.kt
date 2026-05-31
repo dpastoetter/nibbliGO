@@ -12,6 +12,12 @@ import org.junit.Test
 class PetPostcardTest {
 
     @Test
+    fun careTipFrom_lowMood() {
+        val tip = PetPostcard.careTipFrom(PetState(stats = com.nibbli.nibbligo.core.model.PetStats(mood = 20)))
+        assertEquals("They need play!", tip)
+    }
+
+    @Test
     fun toVisitDisplayState_playfulWhenMoodHigh() {
         val postcard = PetPostcard(
             friendCode = "abc123",

@@ -133,6 +133,7 @@ class LiteRtPetReactionGeneratorTest {
             override val defaultModelId = flowOf("smollm2-360m-instruct")
             override val petModelId = flowOf<String?>(null)
             override val generationParams = flowOf(com.nibbli.nibbligo.core.model.GenerationParams())
+            override val chatPromptMode = flowOf(com.nibbli.nibbligo.core.model.ChatPromptMode.PURE_LLM)
             override val allowDownloads = flowOf(true)
             override val preferredRuntimeKind = flowOf("litert")
             override val petPersonality = flowOf(com.nibbli.nibbligo.core.model.PetPersonality.PLAYFUL)
@@ -146,6 +147,7 @@ class LiteRtPetReactionGeneratorTest {
             override suspend fun setDefaultModelId(modelId: String?) = Unit
             override suspend fun setPetModelId(modelId: String?) = Unit
             override suspend fun setGenerationParams(params: com.nibbli.nibbligo.core.model.GenerationParams) = Unit
+            override suspend fun setChatPromptMode(mode: com.nibbli.nibbligo.core.model.ChatPromptMode) = Unit
             override suspend fun setAllowDownloads(allowed: Boolean) = Unit
             override suspend fun setPreferredRuntimeKind(kind: String) = Unit
             override suspend fun setPetPersonality(personality: com.nibbli.nibbligo.core.model.PetPersonality) = Unit

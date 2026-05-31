@@ -30,8 +30,8 @@ android {
         applicationId = "com.nibbli.nibbligo"
         minSdk = 31
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.7"
+        versionCode = 8
+        versionName = "1.0.8"
         testInstrumentationRunner = "com.nibbli.nibbligo.HiltTestRunner"
         manifestPlaceholders["appAuthRedirectScheme"] = "nibbli"
         buildConfigField("String", "HF_OAUTH_CLIENT_ID", "\"$hfClientId\"")
@@ -87,6 +87,8 @@ dependencies {
     implementation(project(":feature:actions"))
     implementation(project(":feature:models"))
     implementation(project(":feature:benchmark"))
+    implementation(project(":feature:agent"))
+    implementation(project(":feature:promptlab"))
     implementation(project(":feature:settings"))
 
     implementation(libs.androidx.core.ktx)

@@ -56,6 +56,10 @@ class ChatRepositoryImpl @Inject constructor(
     messageDao.insert(message.toEntity())
   }
 
+  override suspend fun deleteMessagesForConversation(conversationId: Long) {
+    messageDao.deleteForConversation(conversationId)
+  }
+
   override suspend fun updateConversation(conversation: Conversation) {
     conversationDao.update(conversation.toEntity())
   }

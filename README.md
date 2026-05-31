@@ -21,29 +21,39 @@ Regenerate after UI changes:
 ### Home — Pixel Friend
 
 - Retro **P1 LCD** pet with care actions (feed, play, clean, medicine, sleep).
-- **Talk** sheet plus Home quick actions: **Talk to me** (voice), **How are you?**, and **Stop** (cancels an in-flight reply).
+- **Talk** sheet plus Home quick actions: **Talk to me** (voice → Agent), **How are you?**, and **Stop** (cancels an in-flight reply).
 - In **talk mode**, the pet moves to the bottom-left of the LCD and the LLM reply is centered on-screen (scrolls when long); conversation history appears below the stat strip in the companion panel.
-- A **chat bar** at the bottom of Home lets you type messages to nibbli anytime (inline send icon, same on-device Pixel Friend model as the quick chips).
-- **Talk to me** and quick chips use the **Pixel Friend** on-device model (**Manage → Companion → Talk model**), not Assist Chat.
+- A **chat bar** at the bottom of Home lets you type messages to nibbli anytime (inline send icon, same on-device Pixel Friend model as the quick chips). The bar moves above the keyboard while typing.
+- **Talk to me** (mic) opens **Agent Chat** with your voice transcript — confirm-before-run for email, calendar, and other phone tools.
+- Typed Home talk and the **Chat** tab share one **Pixel Friend (Home)** thread (user + assistant lines only).
+- **What nibbli noticed today** — a local daily strip summarizing Chat, Agent, and care wins (no cloud).
+- After talk, nibbli may **propose a memory** (“Remember this?”) — you approve before it is saved to **Manage → Companion**.
 - **LCD Items** — all customization lives on the P1 shell: care menu → **Items** → ◀ exit · ▶ browse · ● equip. Cycle **wearables** (collar, star patch, aurora aura), **scenes** (cozy, stars, clouds, night), and **floor props** (ball, plant, mat) with live preview on the LCD. Unlocks via care score, evolution, arcade wins, and daily quest bonus.
 - **Arcade** — retro **Snack Drop** and **Tidy Tap** minigames (Home → Play); wins unlock floor props.
-- **Visit** — scan a friend’s visit QR to show their nibbli on your LCD for 24h (local-only, no server); share your own QR from Home → Visit.
+- **Visit** — scan a friend’s visit QR to show their nibbli on your LCD for 24h (local-only, no server). Postcards include an optional message, a **care tip**, and a **borrowed prop/scene** souvenir on your nibbli. Local visit streak tracked on device.
 - **Share** — export PNG cards (today, evolution, quote, minigame score).
 - Optional **mood pulse** — spontaneous LLM lines while Home is visible, the app is in the foreground, and nibbli is awake (**Manage → Companion → Behavior**: off / normal / quiet).
 - Diary export and home-screen **widget**.
 - Pet engine **warm-loads** when you open Home so the first chip reply is faster.
 - Post-onboarding **model setup** banner prompts download of the recommended Pixel Friend model.
 
-### Assist
+### Chat — Pixel Friend
 
-- **Local Chat** — streaming chat with a downloaded LiteRT model; inline send bar; history persists in a dedicated **Assist Chat** thread (separate from Home talk).
-- **Agent Chat** — tool-calling agent with **confirm before run** for sensitive actions (email, calendar, etc.).
-- **Prompt Lab** — prompt playground on device.
+- **Chat** tab is your Pixel Friend only — same conversation as Home talk, on-device, no separate Assist thread.
+- Streaming replies with a keyboard-aware composer (input stays visible above the IME).
+- Link to **Agent Chat** for email/calendar tasks.
+
+### Assist (Manage hub)
+
+- **Agent Chat** — tool-calling agent with **confirm before run** for sensitive actions (email, calendar, etc.). Uses companion profile + memory as local context on the first turn.
+- **Prompt Lab** — prompt playground on device (A/B one message, see exact system prompts).
+- **Benchmark** — compare TTFT and tokens/sec on your phone with plain-language tips.
 
 ### Manage
 
 - **Models** — download LiteRT weights from Hugging Face (see [Model catalog](#model-catalog) below).
 - **Companion** — profile, memory, **Pixel Friend talk model**, personality, comment-on-chat, mood pulse.
+- **Learn edge AI** — Benchmark, Prompt Lab, and Agent shortcuts with short on-device AI literacy copy.
 - **Settings** — appearance (theme + **accent color**), privacy, storage, HF token, default app model, LiteRT accelerator, delete chat history.
 
 **Appearance** (in Settings): Light, Dark, **Super dark** (OLED-friendly), or System; five accent palettes — **Teal**, **Lavender**, **Sage**, **Dusk**, **Sand**.
@@ -54,7 +64,7 @@ Opens system apps via [`MobileActionsPerformer`](core/mobile-actions/src/main/ko
 
 ### Navigation
 
-Bottom tabs: **Home**, **Assist**, **Manage**. Sense and Do hubs exist in the nav graph but are hidden from the bottom bar in this build.
+Bottom tabs: **Home**, **Chat**, **Manage**. Agent, Benchmark, and Prompt Lab live under **Manage → Learn edge AI**. Sense and Do hubs exist in the nav graph but are hidden from the bottom bar in this build.
 
 ## Model catalog
 
@@ -71,7 +81,7 @@ Bottom tabs: **Home**, **Assist**, **Manage**. Sense and Do hubs exist in the na
 
 - **Home talk (recommended):** install **Qwen 2.5 1.5B Instruct** after onboarding (~1.6 GB, no HF login); or **SmolLM2 360M** for fast emulator testing.
 - **Agent email/calendar:** install **FunctionGemma 270M** (gated; accept license + HF token in Settings).
-- **Assist chat:** pick any chat model; set **Default app model** in Settings (or per-screen model chips).
+- **Chat tab:** uses the same Pixel Friend model as Home (**Manage → Companion → Talk model**).
 
 ## Requirements
 
@@ -90,8 +100,8 @@ adb shell am start -n com.nibbli.nibbligo/.MainActivity
 
 1. Complete **onboarding** (5 steps) on first launch.
 2. **Manage → Models** — download **Qwen 2.5 1.5B Instruct** for Home talk (or **SmolLM2 360M** on emulator).
-3. **Home** — wait a few seconds for warm load; tap **How are you?** or use **Talk to me**.
-4. **Assist → Agent Chat** — install **FunctionGemma 270M** for tool calls; ask e.g. “draft an email about lunch”, then confirm.
+3. **Home** — wait a few seconds for warm load; tap **How are you?** or type in the chat bar.
+4. **Manage → Learn edge AI → Agent** — install **FunctionGemma 270M** for tool calls; ask e.g. “draft an email about lunch”, then confirm. Or use **Talk to me** on Home to open Agent with voice.
 
 ### Emulator (Pixel 9a profile)
 
@@ -118,13 +128,14 @@ Fresh onboarding test: `adb shell pm clear com.nibbli.nibbligo` then relaunch.
 1. **Manage → Models** — install **Qwen 2.5 1.5B Instruct** (or SmolLM2 on emulator).
 2. **Manage → Settings → Appearance** — try **Super dark** and accent swatches (Teal, Lavender, Sage, Dusk, Sand).
 3. **Manage → Companion** — set pet name, personality, and talk model.
-4. **Home** — feed/play; tap **How are you?**; type in the chat bar; use **Stop** if a reply is slow.
-5. **Assist → Local Chat** — send messages; history persists across app restarts.
+4. **Home** — feed/play; tap **How are you?**; type in the chat bar; check **What nibbli noticed today** after Chat or Agent wins.
+5. **Chat** — continue the same Pixel Friend thread; composer stays above the keyboard.
 6. **Manage → Models** — install **FunctionGemma 270M** (HF token if gated).
-7. **Assist → Agent Chat** — ask for an email or flashlight; confirm the tool card.
-8. **Home → Play** — try **Snack Drop** or **Tidy Tap** in the arcade.
-9. Care menu → **Items** on the P1 LCD — browse and equip wearables, scenes, and props.
-10. **Home → Visit** — share or scan a visit QR to see a friend’s nibbli on your LCD.
+7. **Manage → Agent** (or Home mic / Chat link) — ask for an email or flashlight; confirm the tool card.
+8. **Manage → Benchmark** or **Prompt Lab** — compare models or tweak prompts on device.
+9. **Home → Play** — try **Snack Drop** or **Tidy Tap** in the arcade.
+10. Care menu → **Items** on the P1 LCD — browse and equip wearables, scenes, and props.
+11. **Home → Visit** — share or scan a visit QR; read the care tip and borrowed souvenir.
 
 ## Pixel Friend (simulation + LLM)
 
@@ -137,7 +148,9 @@ Fresh onboarding test: `adb shell pm clear com.nibbli.nibbligo` then relaunch.
 | Model pick | **Manage → Companion → Talk model** (Auto prefers Qwen → SmolLM2 → Gemma 3 → …) |
 | Status questions (“How are you?”) | On-device LLM with compact pet prompt; template fallback if inference fails |
 | Game help (Talk) | Ask about care, evolution, LCD Items, arcade, visits — pet answers in character using an on-device FAQ knowledge base |
-| Home talk history | Saved to **Assist → Local Chat** as **Pixel Friend (Home)** (separate from **Assist Chat** thread) |
+| Home + Chat history | One **Pixel Friend (Home)** thread — user and assistant lines only |
+| Pet events | Chat, Agent, and actions emit [`PetEvent`](core/model) → mood/trust bumps and optional LCD reactions |
+| Memory | User-approved facts from talk; Agent gets profile + memory as local context |
 
 Care works without a model; **Talk**, voice, and LLM mood lines need a downloaded `.litertlm` file.
 
@@ -145,6 +158,7 @@ Care works without a model; **Talk**, voice, and LLM mood lines need a downloade
 
 - [`AgentOrchestrator`](core/agent/src/main/kotlin/com/nibbli/nibbligo/core/agent/AgentOrchestrator.kt) — multi-step turns, confirmation for `SENSITIVE` tools.
 - [`PhoneActionAgentTools`](core/agent/src/main/kotlin/com/nibbli/nibbligo/core/agent/tools/PhoneActionAgentTools.kt) — Gallery-style phone actions for **FunctionGemma 270M**.
+- [`AssistNavigationBus`](core/domain/src/main/kotlin/com/nibbli/nibbligo/core/domain/assist/AssistNavigationBus.kt) — Home voice and deep links open Agent Chat.
 - **SKILL.md** packages under `assets/skills/`; bundled `nibbli_tasks`, `nibbli_clipboard`.
 - **MCP** — StreamableHTTP tools (see Settings / actions flows); discovered tools appear in Agent Chat with confirmation.
 
@@ -153,9 +167,9 @@ Care works without a model; **Talk**, voice, and LLM mood lines need a downloade
 ```
 app/                  Shell, navigation, Hilt
 core/model/           Domain types (pet, agent, theme, accents, LiteRT accelerators)
-core/designsystem/    Theme (super dark + accent palettes), shared Compose UI
+core/designsystem/    Theme (super dark + accent palettes), shared Compose UI, keyboard insets
 core/ui/              Loading / empty / error
-core/domain/          Repositories, PetEventBus
+core/domain/          Repositories, PetEventBus, AssistNavigationBus
 core/storage/         Room, DataStore
 core/runtime/         InferenceRuntime interface
 core/runtime-litert/  LiteRT-LM (chat, agent, pet, tools)
@@ -165,9 +179,9 @@ core/agent/           Orchestrator, tool registry, skills bridge
 core/mobile-actions/  Intents: email, maps, flashlight, …
 core/hf-download/     Hugging Face OAuth + downloads
 core/mcp/             MCP tool discovery
-feature/pet/          Home, pixel UI, widget, onboarding
+feature/pet/          Home, pixel UI, widget, onboarding, visit QR, noticed strip
 feature/agent/        Agent Chat UI
-feature/chat/         Local chat
+feature/chat/         Pixel Friend chat (shared Home thread)
 feature/promptlab/    Prompt Lab
 feature/image/        Ask Image
 feature/audio/        Audio Scribe
@@ -199,7 +213,7 @@ Unit tests cover `PetSimulationEngine`, `PetLcdItemCatalog`, `PetEngagementEngin
 Debug APKs are built automatically when a version tag is pushed (`v*` or `debug-*`). Download the latest from [GitHub Releases](https://github.com/dpastoetter/nibbliGO/releases).
 
 ```bash
-git tag v1.0.6 && git push origin v1.0.6   # triggers release-apk workflow
+git tag v1.0.8 && git push origin v1.0.8   # triggers release-apk workflow
 ```
 
 Local build:

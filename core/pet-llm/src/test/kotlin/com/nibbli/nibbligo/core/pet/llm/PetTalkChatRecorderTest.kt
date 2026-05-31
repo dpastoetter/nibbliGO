@@ -4,9 +4,11 @@ import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.ChatMessage
+import com.nibbli.nibbligo.core.model.ChatPromptMode
 import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.PetPersonality
+import com.nibbli.nibbligo.core.model.PetState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -17,8 +19,32 @@ import org.junit.Test
 class PetTalkChatRecorderTest {
 
     @Test
-    fun recordUserAndAssistant_createsPixelFriendConversation() {
+    fun recordHomeTalkTurn_persistsUserAndAssistantOnly() {
         val chatRepo = FakeChatRepository()
+        val recorder = createRecorder(chatRepo)
+
+        kotlinx.coroutines.test.runTest {
+            recorder.recordHomeTalkTurn(
+                request = PetReactionRequest(
+                    state = PetState(name = "nibbli"),
+                    userMessage = "How do I evolve?",
+                ),
+                assistantText = "Grow with care and time!",
+                modelId = "smollm2-360m-instruct",
+                timestampMillis = 200L,
+            )
+
+            assertEquals(1, chatRepo.conversations.size)
+            assertEquals(PetTalkChatRecorder.CONVERSATION_TITLE, chatRepo.conversations.first().title)
+            assertEquals(2, chatRepo.messages.size)
+            assertEquals(MessageRole.USER, chatRepo.messages[0].role)
+            assertEquals("How do I evolve?", chatRepo.messages[0].content)
+            assertEquals(MessageRole.ASSISTANT, chatRepo.messages[1].role)
+            assertTrue(chatRepo.messages[1].content.contains("care"))
+        }
+    }
+
+    private fun createRecorder(chatRepo: FakeChatRepository): PetTalkChatRecorder {
         val runtime = FakeInferenceRuntime(setOf("smollm2-360m-instruct"))
         val prefs = FakeUserPreferencesRepository("smollm2-360m-instruct")
         val resolver = PetModelResolver(
@@ -29,22 +55,11 @@ class PetTalkChatRecorderTest {
                 override suspend fun firstUsableModelId(): String = "smollm2-360m-instruct"
             },
         )
-        val recorder = PetTalkChatRecorder(
+        return PetTalkChatRecorder(
             chatRepository = chatRepo,
             petModelResolver = resolver,
+            userPreferencesRepository = prefs,
         )
-
-        kotlinx.coroutines.test.runTest {
-            recorder.recordUserMessage("How do I evolve?", "smollm2-360m-instruct", 100L)
-            recorder.recordAssistantMessage("Grow with care and time!", "smollm2-360m-instruct", 200L)
-
-            assertEquals(1, chatRepo.conversations.size)
-            assertEquals(PetTalkChatRecorder.CONVERSATION_TITLE, chatRepo.conversations.first().title)
-            assertEquals(2, chatRepo.messages.size)
-            assertEquals(MessageRole.USER, chatRepo.messages[0].role)
-            assertEquals(MessageRole.ASSISTANT, chatRepo.messages[1].role)
-            assertTrue(chatRepo.messages[1].content.contains("care"))
-        }
     }
 }
 
@@ -90,6 +105,10 @@ private class FakeChatRepository : ChatRepository {
         if (index >= 0) conversations[index] = conversation
     }
 
+    override suspend fun deleteMessagesForConversation(conversationId: Long) {
+        messages.removeAll { it.conversationId == conversationId }
+    }
+
     override suspend fun deleteAllConversations() {
         conversations.clear()
         messages.clear()
@@ -102,6 +121,7 @@ private class FakeUserPreferencesRepository(
     override val defaultModelId = flowOf(null as String?)
     override val petModelId = flowOf(petModel)
     override val generationParams = flowOf(com.nibbli.nibbligo.core.model.GenerationParams())
+    override val chatPromptMode = flowOf(ChatPromptMode.PIXEL_FRIEND)
     override val allowDownloads = flowOf(true)
     override val preferredRuntimeKind = flowOf("litert")
     override val petPersonality = flowOf(PetPersonality.PLAYFUL)
@@ -118,6 +138,7 @@ private class FakeUserPreferencesRepository(
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: com.nibbli.nibbligo.core.model.GenerationParams) = Unit
+    override suspend fun setChatPromptMode(mode: ChatPromptMode) = Unit
     override suspend fun setAllowDownloads(allowed: Boolean) = Unit
     override suspend fun setPreferredRuntimeKind(kind: String) = Unit
     override suspend fun setPetPersonality(personality: PetPersonality) = Unit

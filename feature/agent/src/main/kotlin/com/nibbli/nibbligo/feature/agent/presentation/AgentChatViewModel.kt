@@ -6,18 +6,21 @@ import com.nibbli.nibbligo.core.agent.AgentOrchestrator
 import com.nibbli.nibbligo.core.agent.PendingConfirmation
 import com.nibbli.nibbligo.core.agent.tools.AgentToolPreview
 import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
-import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
-import com.nibbli.nibbligo.core.domain.repository.ModelRepository
-import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
+import com.nibbli.nibbligo.core.domain.repository.PetRepository
+import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AgentSessionState
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.InstalledSkillPackage
+import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
+import com.nibbli.nibbligo.core.domain.repository.ModelRepository
+import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
 import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -45,6 +48,8 @@ class AgentChatViewModel @Inject constructor(
     private val actionHistoryRepository: ActionHistoryRepository,
     private val inferenceRuntime: InferenceRuntime,
     private val assistVoiceRequestBus: AssistVoiceRequestBus,
+    private val petRepository: PetRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AgentChatUiState())
@@ -111,7 +116,8 @@ class AgentChatViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(input = "", session = it.session.copy(isRunning = true), error = null) }
-            val result = agentOrchestrator.runTurn(modelId, text, state.session)
+            val message = wrapWithCompanionContext(text, state.session.messages.isEmpty())
+            val result = agentOrchestrator.runTurn(modelId, message, state.session)
             handleRunResult(result)
         }
     }
@@ -146,6 +152,23 @@ class AgentChatViewModel @Inject constructor(
     private fun resolveAgentModelId(installed: List<String>): String {
         if (FUNCTION_GEMMA_MODEL_ID in installed) return FUNCTION_GEMMA_MODEL_ID
         return installed.firstOrNull { inferenceRuntime.capabilitiesFor(it).supportsToolCalling }.orEmpty()
+    }
+
+    private suspend fun wrapWithCompanionContext(text: String, firstTurn: Boolean): String {
+        if (!firstTurn) return text
+        val context = buildCompanionContext() ?: return text
+        return "[Companion context — local only]\n$context\n\n[Request]\n$text"
+    }
+
+    private suspend fun buildCompanionContext(): String? {
+        val pet = petRepository.getPetState()
+        val profile = userPreferencesRepository.petOnboardingProfile.first()
+        val parts = mutableListOf<String>()
+        profile.caretakerName.trim().takeIf { it.isNotBlank() }?.let { parts.add("User name: $it") }
+        profile.aboutYou.trim().takeIf { it.isNotBlank() }?.let { parts.add("About user: $it") }
+        profile.companionGoal.trim().takeIf { it.isNotBlank() }?.let { parts.add("Goal: $it") }
+        pet.memorySummary.trim().takeIf { it.isNotBlank() }?.let { parts.add("Memory: $it") }
+        return parts.joinToString("\n").takeIf { it.isNotBlank() }
     }
 
     private fun handleRunResult(result: com.nibbli.nibbligo.core.agent.AgentRunResult) {

@@ -6,6 +6,7 @@ import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.ChatMessage
 import com.nibbli.nibbligo.core.model.Conversation
+import com.nibbli.nibbligo.core.model.ChatPromptMode
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
@@ -41,6 +42,7 @@ interface ChatRepository {
     suspend fun findConversationByTitle(title: String): Conversation?
     suspend fun getOrCreateConversation(title: String, modelId: String): Long
     suspend fun saveMessage(message: ChatMessage)
+    suspend fun deleteMessagesForConversation(conversationId: Long)
     suspend fun updateConversation(conversation: Conversation)
     suspend fun deleteAllConversations()
 }
@@ -66,6 +68,7 @@ interface UserPreferencesRepository {
     val defaultModelId: Flow<String?>
     val petModelId: Flow<String?>
     val generationParams: Flow<GenerationParams>
+    val chatPromptMode: Flow<ChatPromptMode>
     val allowDownloads: Flow<Boolean>
     val preferredRuntimeKind: Flow<String>
     val petPersonality: Flow<PetPersonality>
@@ -82,6 +85,7 @@ interface UserPreferencesRepository {
     suspend fun setDefaultModelId(modelId: String?)
     suspend fun setPetModelId(modelId: String?)
     suspend fun setGenerationParams(params: GenerationParams)
+    suspend fun setChatPromptMode(mode: ChatPromptMode)
     suspend fun setAllowDownloads(allowed: Boolean)
     suspend fun setPreferredRuntimeKind(kind: String)
     suspend fun setPetPersonality(personality: PetPersonality)

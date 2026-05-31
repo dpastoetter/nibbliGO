@@ -1,73 +1,109 @@
 package com.nibbli.nibbligo.feature.chat.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
 import com.nibbli.nibbligo.core.designsystem.component.NibbliComposerStrip
 import com.nibbli.nibbligo.core.designsystem.component.NibbliInlineChatInputBar
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageBubble
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageRole
-import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
-import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
-import com.nibbli.nibbligo.core.designsystem.component.NibbliTextField
+import com.nibbli.nibbligo.core.designsystem.component.NibbliSecondaryButton
 import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.ui.EmptyState
 import com.nibbli.nibbligo.feature.chat.presentation.ChatViewModel
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ChatScreen(
     modifier: Modifier = Modifier,
+    navController: NavController? = null,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showClearConfirm by remember { mutableStateOf(false) }
 
-    if (uiState.installedModelIds.isEmpty()) {
+    if (!uiState.hasPetModel) {
         NibbliScreen(modifier = modifier) {
             NibbliScreenHeader(
                 title = "Chat",
+                subtitle = "Talk with your Pixel Friend on-device.",
                 showOnDeviceBadge = true,
             )
             EmptyState(
-                title = "No models installed",
-                subtitle = "Download FunctionGemma or Gemma from Manage → Models to start chatting.",
+                title = "Pixel Friend model needed",
+                subtitle = "Download Qwen or SmolLM under Manage → Models, then set it in Manage → Companion.",
             )
         }
         return
     }
 
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("Clear chat?") },
+            text = { Text("This removes your Pixel Friend chat history on this device.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearConfirm = false
+                        viewModel.clearChat()
+                    },
+                ) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
+
     NibbliScreen(modifier = modifier) {
         NibbliScreenHeader(
-            title = "Chat",
-            subtitle = "On-device conversation with an installed LiteRT model.",
+            title = "Chat with ${uiState.petName}",
+            subtitle = "Same conversation as Home — on-device Pixel Friend.",
             showOnDeviceBadge = true,
         )
 
-        NibbliPrimaryButton(
-            text = "New conversation",
-            onClick = { viewModel.newConversation() },
+        NibbliSecondaryButton(
+            text = "Clear chat",
+            onClick = { showClearConfirm = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("new_chat")
                 .padding(bottom = 8.dp),
         )
+
+        navController?.let {
+            NibbliSecondaryButton(
+                text = "Agent — email & calendar",
+                onClick = { it.navigate("agent") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+            )
+        }
 
         val listState = rememberLazyListState()
         val messageCount = uiState.messages.size + if (uiState.streamingText != null) 1 else 0
@@ -91,12 +127,13 @@ fun ChatScreen(
                     MessageRole.ASSISTANT -> NibbliMessageRole.ASSISTANT
                     else -> NibbliMessageRole.SYSTEM
                 }
-                val label = if (msg.role == MessageRole.USER) "You" else "nibbli"
+                val label = when (msg.role) {
+                    MessageRole.USER -> "You"
+                    MessageRole.ASSISTANT -> uiState.petName
+                    else -> "System"
+                }
                 NibbliMessageBubble(
-                    text = buildString {
-                        append(msg.content)
-                        msg.notes?.let { append("\n\nNotes: $it") }
-                    },
+                    text = msg.content,
                     role = role,
                     label = label,
                 )
@@ -106,7 +143,7 @@ fun ChatScreen(
                     NibbliMessageBubble(
                         text = streaming,
                         role = NibbliMessageRole.ASSISTANT,
-                        label = "nibbli",
+                        label = uiState.petName,
                         modifier = Modifier.testTag("streaming_text"),
                     )
                 }
@@ -114,36 +151,12 @@ fun ChatScreen(
         }
 
         NibbliComposerStrip {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                uiState.installedModelIds.forEach { id ->
-                    NibbliSuggestionChip(
-                        label = id,
-                        selected = uiState.selectedModelId == id,
-                        onClick = { viewModel.selectModel(id) },
-                    )
-                }
-            }
-            NibbliSuggestionChip(
-                label = "Working notes",
-                selected = uiState.showReasoning,
-                onClick = { viewModel.toggleReasoning() },
-            )
-            if (uiState.showReasoning) {
-                NibbliTextField(
-                    value = uiState.reasoningNotes,
-                    onValueChange = viewModel::updateReasoningNotes,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Optional notes (visible, not hidden reasoning)") },
-                )
-            }
             NibbliInlineChatInputBar(
                 value = uiState.input,
                 onValueChange = viewModel::updateInput,
                 onSend = viewModel::sendMessage,
                 enabled = !uiState.isStreaming,
-                placeholder = if (uiState.isStreaming) "nibbli is thinking…" else "Message nibbli…",
+                placeholder = if (uiState.isStreaming) "${uiState.petName} is thinking…" else "Message ${uiState.petName}…",
                 isGenerating = uiState.isStreaming,
                 inputTestTag = "chat_input",
                 sendTestTag = "send_message",

@@ -27,6 +27,8 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:storage"))
     implementation(project(":core:runtime"))
+    implementation(project(":core:pet-llm"))
+    implementation(project(":feature:pet"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
@@ -44,5 +46,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(project(":core:pet-llm"))
     testImplementation(project(":core:runtime"))
 }

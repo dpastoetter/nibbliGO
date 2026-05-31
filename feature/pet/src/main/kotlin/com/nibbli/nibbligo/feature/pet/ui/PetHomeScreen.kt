@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -30,6 +31,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
+import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.ui.LoadingState
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
@@ -50,7 +52,7 @@ fun PetHomeScreen(
         onListening = { viewModel.setVoiceListening(true) },
         onResult = { transcript ->
             viewModel.setVoiceListening(false)
-            viewModel.onTalkSend(transcript)
+            viewModel.submitVoiceToAssist(transcript)
         },
         onError = { viewModel.onVoiceAssistError(it) },
         onStopped = { viewModel.setVoiceListening(false) },
@@ -103,6 +105,7 @@ fun PetHomeScreen(
     val talkEnabled = pet.isAlive && !isUserTalkGenerating &&
         !uiState.isVoiceListening && !uiState.isWarmingModel
     val micEnabled = talkEnabled && uiState.petModelInstalled
+    val keyboardVisible = isKeyboardVisible()
 
     Box(modifier = modifier.fillMaxSize()) {
         NibbliAmbientBackground()
@@ -168,6 +171,12 @@ fun PetHomeScreen(
                         )
                     }
 
+                    PetNoticedStrip(
+                        notices = uiState.noticedToday,
+                        visitStreak = uiState.visitStreak,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+
                     PetCompanionPanel(
                         stats = pet.stats,
                         isGeneratingDialogue = uiState.isGeneratingDialogue,
@@ -188,11 +197,13 @@ fun PetHomeScreen(
                     onSend = { viewModel.onTalkSend(it) },
                     onStopClick = { viewModel.stopGeneration() },
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .imePadding(),
                 )
             }
 
-            PetQuickActionStrip(
+            if (!keyboardVisible) {
+                PetQuickActionStrip(
                 playEnabled = pet.isAlive,
                 shareEnabled = pet.isAlive,
                 onPlay = { viewModel.openMinigame() },
@@ -207,12 +218,32 @@ fun PetHomeScreen(
                 onDiary = {
                     context.startActivity(Intent.createChooser(viewModel.exportDiary(), "Export diary"))
                 },
-            )
+                )
+            }
 
-            SnackbarHost(hostState = snackbar, modifier = Modifier.padding(8.dp))
+            if (!keyboardVisible) {
+                SnackbarHost(hostState = snackbar, modifier = Modifier.padding(8.dp))
+            }
         }
     }
 
+    uiState.pendingMemoryProposal?.let { proposal ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissMemoryProposal() },
+            title = { Text("Remember this?") },
+            text = { Text("${pet.name} wants to remember: \"$proposal\"") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.approveMemoryProposal() }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissMemoryProposal() }) {
+                    Text("Not now")
+                }
+            },
+        )
+    }
     PetTalkSheet(
         visible = uiState.showTalkSheet,
         isGenerating = uiState.isGeneratingDialogue,

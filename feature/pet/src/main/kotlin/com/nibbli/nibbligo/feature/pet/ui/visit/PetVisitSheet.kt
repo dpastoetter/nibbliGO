@@ -65,6 +65,19 @@ fun PetVisitSheet(
             Text("Visit", style = MaterialTheme.typography.titleLarge)
             visitPostcard?.let { card ->
                 Text("Visiting ${card.senderName}", style = MaterialTheme.typography.titleMedium)
+                card.visitMessage?.let { message ->
+                    Text(
+                        text = "Message: \"$message\"",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                card.careTip?.let { tip ->
+                    Text(
+                        text = "Care tip: $tip",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
                 Text(
                     text = stageGlyph(card.stage),
                     style = MaterialTheme.typography.displaySmall.copy(fontFamily = FontFamily.Monospace),
@@ -74,6 +87,13 @@ fun PetVisitSheet(
                     text = "${card.stage.name.lowercase()} · care ${card.careScore} · mood ${card.mood}",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                if (card.borrowedPropId != null || card.borrowedSceneId != null) {
+                    Text(
+                        text = "Souvenir unlocked on your nibbli for 24h.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
                 Text(
                     text = "\"${card.dialogueLine.take(120)}\"",
                     style = MaterialTheme.typography.bodySmall,

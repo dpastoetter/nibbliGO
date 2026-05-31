@@ -140,10 +140,15 @@ class LiteRTInferenceRuntime @Inject constructor(
             }
         }
         val lastUser = request.messages.lastOrNull { it.role == MessageRole.USER }?.content ?: ""
+        val systemInstruction = request.params.systemPrompt.takeIf { it.isNotBlank() }
         return flow {
             try {
-                enginePool.streamMessage(request.modelId, lastUser, mobileTools(request.modelId))
-                    .collect { event ->
+                enginePool.streamMessage(
+                    request.modelId,
+                    lastUser,
+                    mobileTools(request.modelId),
+                    systemInstruction = systemInstruction,
+                ).collect { event ->
                         when (event) {
                             is StreamEvent.Token -> emit(InferenceChunk(event.text))
                             is StreamEvent.Done -> emit(InferenceChunk("", isComplete = true))

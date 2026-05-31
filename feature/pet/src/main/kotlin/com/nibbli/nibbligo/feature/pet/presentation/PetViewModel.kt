@@ -6,7 +6,7 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
+import com.nibbli.nibbligo.core.domain.assist.AssistNavigationBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
@@ -36,6 +36,9 @@ import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
 import com.nibbli.nibbligo.feature.pet.domain.PetPostcard
 import com.nibbli.nibbligo.feature.pet.domain.PetVisitQrCodec
 import com.nibbli.nibbligo.feature.pet.domain.PetVisitQrExporter
+import com.nibbli.nibbligo.feature.pet.domain.PetNoticedStore
+import com.nibbli.nibbligo.feature.pet.domain.applyBorrowedSouvenir
+import com.nibbli.nibbligo.feature.pet.domain.removeBorrowedSouvenir
 import com.nibbli.nibbligo.feature.pet.domain.PetPostcardStore
 import com.nibbli.nibbligo.feature.pet.domain.PetShareExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
@@ -97,6 +100,9 @@ data class PetUiState(
     val catchGhostScore: Int? = null,
     val lastCatchScore: Int? = null,
     val lastCatchCombo: Int? = null,
+    val noticedToday: List<String> = emptyList(),
+    val visitStreak: Long = 0L,
+    val pendingMemoryProposal: String? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -109,7 +115,7 @@ class PetViewModel @Inject constructor(
     private val petTalkChatRecorder: PetTalkChatRecorder,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val engine: PetSimulationEngine,
-    private val assistVoiceRequestBus: AssistVoiceRequestBus,
+    private val assistNavigationBus: AssistNavigationBus,
     private val liteRtModelPreloader: LiteRtModelPreloader,
     private val petDeepLinkBus: PetDeepLinkBus,
     private val modelAvailabilityGate: ModelAvailabilityGate,
@@ -119,6 +125,7 @@ class PetViewModel @Inject constructor(
     private val workManager by lazy { WorkManager.getInstance(context) }
 
     private val postcardStore = PetPostcardStore(context)
+    private val noticedStore = PetNoticedStore(context)
 
     private val _uiState = MutableStateFlow(PetUiState())
     val uiState: StateFlow<PetUiState> = _uiState.asStateFlow()
@@ -164,10 +171,23 @@ class PetViewModel @Inject constructor(
                 persist(updated)
                 val toast = when (event) {
                     PetEvent.AssistantSuccess -> "nibbli noticed your chat!"
+                    PetEvent.AgentStepCompleted -> "nibbli noticed Agent helping you!"
+                    PetEvent.ActionCompleted -> "nibbli noticed you finished something!"
                     else -> null
                 }
+                noticeForEvent(event)?.let { noticedStore.record(it) }
                 _uiState.update { it.copy(agentToast = toast) }
                 scheduleActivityReaction(event)
+            }
+        }
+        viewModelScope.launch {
+            noticedStore.observeToday().collect { lines ->
+                _uiState.update { it.copy(noticedToday = lines) }
+            }
+        }
+        viewModelScope.launch {
+            noticedStore.observeVisitStreak().collect { streak ->
+                _uiState.update { it.copy(visitStreak = streak) }
             }
         }
         startMoodPulseLoop()
@@ -387,6 +407,16 @@ class PetViewModel @Inject constructor(
             !ui.talkLcdMode
     }
 
+    private fun noticeForEvent(event: PetEvent): String? = when (event) {
+        PetEvent.AssistantSuccess -> "You had a helpful Chat with ${_uiState.value.petState.name}."
+        PetEvent.AgentStepCompleted -> "Agent helped with email or calendar on-device."
+        PetEvent.ActionCompleted -> "You completed an on-device action."
+        is PetEvent.NewModelTried -> "You tried ${event.modelId} locally."
+        PetEvent.PromptLabRun -> "You ran a Prompt Lab experiment."
+        is PetEvent.SkillInvoked -> "Agent used skill ${event.skillId}."
+        else -> null
+    }
+
     private fun scheduleActivityReaction(event: PetEvent) {
         viewModelScope.launch {
             if (!userPreferencesRepository.petCommentOnAgentWork.first()) return@launch
@@ -416,15 +446,15 @@ class PetViewModel @Inject constructor(
 
     private fun activityHintFor(event: PetEvent): String? = when (event) {
         PetEvent.AgentStepCompleted ->
-            "Your human just had a good Chat conversation on-device."
+            "Your human just used Agent for email or calendar on-device."
         is PetEvent.NewModelTried ->
             "They tried a new local model (${event.modelId})."
         PetEvent.PromptLabRun ->
-            "They tried something new on-device."
+            "They tried something new in Prompt Lab on-device."
         PetEvent.ActionCompleted ->
             "They completed an on-device action."
         PetEvent.AssistantSuccess ->
-            "They had a helpful Chat conversation on-device."
+            "They had a helpful Pixel Friend Chat on-device."
         is PetEvent.SkillInvoked ->
             "They used skill ${event.skillId}."
         PetEvent.NeglectTick,
@@ -501,10 +531,6 @@ class PetViewModel @Inject constructor(
                     PetEngagementEngine.recordTalk(interacted.state, now)
                 }
                 val warmLoaded = warmLoad.await()
-                launch(Dispatchers.Default) {
-                    val modelId = petTalkChatRecorder.resolvePetModelId()
-                    petTalkChatRecorder.recordUserMessage(trimmed, modelId, now)
-                }
                 generateReaction(
                     state = talkState.await(),
                     userMessage = trimmed,
@@ -664,21 +690,53 @@ class PetViewModel @Inject constructor(
             return
         }
         postcardStore.save(postcard)
-        _uiState.update {
-            it.copy(
-                visitPostcard = postcard,
-                showPostcardSheet = false,
-                statusMessage = "Visiting ${postcard.senderName}'s nibbli!",
-            )
+        viewModelScope.launch {
+            noticedStore.recordVisitCheckIn(postcard.senderName)
+            val previous = _uiState.value.visitPostcard
+            var state = _uiState.value.petState
+            if (previous != null) {
+                state = state.removeBorrowedSouvenir(previous)
+            }
+            state = state.applyBorrowedSouvenir(postcard)
+            persist(state)
+            _uiState.update {
+                it.copy(
+                    petState = state,
+                    visitPostcard = postcard,
+                    showPostcardSheet = false,
+                    statusMessage = buildVisitStatus(postcard),
+                )
+            }
         }
+    }
+
+    private fun buildVisitStatus(postcard: PetPostcard): String {
+        val base = "Visiting ${postcard.senderName}'s nibbli!"
+        val souvenir = when {
+            postcard.borrowedPropId != null && postcard.borrowedSceneId != null ->
+                " Borrowed their prop and scene for 24h."
+            postcard.borrowedPropId != null -> " Borrowed their prop for 24h."
+            postcard.borrowedSceneId != null -> " Borrowed their scene for 24h."
+            else -> ""
+        }
+        return base + souvenir
     }
 
     fun shareVisitQr(): Intent =
         PetVisitQrExporter.shareVisitQr(context, _uiState.value.petState)
 
     fun endPostcardVisit() {
+        val postcard = _uiState.value.visitPostcard
         postcardStore.clear()
-        _uiState.update { it.copy(visitPostcard = null) }
+        viewModelScope.launch {
+            if (postcard != null) {
+                val reverted = _uiState.value.petState.removeBorrowedSouvenir(postcard)
+                persist(reverted)
+                _uiState.update { it.copy(petState = reverted, visitPostcard = null) }
+            } else {
+                _uiState.update { it.copy(visitPostcard = null) }
+            }
+        }
     }
 
     fun clearCatchGhost() {
@@ -727,10 +785,28 @@ class PetViewModel @Inject constructor(
     fun submitVoiceToAssist(transcript: String) {
         val trimmed = transcript.trim()
         if (trimmed.isEmpty()) return
-        assistVoiceRequestBus.submitVoiceMessage(trimmed)
+        assistNavigationBus.openAgentWithMessage(trimmed)
         _uiState.update {
-            it.copy(statusMessage = "Sent to Chat — on-device model is thinking…")
+            it.copy(statusMessage = "Opening Agent — confirm before nibbli acts…")
         }
+    }
+
+    fun approveMemoryProposal() {
+        val proposal = _uiState.value.pendingMemoryProposal ?: return
+        viewModelScope.launch {
+            val updated = _uiState.value.petState.copy(
+                memorySummary = PetMemoryWriter.appendFact(
+                    _uiState.value.petState.memorySummary,
+                    proposal,
+                ),
+            )
+            persist(updated)
+            _uiState.update { it.copy(pendingMemoryProposal = null) }
+        }
+    }
+
+    fun dismissMemoryProposal() {
+        _uiState.update { it.copy(pendingMemoryProposal = null) }
     }
 
     fun onVoiceAssistError(message: String) {
@@ -935,8 +1011,16 @@ class PetViewModel @Inject constructor(
                 dialogueLine = resolved.dialogue,
                 expression = expression,
             )
-            updated = PetMemoryWriter.withNewFact(updated, request, resolved.dialogue)
-            if (request.userMessage != null) {
+            val userMessage = request.userMessage
+            if (userMessage != null) {
+                val proposal = PetMemoryWriter.proposeUserFact(userMessage)
+                if (proposal != null) {
+                    _uiState.update { it.copy(pendingMemoryProposal = proposal) }
+                }
+            } else {
+                updated = PetMemoryWriter.withNewFact(updated, request, resolved.dialogue)
+            }
+            if (userMessage != null) {
                 _uiState.update {
                     it.copy(
                         petState = updated,
@@ -951,7 +1035,11 @@ class PetViewModel @Inject constructor(
             PetWidgetUpdater.refresh(context)
             if (request.userMessage != null) {
                 val modelId = petTalkChatRecorder.resolvePetModelId()
-                petTalkChatRecorder.recordAssistantMessage(resolved.dialogue, modelId)
+                petTalkChatRecorder.recordHomeTalkTurn(
+                    request = request.copy(state = current),
+                    assistantText = resolved.dialogue,
+                    modelId = modelId,
+                )
             }
         }
     }

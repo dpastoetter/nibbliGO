@@ -17,6 +17,7 @@ import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkRun
 import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
+import com.nibbli.nibbligo.core.model.ChatPromptMode
 import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
 import com.nibbli.nibbligo.core.model.PetOnboardingProfile
@@ -102,6 +103,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val topP = floatPreferencesKey("top_p")
     val maxTokens = intPreferencesKey("max_tokens")
     val systemPrompt = stringPreferencesKey("system_prompt")
+    val chatPromptMode = stringPreferencesKey("chat_prompt_mode")
     val allowDownloads = booleanPreferencesKey("allow_downloads")
     val preferredRuntime = stringPreferencesKey("preferred_runtime")
     val petPersonality = stringPreferencesKey("pet_personality")
@@ -135,6 +137,13 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         systemPrompt = prefs[Keys.systemPrompt]
           ?: "You are nibbli, a helpful on-device companion.",
       )
+    }
+
+  override val chatPromptMode: Flow<ChatPromptMode> =
+    context.dataStore.data.map { prefs ->
+      runCatching {
+        ChatPromptMode.valueOf(prefs[Keys.chatPromptMode] ?: ChatPromptMode.PIXEL_FRIEND.name)
+      }.getOrDefault(ChatPromptMode.PIXEL_FRIEND)
     }
 
   override val allowDownloads: Flow<Boolean> =
@@ -220,6 +229,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
       prefs[Keys.maxTokens] = params.maxTokens
       prefs[Keys.systemPrompt] = params.systemPrompt
     }
+  }
+
+  override suspend fun setChatPromptMode(mode: ChatPromptMode) {
+    context.dataStore.edit { it[Keys.chatPromptMode] = mode.name }
   }
 
   override suspend fun setAllowDownloads(allowed: Boolean) {

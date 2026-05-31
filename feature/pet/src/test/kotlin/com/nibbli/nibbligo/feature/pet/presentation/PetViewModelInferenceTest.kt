@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo.feature.pet.presentation
 
 import android.content.Context
+import com.nibbli.nibbligo.core.domain.assist.AssistNavigationBus
 import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
 import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
@@ -20,6 +21,7 @@ import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.ChatMessage
+import com.nibbli.nibbligo.core.model.ChatPromptMode
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.ModelCapabilities
 import com.nibbli.nibbligo.core.model.ModelInfo
@@ -128,7 +130,7 @@ class PetViewModelInferenceTest {
             petTalkChatRecorder = createPetTalkChatRecorder(),
             userPreferencesRepository = FakeUserPreferencesRepository(),
             engine = PetSimulationEngine(),
-            assistVoiceRequestBus = AssistVoiceRequestBus(),
+            assistNavigationBus = AssistNavigationBus(AssistVoiceRequestBus()),
             liteRtModelPreloader = createIdlePreloader(),
             petDeepLinkBus = PetDeepLinkBus(),
             modelAvailabilityGate = object : ModelAvailabilityGate {
@@ -174,6 +176,7 @@ class PetViewModelInferenceTest {
         return PetTalkChatRecorder(
             chatRepository = FakeChatRepository(),
             petModelResolver = PetModelResolver(runtime, prefs, gate),
+            userPreferencesRepository = prefs,
         )
     }
 }
@@ -289,6 +292,8 @@ private class FakeChatRepository : ChatRepository {
 
     override suspend fun updateConversation(conversation: Conversation) = Unit
 
+    override suspend fun deleteMessagesForConversation(conversationId: Long) = Unit
+
     override suspend fun deleteAllConversations() = Unit
 }
 
@@ -296,6 +301,7 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val defaultModelId = flowOf("smollm2-360m-instruct")
     override val petModelId = flowOf<String?>(null)
     override val generationParams = flowOf(GenerationParams())
+    override val chatPromptMode = flowOf(ChatPromptMode.PURE_LLM)
     override val allowDownloads = flowOf(true)
     override val preferredRuntimeKind = flowOf("LITERT")
     override val petPersonality = flowOf(PetPersonality.PLAYFUL)
@@ -313,6 +319,7 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
+    override suspend fun setChatPromptMode(mode: ChatPromptMode) = Unit
     override suspend fun setAllowDownloads(allowed: Boolean) = Unit
     override suspend fun setPreferredRuntimeKind(kind: String) = Unit
     override suspend fun setPetPersonality(personality: PetPersonality) = Unit

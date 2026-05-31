@@ -1,9 +1,11 @@
 package com.nibbli.nibbligo.feature.chat.presentation
 
+import android.content.Context
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.model.AgentRequest
 import com.nibbli.nibbligo.core.model.AgentTurn
 import com.nibbli.nibbligo.core.model.AppAccentPalette
@@ -11,6 +13,7 @@ import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.BenchmarkMetrics
 import com.nibbli.nibbligo.core.model.ChatInferenceRequest
 import com.nibbli.nibbligo.core.model.ChatMessage
+import com.nibbli.nibbligo.core.model.ChatPromptMode
 import com.nibbli.nibbligo.core.model.CompletionRequest
 import com.nibbli.nibbligo.core.model.Conversation
 import com.nibbli.nibbligo.core.model.GenerationParams
@@ -21,12 +24,18 @@ import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.ModelCapabilities
 import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
+import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetPersonality
+import com.nibbli.nibbligo.core.model.PetState
+import com.nibbli.nibbligo.core.model.PetTurnRequest
 import com.nibbli.nibbligo.core.model.RuntimeKind
 import com.nibbli.nibbligo.core.model.RuntimeResult
 import com.nibbli.nibbligo.core.model.TranscriptionRequest
 import com.nibbli.nibbligo.core.model.VisionRequest
+import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
+import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
+import org.robolectric.RuntimeEnvironment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -43,8 +52,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [31])
 class ChatViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
@@ -60,19 +74,15 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun sendMessage_keepsAssistantReplyInMessagesAfterStreamingEnds() = runTest(testDispatcher) {
+    fun sendMessage_keepsAssistantReplyWithoutSystemMessages() = runTest(testDispatcher) {
         val chatRepo = FakeChatRepository()
         val runtime = FakeInferenceRuntime(reply = "Hello from nibbli")
-        val viewModel = ChatViewModel(
+        val viewModel = createViewModel(
             chatRepository = chatRepo,
-            modelRepository = FakeModelRepository(),
-            userPreferencesRepository = FakeUserPreferencesRepository(),
             inferenceRuntime = runtime,
-            petEventBus = PetEventBus(),
         )
         advanceUntilIdle()
 
-        viewModel.selectModel("functiongemma-270m")
         viewModel.updateInput("Hi")
         viewModel.sendMessage()
         advanceUntilIdle()
@@ -88,40 +98,11 @@ class ChatViewModelTest {
     }
 
     @Test
-    fun newConversation_switchesMessageObservation() = runTest(testDispatcher) {
+    fun init_restoresPixelFriendThread() = runTest(testDispatcher) {
         val chatRepo = FakeChatRepository()
-        val viewModel = ChatViewModel(
-            chatRepository = chatRepo,
-            modelRepository = FakeModelRepository(),
-            userPreferencesRepository = FakeUserPreferencesRepository(),
-            inferenceRuntime = FakeInferenceRuntime(reply = "First"),
-            petEventBus = PetEventBus(),
-        )
-        advanceUntilIdle()
-        viewModel.selectModel("functiongemma-270m")
-        viewModel.updateInput("One")
-        viewModel.sendMessage()
-        advanceUntilIdle()
-
-        viewModel.newConversation()
-        advanceUntilIdle()
-        assertTrue(viewModel.uiState.value.messages.isEmpty())
-
-        viewModel.updateInput("Two")
-        viewModel.sendMessage()
-        advanceUntilIdle()
-
-        val roles = viewModel.uiState.value.messages.map { it.role }
-        assertEquals(listOf(MessageRole.USER, MessageRole.ASSISTANT), roles)
-        assertEquals("Two", viewModel.uiState.value.messages[0].content)
-    }
-
-    @Test
-    fun init_restoresPersistedAssistChat() = runTest(testDispatcher) {
-        val chatRepo = FakeChatRepository()
-        val modelId = "functiongemma-270m"
+        val modelId = "smollm2-360m-instruct"
         val conversationId = chatRepo.getOrCreateConversation(
-            ChatViewModel.ASSIST_CONVERSATION_TITLE,
+            PetTalkChatRecorder.CONVERSATION_TITLE,
             modelId,
         )
         chatRepo.saveMessage(
@@ -134,12 +115,10 @@ class ChatViewModelTest {
             ),
         )
 
-        val viewModel = ChatViewModel(
+        val viewModel = createViewModel(
             chatRepository = chatRepo,
-            modelRepository = FakeModelRepository(),
-            userPreferencesRepository = FakeUserPreferencesRepository(),
             inferenceRuntime = FakeInferenceRuntime(reply = "unused"),
-            petEventBus = PetEventBus(),
+            petModelId = modelId,
         )
         advanceUntilIdle()
 
@@ -147,6 +126,71 @@ class ChatViewModelTest {
         assertEquals(1, viewModel.uiState.value.messages.size)
         assertEquals("Earlier message", viewModel.uiState.value.messages[0].content)
     }
+
+    @Test
+    fun clearChat_removesMessages() = runTest(testDispatcher) {
+        val chatRepo = FakeChatRepository()
+        val viewModel = createViewModel(
+            chatRepository = chatRepo,
+            inferenceRuntime = FakeInferenceRuntime(reply = "Hi"),
+            petModelId = "smollm2-360m-instruct",
+        )
+        advanceUntilIdle()
+        viewModel.updateInput("Hello")
+        viewModel.sendMessage()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.messages.isNotEmpty())
+
+        viewModel.clearChat()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.messages.isEmpty())
+    }
+}
+
+private fun createViewModel(
+    chatRepository: FakeChatRepository,
+    inferenceRuntime: FakeInferenceRuntime,
+    petModelId: String = "smollm2-360m-instruct",
+): ChatViewModel {
+    val prefs = FakeUserPreferencesRepository(petModelId)
+    val petRepo = FakePetRepository()
+    val context = RuntimeEnvironment.getApplication()
+    val recorder = PetTalkChatRecorder(
+        chatRepository = chatRepository,
+        petModelResolver = PetModelResolver(
+            inferenceRuntime,
+            prefs,
+            object : com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate {
+                override suspend fun hasUsableModel() = true
+                override suspend fun firstUsableModelId() = petModelId
+            },
+        ),
+        userPreferencesRepository = prefs,
+    )
+    return ChatViewModel(
+        context = context,
+        chatRepository = chatRepository,
+        modelRepository = FakeModelRepository(petModelId),
+        userPreferencesRepository = prefs,
+        petRepository = petRepo,
+        inferenceRuntime = inferenceRuntime,
+        petEventBus = PetEventBus(),
+        petTalkChatRecorder = recorder,
+        petModelResolver = PetModelResolver(
+            inferenceRuntime,
+            prefs,
+            object : com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate {
+                override suspend fun hasUsableModel() = true
+                override suspend fun firstUsableModelId() = petModelId
+            },
+        ),
+    )
+}
+
+private class FakePetRepository : PetRepository {
+    override fun observePetState() = flowOf(PetState())
+    override suspend fun getPetState() = PetState()
+    override suspend fun savePetState(state: PetState) = Unit
 }
 
 private class FakeChatRepository : ChatRepository {
@@ -191,12 +235,18 @@ private class FakeChatRepository : ChatRepository {
 
     override suspend fun updateConversation(conversation: Conversation) = Unit
 
+    override suspend fun deleteMessagesForConversation(conversationId: Long) {
+        messagesByConversation[conversationId]?.value = emptyList()
+    }
+
     override suspend fun deleteAllConversations() {
         messagesByConversation.clear()
     }
 }
 
-private class FakeModelRepository : ModelRepository {
+private class FakeModelRepository(
+    private val petModelId: String,
+) : ModelRepository {
     override fun observeCatalog(): Flow<List<ModelInfo>> = flowOf(emptyList())
     override fun observeInstalled(): Flow<List<InstalledModel>> = flowOf(emptyList())
     override suspend fun getCatalog(): List<ModelInfo> = emptyList()
@@ -204,13 +254,16 @@ private class FakeModelRepository : ModelRepository {
     override suspend fun isInstalled(modelId: String) = true
     override suspend fun install(modelId: String) = Result.success(Unit)
     override suspend fun uninstall(modelId: String) = Result.success(Unit)
-    override suspend fun getInstalledModelIds() = listOf("functiongemma-270m")
+    override suspend fun getInstalledModelIds() = listOf(petModelId)
 }
 
-private class FakeUserPreferencesRepository : UserPreferencesRepository {
-    override val defaultModelId = flowOf("functiongemma-270m")
-    override val petModelId = flowOf<String?>(null)
+private class FakeUserPreferencesRepository(
+    private val petModel: String,
+) : UserPreferencesRepository {
+    override val defaultModelId = flowOf(petModel)
+    override val petModelId = flowOf<String?>(petModel)
     override val generationParams = flowOf(GenerationParams())
+    override val chatPromptMode = flowOf(ChatPromptMode.PIXEL_FRIEND)
     override val allowDownloads = flowOf(true)
     override val preferredRuntimeKind = flowOf("LITERT")
     override val petPersonality = flowOf(PetPersonality.PLAYFUL)
@@ -221,12 +274,13 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val accentPalette = flowOf(AppAccentPalette.TEAL)
     override val showDoTab = flowOf(false)
     override val litertAccelerator = flowOf(LiteRtAcceleratorPreference.AUTO)
-    override val petOnboardingProfile = flowOf(com.nibbli.nibbligo.core.model.PetOnboardingProfile(completed = true))
+    override val petOnboardingProfile = flowOf(PetOnboardingProfile(completed = true))
     override val onboardingCompleted = flowOf(true)
     override val modelSetupPromptDismissed = flowOf(false)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
+    override suspend fun setChatPromptMode(mode: ChatPromptMode) = Unit
     override suspend fun setAllowDownloads(allowed: Boolean) = Unit
     override suspend fun setPreferredRuntimeKind(kind: String) = Unit
     override suspend fun setPetPersonality(personality: PetPersonality) = Unit
@@ -236,7 +290,7 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun setThemeMode(mode: AppThemeMode) = Unit
     override suspend fun setAccentPalette(palette: AppAccentPalette) = Unit
     override suspend fun setShowDoTab(show: Boolean) = Unit
-    override suspend fun setPetOnboardingProfile(profile: com.nibbli.nibbligo.core.model.PetOnboardingProfile) = Unit
+    override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) = Unit
     override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
     override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
 }
@@ -255,11 +309,19 @@ private class FakeInferenceRuntime(
     override suspend fun ensureAgentModelLoaded(modelId: String) =
         RuntimeResult.Success(Unit)
 
+    override suspend fun ensureHomeTalkSession(modelId: String, systemInstruction: String) =
+        RuntimeResult.Success(Unit)
+
     override fun unloadModel(modelId: String) = Unit
 
-    override fun streamChat(request: ChatInferenceRequest): Flow<InferenceChunk> = flowOf(
+    override fun streamHomeTalk(request: PetTurnRequest): Flow<InferenceChunk> = flowOf(
         InferenceChunk(reply.take(5)),
         InferenceChunk(reply.drop(5)),
+        InferenceChunk("", isComplete = true),
+    )
+
+    override fun streamChat(request: ChatInferenceRequest): Flow<InferenceChunk> = flowOf(
+        InferenceChunk(reply),
         InferenceChunk("", isComplete = true),
     )
 

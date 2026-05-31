@@ -24,10 +24,14 @@ data class PetPostcard(
     val equippedCosmetic: String?,
     val roomId: String? = null,
     val equippedProp: String? = null,
+    val visitMessage: String? = null,
+    val careTip: String? = null,
+    val borrowedPropId: String? = null,
+    val borrowedSceneId: String? = null,
     val importedAtMillis: Long = System.currentTimeMillis(),
 ) {
     fun toJson(): String = JSONObject().apply {
-        put("v", 1)
+        put("v", 2)
         put("friendCode", friendCode)
         put("senderName", senderName)
         put("stage", stage.name)
@@ -37,6 +41,10 @@ data class PetPostcard(
         put("equippedCosmetic", equippedCosmetic ?: "")
         put("roomId", roomId ?: "")
         put("equippedProp", equippedProp ?: "")
+        put("visitMessage", visitMessage ?: "")
+        put("careTip", careTip ?: "")
+        put("borrowedPropId", borrowedPropId ?: "")
+        put("borrowedSceneId", borrowedSceneId ?: "")
         put("importedAtMillis", importedAtMillis)
     }.toString()
 
@@ -72,35 +80,70 @@ data class PetPostcard(
     }
 
     companion object {
-        fun fromPet(state: PetState): PetPostcard = PetPostcard(
-            friendCode = state.engagement.friendCode.ifBlank {
-                PetEngagementEngine.computeFriendCode(state)
-            },
-            senderName = state.name,
-            stage = state.stage,
-            careScore = state.careScore,
-            dialogueLine = state.dialogueLine,
-            mood = state.stats.mood,
-            equippedCosmetic = state.equippedCosmetic?.name,
-            roomId = state.equippedScene.id,
-            equippedProp = state.equippedProp?.id,
-        )
+        fun fromPet(state: PetState, visitMessage: String? = null): PetPostcard {
+            val tip = careTipFrom(state)
+            val propId = state.equippedProp?.id
+            val sceneId = state.equippedScene.id
+            return PetPostcard(
+                friendCode = state.engagement.friendCode.ifBlank {
+                    PetEngagementEngine.computeFriendCode(state)
+                },
+                senderName = state.name,
+                stage = state.stage,
+                careScore = state.careScore,
+                dialogueLine = state.dialogueLine,
+                mood = state.stats.mood,
+                equippedCosmetic = state.equippedCosmetic?.name,
+                roomId = sceneId,
+                equippedProp = propId,
+                visitMessage = visitMessage?.trim()?.take(120)?.ifBlank { null },
+                careTip = tip,
+                borrowedPropId = propId,
+                borrowedSceneId = sceneId,
+            )
+        }
+
+        fun careTipFrom(state: PetState): String = when {
+            state.stats.hunger < 40 -> "They might need feeding!"
+            state.stats.hygiene < 40 -> "Help them stay clean."
+            state.stats.energy < 30 -> "They look tired — rest helps."
+            state.stats.mood < 40 -> "They need play!"
+            else -> "Keep visiting — friends cheer them up!"
+        }
 
         fun fromJson(raw: String): PetPostcard? = runCatching {
             val json = JSONObject(raw)
-            if (json.optInt("v", 0) != 1) return null
-            PetPostcard(
-                friendCode = json.getString("friendCode"),
-                senderName = json.getString("senderName"),
-                stage = LifeStage.valueOf(json.getString("stage")),
-                careScore = json.getInt("careScore"),
-                dialogueLine = json.getString("dialogueLine"),
-                mood = json.getInt("mood"),
-                equippedCosmetic = json.optString("equippedCosmetic").ifBlank { null },
-                roomId = json.optString("roomId").ifBlank { null },
-                equippedProp = json.optString("equippedProp").ifBlank { null },
-                importedAtMillis = json.optLong("importedAtMillis", System.currentTimeMillis()),
-            )
+            when (json.optInt("v", 0)) {
+                1 -> PetPostcard(
+                    friendCode = json.getString("friendCode"),
+                    senderName = json.getString("senderName"),
+                    stage = LifeStage.valueOf(json.getString("stage")),
+                    careScore = json.getInt("careScore"),
+                    dialogueLine = json.getString("dialogueLine"),
+                    mood = json.getInt("mood"),
+                    equippedCosmetic = json.optString("equippedCosmetic").ifBlank { null },
+                    roomId = json.optString("roomId").ifBlank { null },
+                    equippedProp = json.optString("equippedProp").ifBlank { null },
+                    importedAtMillis = json.optLong("importedAtMillis", System.currentTimeMillis()),
+                )
+                2 -> PetPostcard(
+                    friendCode = json.getString("friendCode"),
+                    senderName = json.getString("senderName"),
+                    stage = LifeStage.valueOf(json.getString("stage")),
+                    careScore = json.getInt("careScore"),
+                    dialogueLine = json.getString("dialogueLine"),
+                    mood = json.getInt("mood"),
+                    equippedCosmetic = json.optString("equippedCosmetic").ifBlank { null },
+                    roomId = json.optString("roomId").ifBlank { null },
+                    equippedProp = json.optString("equippedProp").ifBlank { null },
+                    visitMessage = json.optString("visitMessage").ifBlank { null },
+                    careTip = json.optString("careTip").ifBlank { null },
+                    borrowedPropId = json.optString("borrowedPropId").ifBlank { null },
+                    borrowedSceneId = json.optString("borrowedSceneId").ifBlank { null },
+                    importedAtMillis = json.optLong("importedAtMillis", System.currentTimeMillis()),
+                )
+                else -> return null
+            }
         }.getOrNull()
 
         fun isExpired(postcard: PetPostcard, nowMillis: Long = System.currentTimeMillis()): Boolean =
@@ -111,7 +154,8 @@ data class PetPostcard(
 }
 
 object PetPostcardCodec {
-    fun encode(state: PetState): String = PetPostcard.fromPet(state).toJson()
+    fun encode(state: PetState, visitMessage: String? = null): String =
+        PetPostcard.fromPet(state, visitMessage).toJson()
 
     fun decode(raw: String): PetPostcard? = PetPostcard.fromJson(raw.trim())
 }
@@ -126,4 +170,34 @@ fun PetState.forVisitPlaydate(): PetState = when {
         animation == PetAnimation.EAT ||
         animation == PetAnimation.EVOLVE -> this
     else -> copy(animation = PetAnimation.PLAY)
+}
+
+fun PetState.applyBorrowedSouvenir(postcard: PetPostcard): PetState {
+    var updated = this
+    postcard.borrowedPropId?.let { id ->
+        PetLcdProp.fromId(id)?.let { prop ->
+            updated = updated.copy(unlockedProps = updated.unlockedProps + prop)
+        }
+    }
+    postcard.borrowedSceneId?.let { id ->
+        PetLcdScene.fromId(id)?.let { scene ->
+            updated = updated.copy(unlockedScenes = updated.unlockedScenes + scene)
+        }
+    }
+    return updated
+}
+
+fun PetState.removeBorrowedSouvenir(postcard: PetPostcard): PetState {
+    var updated = this
+    postcard.borrowedPropId?.let { id ->
+        PetLcdProp.fromId(id)?.let { prop ->
+            updated = updated.copy(unlockedProps = updated.unlockedProps - prop)
+        }
+    }
+    postcard.borrowedSceneId?.let { id ->
+        PetLcdScene.fromId(id)?.let { scene ->
+            updated = updated.copy(unlockedScenes = updated.unlockedScenes - scene)
+        }
+    }
+    return updated
 }

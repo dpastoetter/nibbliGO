@@ -24,6 +24,17 @@ class PetMemoryWriterTest {
     }
 
     @Test
+    fun proposeUserFact_detectsPersonalLine() {
+        val fact = PetMemoryWriter.proposeUserFact("I'm studying Kotlin this week")
+        assertTrue(fact?.contains("Kotlin") == true)
+    }
+
+    @Test
+    fun proposeUserFact_ignoresShortChitChat() {
+        assertTrue(PetMemoryWriter.proposeUserFact("ok cool") == null)
+    }
+
+    @Test
     fun withNewFact_updates_state() {
         val state = PetState()
         val updated = PetMemoryWriter.withNewFact(

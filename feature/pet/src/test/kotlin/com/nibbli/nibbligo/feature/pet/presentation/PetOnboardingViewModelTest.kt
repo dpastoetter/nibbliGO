@@ -139,6 +139,7 @@ private class OnboardingFakePrefs(
     override val defaultModelId = flowOf("smollm2-360m-instruct")
     override val petModelId = flowOf<String?>(null)
     override val generationParams = flowOf(GenerationParams())
+    override val chatPromptMode = flowOf(com.nibbli.nibbligo.core.model.ChatPromptMode.PURE_LLM)
     override val allowDownloads = flowOf(true)
     override val preferredRuntimeKind = flowOf("litert")
     override val petPersonality = flowOf(personality)
@@ -155,6 +156,7 @@ private class OnboardingFakePrefs(
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
+    override suspend fun setChatPromptMode(mode: com.nibbli.nibbligo.core.model.ChatPromptMode) = Unit
     override suspend fun setAllowDownloads(allowed: Boolean) = Unit
     override suspend fun setPreferredRuntimeKind(kind: String) = Unit
     override suspend fun setPetPersonality(personality: PetPersonality) = Unit

@@ -45,4 +45,25 @@ object PetMemoryWriter {
         val fact = factFromReaction(request, dialogue) ?: return state
         return state.copy(memorySummary = appendFact(state.memorySummary, fact))
     }
+
+    /** Suggests a user-approved memory line after Home talk (never auto-saved). */
+    fun proposeUserFact(userMessage: String): String? {
+        val trimmed = userMessage.trim()
+        if (trimmed.length < 10) return null
+        val lower = trimmed.lowercase()
+        val triggers = listOf(
+            "i'm ",
+            "i am ",
+            "my name",
+            "i like ",
+            "i love ",
+            "i work ",
+            "i study ",
+            "i'm studying",
+            "remember that",
+            "call me ",
+        )
+        if (triggers.none { lower.contains(it) }) return null
+        return trimmed.take(MAX_FACT_CHARS)
+    }
 }

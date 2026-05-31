@@ -5,15 +5,26 @@ import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
+import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
-import com.nibbli.nibbligo.core.model.ChatInferenceRequest
 import com.nibbli.nibbligo.core.model.ChatMessage
-import com.nibbli.nibbligo.core.model.GenerationParams
 import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.PetEvent
+import com.nibbli.nibbligo.core.model.PetTurnRequest
 import com.nibbli.nibbligo.core.model.RuntimeResult
+import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
+import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
+import com.nibbli.nibbligo.core.pet.llm.PetOnboardingPrompt
+import com.nibbli.nibbligo.core.pet.llm.PetPromptBuilder
+import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
+import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
+import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
+import com.nibbli.nibbligo.feature.pet.domain.PetNoticedStore
+import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,33 +32,39 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ChatUiState(
     val conversationId: Long? = null,
+    val petName: String = "nibbli",
     val messages: List<ChatMessage> = emptyList(),
-    val installedModelIds: List<String> = emptyList(),
-    val selectedModelId: String? = null,
     val input: String = "",
     val streamingText: String? = null,
     val isStreaming: Boolean = false,
-    val generationParams: GenerationParams = GenerationParams(),
-    val reasoningNotes: String = "",
-    val showReasoning: Boolean = false,
+    val hasPetModel: Boolean = false,
+    val petModelLabel: String = "",
     val error: String? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    @ApplicationContext context: Context,
     private val chatRepository: ChatRepository,
     private val modelRepository: ModelRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val petRepository: PetRepository,
     private val inferenceRuntime: InferenceRuntime,
     private val petEventBus: PetEventBus,
+    private val petTalkChatRecorder: PetTalkChatRecorder,
+    private val petModelResolver: PetModelResolver,
 ) : ViewModel() {
+
+    private val engine = PetSimulationEngine()
+    private val noticedStore = PetNoticedStore(context)
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -56,21 +73,20 @@ class ChatViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val modelId = runCatching { petModelResolver.resolve() }.getOrNull()
             val installed = modelRepository.getInstalledModelIds()
-            val defaultModel = userPreferencesRepository.defaultModelId.first()
-            val params = userPreferencesRepository.generationParams.first()
-            val modelId = defaultModel ?: installed.firstOrNull()
+            val petState = petRepository.getPetState()
             _uiState.update {
                 it.copy(
-                    installedModelIds = installed,
-                    selectedModelId = modelId,
-                    generationParams = params,
+                    petName = petState.name,
+                    hasPetModel = modelId != null && modelId in installed,
+                    petModelLabel = modelId ?: "",
                 )
             }
             if (modelId != null) {
                 val conversationId = chatRepository.getOrCreateConversation(
-                    title = ASSIST_CONVERSATION_TITLE,
-                    modelId = modelId,
+                    PetTalkChatRecorder.CONVERSATION_TITLE,
+                    modelId,
                 )
                 setActiveConversation(conversationId)
             }
@@ -81,7 +97,11 @@ class ChatViewModel @Inject constructor(
                     if (id == null) {
                         flowOf(emptyList())
                     } else {
-                        chatRepository.observeMessages(id)
+                        chatRepository.observeMessages(id).map { messages ->
+                            messages.filter { msg ->
+                                msg.role == MessageRole.USER || msg.role == MessageRole.ASSISTANT
+                            }
+                        }
                     }
                 }
                 .collect { messages ->
@@ -91,51 +111,51 @@ class ChatViewModel @Inject constructor(
     }
 
     fun updateInput(value: String) = _uiState.update { it.copy(input = value) }
-    fun selectModel(modelId: String) = _uiState.update { it.copy(selectedModelId = modelId) }
-    fun updateParams(params: GenerationParams) = _uiState.update { it.copy(generationParams = params) }
-    fun toggleReasoning() = _uiState.update { it.copy(showReasoning = !it.showReasoning) }
-    fun updateReasoningNotes(notes: String) = _uiState.update { it.copy(reasoningNotes = notes) }
 
-    fun newConversation() {
+    fun clearChat() {
         viewModelScope.launch {
-            val modelId = _uiState.value.selectedModelId ?: return@launch
-            val id = chatRepository.createConversation(modelId, "New chat")
-            setActiveConversation(id)
-            _uiState.update { it.copy(streamingText = null, input = "") }
+            val conversationId = _uiState.value.conversationId ?: return@launch
+            chatRepository.deleteMessagesForConversation(conversationId)
+            _uiState.update { it.copy(streamingText = null, input = "", error = null) }
         }
     }
 
     fun sendMessage(text: String = _uiState.value.input) {
         val state = _uiState.value
-        val modelId = state.selectedModelId
         val trimmed = text.trim()
-        if (modelId == null || trimmed.isBlank() || state.isStreaming) return
+        if (trimmed.isBlank() || state.isStreaming) return
 
         viewModelScope.launch {
+            val modelId = runCatching { petModelResolver.resolve() }.getOrNull()
+            if (modelId == null) {
+                _uiState.update {
+                    it.copy(error = "Install a Pixel Friend model under Manage → Models.")
+                }
+                return@launch
+            }
+
             var conversationId = state.conversationId
             if (conversationId == null) {
                 conversationId = chatRepository.getOrCreateConversation(
-                    title = ASSIST_CONVERSATION_TITLE,
-                    modelId = modelId,
+                    PetTalkChatRecorder.CONVERSATION_TITLE,
+                    modelId,
                 )
                 setActiveConversation(conversationId)
             }
 
             val now = System.currentTimeMillis()
-            val userMessage = ChatMessage(
-                conversationId = conversationId,
-                role = MessageRole.USER,
-                content = trimmed,
-                notes = if (state.showReasoning) state.reasoningNotes.takeIf { it.isNotBlank() } else null,
-                timestampMillis = now,
-                modelId = modelId,
-            )
-            chatRepository.saveMessage(userMessage)
             _uiState.update { it.copy(input = "", isStreaming = true, streamingText = "", error = null) }
 
-            when (val load = inferenceRuntime.ensureModelLoaded(modelId)) {
+            var petState = petRepository.getPetState()
+            petState = engine.tick(petState, now).state
+            val personality = userPreferencesRepository.petPersonality.first()
+            val profile = userPreferencesRepository.petOnboardingProfile.first()
+            val onboarding = PetOnboardingPrompt.formatForSystemInstruction(profile, petState.name)
+            val systemInstruction = PetPromptBuilder.homeTalkSystemInstruction(onboarding, petState.name)
+
+            when (val loadResult = inferenceRuntime.ensureHomeTalkSession(modelId, systemInstruction)) {
                 is RuntimeResult.Error -> {
-                    _uiState.update { it.copy(isStreaming = false, error = load.message) }
+                    _uiState.update { it.copy(isStreaming = false, error = loadResult.message) }
                     return@launch
                 }
                 RuntimeResult.LowMemory -> {
@@ -153,44 +173,67 @@ class ChatViewModel @Inject constructor(
                 else -> Unit
             }
 
-            val allMessages = chatRepository.observeMessages(conversationId).first()
-            var assistantContent = ""
-            inferenceRuntime.streamChat(
-                ChatInferenceRequest(modelId, allMessages, state.generationParams),
+            val request = PetReactionRequest(
+                state = petState,
+                userMessage = trimmed,
+                personality = personality,
+                caretakerName = profile.caretakerName.trim().takeIf { it.isNotBlank() },
+            )
+            val parts = PetPromptBuilder.buildHomeTalkParts(request, modelId, onboarding)
+
+            val rawBuilder = StringBuilder()
+            inferenceRuntime.streamHomeTalk(
+                PetTurnRequest(
+                    modelId = modelId,
+                    systemInstruction = parts.systemInstruction,
+                    userMessage = parts.userMessage,
+                ),
             ).collect { chunk ->
-                if (!chunk.isComplete) {
-                    assistantContent += chunk.token
-                    _uiState.update { it.copy(streamingText = assistantContent) }
+                if (chunk.isComplete) return@collect
+                if (chunk.token.startsWith(LiteRtPetReactionGenerator.LITERT_ERROR_PREFIX)) {
+                    _uiState.update { it.copy(error = chunk.token.removePrefix(LiteRtPetReactionGenerator.LITERT_ERROR_PREFIX)) }
+                    return@collect
                 }
+                rawBuilder.append(chunk.token)
+                val display = PetReactionParser.stripForStreaming(
+                    rawBuilder.toString(),
+                    petState.name,
+                    request.caretakerName,
+                )
+                _uiState.update { it.copy(streamingText = display) }
             }
 
-            if (assistantContent.isBlank()) {
+            val raw = rawBuilder.toString().trim()
+            val parsed = if (raw.isNotBlank()) {
+                PetReactionParser.parseTalk(raw, petState.name, request.caretakerName).dialogue
+            } else {
+                PetReactionParser.fallback(request).dialogue
+            }
+
+            if (parsed.isBlank()) {
                 _uiState.update {
                     it.copy(isStreaming = false, streamingText = null, error = "Model returned an empty reply.")
                 }
                 return@launch
             }
 
-            val assistantMessage = ChatMessage(
+            petTalkChatRecorder.recordSimpleTurn(
                 conversationId = conversationId,
-                role = MessageRole.ASSISTANT,
-                content = assistantContent,
-                timestampMillis = System.currentTimeMillis(),
                 modelId = modelId,
+                userText = trimmed,
+                assistant = parsed,
+                timestampMillis = now,
             )
-            chatRepository.saveMessage(assistantMessage)
-            petEventBus.emit(PetEvent.AssistantSuccess)
             _uiState.update { it.copy(isStreaming = false, streamingText = null) }
+            viewModelScope.launch {
+                noticedStore.record("You chatted with ${petState.name} in Chat.")
+                petEventBus.emit(PetEvent.AssistantSuccess)
+            }
         }
     }
 
     private fun setActiveConversation(id: Long?) {
         conversationIdFlow.value = id
         _uiState.update { it.copy(conversationId = id, error = null) }
-    }
-
-    companion object {
-        /** Persistent Assist tab thread — separate from Home {@code PetTalkChatRecorder}. */
-        const val ASSIST_CONVERSATION_TITLE = "Assist Chat"
     }
 }
