@@ -17,7 +17,6 @@ fun PetCompanionPanel(
     isGeneratingDialogue: Boolean,
     talkHistory: List<TalkHistoryEntry>,
     streamingDialogue: String,
-    onStopClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NibbliCard(
@@ -26,11 +25,6 @@ fun PetCompanionPanel(
             .padding(horizontal = 16.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            PetTalkQuickChips(
-                isGeneratingDialogue = isGeneratingDialogue,
-                onStopClick = onStopClick,
-            )
-
             PetStatStrip(stats = stats)
 
             PetTalkHistory(

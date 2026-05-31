@@ -15,14 +15,11 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliBottomNavigationBar
 import com.nibbli.nibbligo.feature.actions.ui.ActionsScreen
 import com.nibbli.nibbligo.feature.audio.ui.AudioScribeScreen
 import com.nibbli.nibbligo.feature.benchmark.ui.BenchmarkScreen
-import com.nibbli.nibbligo.feature.agent.ui.AgentChatScreen
 import com.nibbli.nibbligo.feature.chat.ui.ChatScreen
 import com.nibbli.nibbligo.feature.image.ui.AskImageScreen
 import com.nibbli.nibbligo.feature.models.ui.ModelsScreen
 import com.nibbli.nibbligo.feature.pet.ui.PetHomeScreen
-import com.nibbli.nibbligo.feature.promptlab.ui.PromptLabScreen
 import com.nibbli.nibbligo.feature.settings.ui.SettingsScreen
-import com.nibbli.nibbligo.ui.AssistHubScreen
 import com.nibbli.nibbligo.ui.ManageHubScreen
 import com.nibbli.nibbligo.ui.SenseHubScreen
 
@@ -47,11 +44,6 @@ fun NibbliApp() {
                 items = visibleDestinations.map { destination ->
                     val selected = currentRoute?.startsWith(destination.route) == true ||
                         when (destination) {
-                            TopLevelDestination.Assist -> currentRoute in listOf(
-                                Routes.CHAT,
-                                Routes.AGENT_CHAT,
-                                Routes.PROMPT_LAB,
-                            )
                             TopLevelDestination.Sense -> currentRoute in listOf(
                                 Routes.ASK_IMAGE,
                                 Routes.AUDIO_SCRIBE,
@@ -89,10 +81,7 @@ fun NibbliApp() {
             composable(Routes.PET) {
                 PetHomeScreen()
             }
-            composable(Routes.ASSIST) { AssistHubScreen(navController) }
             composable(Routes.CHAT) { ChatScreen() }
-            composable(Routes.AGENT_CHAT) { AgentChatScreen() }
-            composable(Routes.PROMPT_LAB) { PromptLabScreen() }
             composable(Routes.SENSE) { SenseHubScreen(navController) }
             composable(Routes.ASK_IMAGE) { AskImageScreen() }
             composable(Routes.AUDIO_SCRIBE) { AudioScribeScreen() }

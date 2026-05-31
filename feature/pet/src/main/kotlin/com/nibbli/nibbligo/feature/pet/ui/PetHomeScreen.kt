@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +33,7 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.ui.LoadingState
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
+import com.nibbli.nibbligo.feature.pet.ui.visit.PetVisitSheet
 import com.nibbli.nibbligo.feature.pet.ui.voice.rememberVoiceAssistLauncher
 
 @Composable
@@ -41,7 +45,6 @@ fun PetHomeScreen(
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
-    var showCosmeticsSheet by remember { mutableStateOf(false) }
 
     val launchVoiceTalk = rememberVoiceAssistLauncher(
         onListening = { viewModel.setVoiceListening(true) },
@@ -93,8 +96,13 @@ fun PetHomeScreen(
     }
 
     val pet = uiState.petState
-    val talkEnabled = pet.isAlive && !uiState.isGeneratingDialogue &&
+    val visitPostcard = uiState.visitPostcard
+    val displayPet = visitPostcard?.toVisitDisplayState() ?: pet
+    val displayDialogue = visitPostcard?.dialogueLine ?: pet.dialogueLine
+    val isUserTalkGenerating = uiState.talkLcdMode && uiState.isGeneratingDialogue
+    val talkEnabled = pet.isAlive && !isUserTalkGenerating &&
         !uiState.isVoiceListening && !uiState.isWarmingModel
+    val micEnabled = talkEnabled && uiState.petModelInstalled
 
     Box(modifier = modifier.fillMaxSize()) {
         NibbliAmbientBackground()
@@ -105,7 +113,6 @@ fun PetHomeScreen(
                 petModelLabel = uiState.petModelLabel,
                 statusMessage = uiState.statusMessage,
                 isWarmingModel = uiState.isWarmingModel,
-                onLooksClick = { showCosmeticsSheet = true },
             )
 
             Column(
@@ -113,6 +120,13 @@ fun PetHomeScreen(
                     .weight(1f)
                     .fillMaxWidth(),
             ) {
+                if (pet.condition == PetCondition.DEAD) {
+                    PetDeadBanner(
+                        onHatch = { viewModel.hatchNewEgg() },
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
+
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -127,10 +141,14 @@ fun PetHomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         PetCharacterCard(
-                            pet = pet,
+                            pet = displayPet,
+                            carePet = pet,
+                            visitLabel = visitPostcard?.senderName,
                             onPetTap = { viewModel.onPetTapped() },
                             onCareAction = { viewModel.onInteraction(it) },
-                            dialogueLine = pet.dialogueLine,
+                            onEquipLcdItem = viewModel::onEquipLcdItem,
+                            onLcdActivity = viewModel::onLcdActivity,
+                            dialogueLine = if (uiState.talkLcdMode) pet.dialogueLine else displayDialogue,
                             isGeneratingDialogue = uiState.isGeneratingDialogue,
                             talkLcdMode = uiState.talkLcdMode,
                             onDismissTalkLcd = viewModel::dismissTalkLcdMode,
@@ -143,47 +161,44 @@ fun PetHomeScreen(
                         isGeneratingDialogue = uiState.isGeneratingDialogue,
                         talkHistory = uiState.talkHistory,
                         streamingDialogue = pet.dialogueLine,
-                        onStopClick = { viewModel.stopGeneration() },
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
 
-                if (pet.condition == PetCondition.DEAD) {
-                    PetDeadBanner(onHatch = { viewModel.hatchNewEgg() })
-                }
-
                 PetTalkInputBar(
                     enabled = talkEnabled,
-                    isGeneratingDialogue = uiState.isGeneratingDialogue,
+                    micEnabled = micEnabled,
+                    isPetAlive = pet.isAlive,
+                    isUserTalkGenerating = isUserTalkGenerating,
                     isVoiceListening = uiState.isVoiceListening,
                     onTalkToMeClick = launchVoiceTalk,
                     isWarmingModel = uiState.isWarmingModel,
                     onSend = { viewModel.onTalkSend(it) },
+                    onStopClick = { viewModel.stopGeneration() },
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
 
             PetQuickActionStrip(
-                cosmeticsCount = pet.unlockedCosmetics.size,
-                catchEnabled = pet.isAlive,
-                onCatch = { viewModel.openMinigame() },
+                playEnabled = pet.isAlive,
+                shareEnabled = pet.isAlive,
+                onPlay = { viewModel.openMinigame() },
+                onShare = {
+                    context.startActivity(
+                        Intent.createChooser(viewModel.shareTodayCard(), "Share nibbli"),
+                    )
+                },
+                onPostcard = { viewModel.openPostcardSheet() },
                 onDiary = {
                     context.startActivity(Intent.createChooser(viewModel.exportDiary(), "Export diary"))
                 },
-                onLooks = { showCosmeticsSheet = true },
             )
 
             SnackbarHost(hostState = snackbar, modifier = Modifier.padding(8.dp))
         }
     }
 
-    PetCosmeticsSheet(
-        visible = showCosmeticsSheet,
-        pet = pet,
-        onDismiss = { showCosmeticsSheet = false },
-        onEquip = { viewModel.onEquipCosmetic(it) },
-    )
     PetTalkSheet(
         visible = uiState.showTalkSheet,
         isGenerating = uiState.isGeneratingDialogue,
@@ -192,7 +207,46 @@ fun PetHomeScreen(
     )
     PetMinigameDialog(
         visible = uiState.showMinigame,
-        onDismiss = { viewModel.dismissMinigame() },
+        dailyTargetScore = pet.engagement.dailyCatchTargetScore,
+        ghostChallengeScore = uiState.catchGhostScore,
+        onDismiss = {
+            viewModel.clearCatchGhost()
+            viewModel.dismissMinigame()
+        },
         onWin = { viewModel.onMinigameWin() },
+        onGameEnd = viewModel::onMinigameEnd,
+    )
+    uiState.evolutionShareStage?.let { stage ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissEvolutionSharePrompt() },
+            title = { Text("${pet.name} evolved!") },
+            text = { Text("Show your friends your new ${stage.name.lowercase()}!") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.shareEvolutionCard()?.let { intent ->
+                        context.startActivity(Intent.createChooser(intent, "Share evolution"))
+                    }
+                    viewModel.dismissEvolutionSharePrompt()
+                }) {
+                    Text("Share")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissEvolutionSharePrompt() }) {
+                    Text("Later")
+                }
+            },
+        )
+    }
+    PetVisitSheet(
+        visible = uiState.showPostcardSheet,
+        pet = pet,
+        visitPostcard = uiState.visitPostcard,
+        onScanResult = viewModel::importVisitFromQr,
+        onShareQr = {
+            context.startActivity(Intent.createChooser(viewModel.shareVisitQr(), "Share visit QR"))
+        },
+        onDismissVisit = viewModel::endPostcardVisit,
+        onDismiss = viewModel::dismissPostcardSheet,
     )
 }

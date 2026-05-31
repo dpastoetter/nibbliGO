@@ -7,11 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +18,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.component.OnDeviceBadge
+import com.nibbli.nibbligo.core.model.PetEngagementRules
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.core.model.PetState
@@ -32,7 +29,6 @@ fun PetHomeHeader(
     petModelLabel: String,
     statusMessage: String?,
     isWarmingModel: Boolean = false,
-    onLooksClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val need = PetNeedRules.deriveNeed(pet).takeIf { it != PetNeed.NONE }
@@ -64,22 +60,6 @@ fun PetHomeHeader(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (pet.unlockedCosmetics.isNotEmpty()) {
-                    val label = pet.equippedCosmetic?.name?.replace('_', ' ')?.lowercase()
-                        ?.replaceFirstChar { it.titlecase() }
-                        ?: "Looks"
-                    IconButton(
-                        onClick = onLooksClick,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.AutoAwesome,
-                            contentDescription = label,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
             }
             need?.let {
                 Surface(
@@ -101,11 +81,29 @@ fun PetHomeHeader(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Care ${pet.careScore} · Age ${pet.ageMinutes}m",
+                text = buildString {
+                    append("Care ${pet.careScore} · Age ${pet.ageMinutes}m")
+                    if (pet.engagement.careStreakDays > 0) {
+                        append(" · ${pet.engagement.careStreakDays}d streak")
+                    }
+                },
                 style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OnDeviceBadge(compact = true, label = petModelLabel)
+        }
+        if (pet.isAlive && !PetEngagementRules.dailyQuestComplete(pet.engagement)) {
+            val quest = buildList {
+                if (!pet.engagement.dailyQuestFeed) add("feed")
+                if (!pet.engagement.dailyQuestPlay) add("play")
+                if (!pet.engagement.dailyQuestTalk) add("talk")
+            }.joinToString(" · ")
+            Text(
+                text = "Daily quest: $quest · Play goal ${pet.engagement.dailyCatchTargetScore}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+                maxLines = 2,
+            )
         }
         if (isWarmingModel) {
             Row(

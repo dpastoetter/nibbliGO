@@ -16,6 +16,8 @@ data class PetReactionRequest(
     val recentLines: List<String> = emptyList(),
     /** Context when reacting to app activity (agent, models, etc.). */
     val activityHint: String? = null,
+    /** Caretaker display name from onboarding — used to preserve vocatives in parser output. */
+    val caretakerName: String? = null,
 )
 
 data class PetReaction(

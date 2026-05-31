@@ -15,7 +15,7 @@ sealed class TopLevelDestination(
     val icon: ImageVector,
 ) {
     data object Home : TopLevelDestination("pet", "Home", Icons.Default.Home)
-    data object Assist : TopLevelDestination("assist", "Assist", Icons.Default.AutoAwesome)
+    data object Assist : TopLevelDestination("chat", "Chat", Icons.Default.AutoAwesome)
     data object Sense : TopLevelDestination("sense", "Sense", Icons.Default.Mic)
     data object Do : TopLevelDestination("do", "Do", Icons.Outlined.Bolt)
     data object Manage : TopLevelDestination("manage", "Manage", Icons.Default.Settings)
@@ -27,10 +27,7 @@ sealed class TopLevelDestination(
 
 object Routes {
     const val PET = "pet"
-    const val ASSIST = "assist"
     const val CHAT = "chat"
-    const val AGENT_CHAT = "agent_chat"
-    const val PROMPT_LAB = "prompt_lab"
     const val SENSE = "sense"
     const val ASK_IMAGE = "ask_image"
     const val AUDIO_SCRIBE = "audio_scribe"

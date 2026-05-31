@@ -25,9 +25,12 @@ Regenerate after UI changes:
 - In **talk mode**, the pet moves to the bottom-left of the LCD and the LLM reply is centered on-screen (scrolls when long); conversation history appears below the stat strip in the companion panel.
 - A **chat bar** at the bottom of Home lets you type messages to nibbli anytime (same on-device Pixel Friend model as the quick chips).
 - **Talk to me** and quick chips use the **Pixel Friend** on-device model (Settings → on-device models), not Agent Chat.
-- **Looks** — unlock cosmetic overlays (collar, star patch, aurora aura) and equip them on the sprite.
+- **LCD Items** — all customization lives on the P1 shell: care menu → **Items** → ◀ exit · ▶ browse · ● equip. Cycle **wearables** (collar, star patch, aurora aura), **scenes** (cozy, stars, clouds, night), and **floor props** (ball, plant, mat) with live preview on the LCD. Unlocks via care score, evolution, arcade wins, and daily quest bonus.
+- **Arcade** — retro **Snack Drop** and **Tidy Tap** minigames (Home → Play); wins unlock floor props.
+- **Visit** — scan a friend’s visit QR to show their nibbli on your LCD for 24h (local-only, no server); share your own QR from Home → Visit.
+- **Share** — export PNG cards (today, evolution, quote, minigame score).
 - Optional **mood pulse** — spontaneous LLM lines while Home is visible, the app is in the foreground, and nibbli is awake (Settings → mood pulse: off / normal / quiet).
-- **Catch** minigame, diary export, home-screen **widget**.
+- Diary export and home-screen **widget**.
 - Pet engine **warm-loads** when you open Home so the first chip reply is faster.
 
 ### Assist
@@ -111,7 +114,9 @@ adb wait-for-device
 3. **Home** — feed/play; tap **How are you?**; use **Stop** if a reply is taking too long; try **Talk to me** (mic → Pixel Friend LLM).
 4. **Manage → Models** — install **FunctionGemma 270M** (HF token if gated).
 5. **Assist → Agent Chat** — ask for an email or flashlight; confirm the tool card.
-6. Unlock **Looks** by raising trust/skill, then equip a cosmetic on the LCD pet.
+6. **Home → Play** — try **Snack Drop** or **Tidy Tap** in the arcade.
+7. Care menu → **Items** on the P1 LCD — browse and equip wearables, scenes, and props (unlock via care, evolution, and arcade wins).
+8. **Home → Visit** — share or scan a visit QR to see a friend’s nibbli on your LCD.
 
 ## Pixel Friend (simulation + LLM)
 
@@ -123,7 +128,7 @@ adb wait-for-device
 | [`LiteRtEnginePool`](core/litert-engine/src/main/kotlin/com/nibbli/nibbligo/core/litert/engine/LiteRtEnginePool.kt) | Warm pet session, per-model GPU/CPU/NPU policy, conversation reset each turn |
 | Model pick | Settings → **Pixel Friend model** (Auto prefers SmolLM2 → Gemma 3 → …) |
 | Status questions (“How are you?”) | On-device LLM with compact pet prompt; template fallback if inference fails |
-| Game help (Talk) | Ask about care, evolution, Looks, minigames — pet answers in character using an on-device FAQ knowledge base |
+| Game help (Talk) | Ask about care, evolution, LCD Items, arcade, visits — pet answers in character using an on-device FAQ knowledge base |
 | Home talk history | Saved to **Assist → Local Chat** as **Pixel Friend (Home)** |
 
 Care works without a model; **Talk**, voice, and LLM mood lines need a downloaded `.litertlm` file.
@@ -179,7 +184,22 @@ Models live under app storage as `*.litertlm`. Chat, Agent, Prompt Lab, and pet 
 ./gradlew connectedAndroidTest   # device/emulator required
 ```
 
-Unit tests cover `PetSimulationEngine`, `ModelCatalog`, `PetPromptBuilder`, `PetGameFaqMatcher`, `LiteRtBackendResolver`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/cosmetic helpers. Some instrumented flows need a downloaded model and are `@Ignore` by default.
+Unit tests cover `PetSimulationEngine`, `PetLcdItemCatalog`, `PetEngagementEngine`, `PetVisitQrCodec`, `ModelCatalog`, `PetPromptBuilder`, `PetGameFaqMatcher`, `LiteRtBackendResolver`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/LCD helpers. Some instrumented flows need a downloaded model and are `@Ignore` by default.
+
+## Releases
+
+Debug APKs are built automatically when a version tag is pushed (`v*` or `debug-*`). Download the latest from [GitHub Releases](https://github.com/dpastoetter/nibbliGO/releases).
+
+```bash
+git tag v1.0.4 && git push origin v1.0.4   # triggers release-apk workflow
+```
+
+Local build:
+
+```bash
+./gradlew :app:assembleDebug
+# APK: app/build/outputs/apk/debug/app-debug.apk
+```
 
 ## Google AI Edge Gallery
 

@@ -59,7 +59,7 @@ object PetMoodDescriber {
             "My batteries are cute but low.",
         ).random()
         state.expression == PetExpression.CURIOUS -> listOf(
-            "I wonder what Prompt Lab is up to…",
+            "I wonder what we could chat about on-device…",
             "So many buttons to peek at!",
         ).random()
         else -> listOf(

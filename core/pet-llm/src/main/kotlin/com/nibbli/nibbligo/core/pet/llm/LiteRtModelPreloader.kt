@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo.core.pet.llm
 
 import android.util.Log
+import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import kotlinx.coroutines.flow.first
@@ -24,6 +25,7 @@ class LiteRtModelPreloader @Inject constructor(
     private val petModelResolver: PetModelResolver,
     private val inferenceRuntime: InferenceRuntime,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val petRepository: PetRepository,
 ) {
     private val mutex = Mutex()
     private var lastPreloadedModelId: String? = null
@@ -43,8 +45,9 @@ class LiteRtModelPreloader @Inject constructor(
             mutex.withLock {
                 if (!force && lastPreloadedModelId == modelId) return@withLock
                 val profile = userPreferencesRepository.petOnboardingProfile.first()
-                val onboardingContext = PetOnboardingPrompt.formatForSystemInstruction(profile)
-                val systemInstruction = PetPromptBuilder.homeTalkSystemInstruction(onboardingContext)
+                val petName = petRepository.getPetState().name
+                val onboardingContext = PetOnboardingPrompt.formatForSystemInstruction(profile, petName)
+                val systemInstruction = PetPromptBuilder.homeTalkSystemInstruction(onboardingContext, petName)
                 val start = System.nanoTime()
                 when (val result = inferenceRuntime.ensureHomeTalkSession(modelId, systemInstruction)) {
                     is RuntimeResult.Success -> {

@@ -15,17 +15,28 @@ object PetReactionParser {
     private val INLINE_USER_TURN = Regex("""User:\s""")
     private const val SYSTEM_MARKER = "You are a Pixel Friend AI pet"
 
-    fun parse(raw: String, petName: String? = null): PetReaction {
-        val primary = normalizedLines(raw, petName).firstOrNull() ?: normalizeRaw(raw, petName)
-        return reactionFromDialogue(primary, MAX_LEN, petName)
+    fun parse(
+        raw: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): PetReaction {
+        val primary = normalizedLines(raw, petName, caretakerName).firstOrNull()
+            ?: normalizeRaw(raw, petName, caretakerName)
+        return reactionFromDialogue(primary, MAX_LEN, petName, caretakerName)
     }
 
     /** User talk replies — keep all streamed lines, aligned with [stripForStreaming]. */
-    fun parseTalk(raw: String, petName: String? = null): PetReaction {
+    fun parseTalk(
+        raw: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): PetReaction {
         val combined = collapseCommaRepetition(
-            normalizedLines(raw, petName).joinToString(" ").ifBlank { normalizeRaw(raw, petName) },
+            normalizedLines(raw, petName, caretakerName).joinToString(" ").ifBlank {
+                normalizeRaw(raw, petName, caretakerName)
+            },
         )
-        return reactionFromDialogue(combined, PetTalkLimits.RUNAWAY_MAX_CHARS, petName)
+        return reactionFromDialogue(combined, PetTalkLimits.RUNAWAY_MAX_CHARS, petName, caretakerName)
     }
 
     /** True when the model loops the same comma-separated phrase (common status-echo failure). */
@@ -53,9 +64,16 @@ object PetReactionParser {
         }
     }
 
-    private fun reactionFromDialogue(line: String, maxLen: Int, petName: String? = null): PetReaction {
+    private fun reactionFromDialogue(
+        line: String,
+        maxLen: Int,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): PetReaction {
         val (dialogue, expression) = splitDialogueAndExpression(line)
-        val cleanDialogue = normalizeFirstPersonDialogue(dialogue, petName).take(maxLen).ifBlank { "…" }
+        val cleanDialogue = normalizeFirstPersonDialogue(dialogue, petName, caretakerName)
+            .take(maxLen)
+            .ifBlank { "…" }
         return PetReaction(
             dialogue = cleanDialogue,
             suggestedExpression = expression,
@@ -132,21 +150,32 @@ object PetReactionParser {
         ).trim()
     }
 
-    private fun normalizeRaw(raw: String, petName: String? = null): String =
-        normalizeFirstPersonDialogue(sanitizeModelEcho(raw), petName)
+    private fun normalizeRaw(
+        raw: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): String = normalizeFirstPersonDialogue(sanitizeModelEcho(raw), petName, caretakerName)
 
-    private fun normalizedLines(raw: String, petName: String? = null): List<String> =
-        normalizeRaw(raw, petName).lines().map { it.trim() }.filter { it.isNotBlank() }
+    private fun normalizedLines(
+        raw: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): List<String> = normalizeRaw(raw, petName, caretakerName).lines().map { it.trim() }.filter { it.isNotBlank() }
 
     /** Strip third-person self-reference ("Nibbli, …" / "Pixel is …") at reply start. */
-    internal fun normalizeFirstPersonDialogue(dialogue: String, petName: String? = null): String {
+    internal fun normalizeFirstPersonDialogue(
+        dialogue: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): String {
         var text = dialogue.trim()
         if (text.isBlank()) return text
-        val names = buildSet {
+        val petNames = buildSet {
             add(DEFAULT_PET_NAME)
             petName?.trim()?.takeIf { it.isNotBlank() }?.let { add(it) }
         }
-        for (name in names) {
+        val caretaker = caretakerName?.trim()?.takeIf { it.isNotBlank() }
+        for (name in petNames) {
             val escaped = Regex.escape(name)
             text = Regex("(?i)^$escaped\\s+is\\s+").replaceFirst(text, "I'm ")
             text = Regex("(?i)^$escaped\\s+was\\s+").replaceFirst(text, "I was ")
@@ -154,7 +183,10 @@ object PetReactionParser {
             text = Regex("(?i)^$escaped\\s+loves\\s+").replaceFirst(text, "I love ")
             text = Regex("(?i)^$escaped\\s+needs\\s+").replaceFirst(text, "I need ")
             text = Regex("(?i)^$escaped\\s+wants\\s+").replaceFirst(text, "I want ")
-            text = Regex("(?i)^$escaped[,:\\-]+\\s*").replaceFirst(text, "")
+            val addressesCaretaker = caretaker?.equals(name, ignoreCase = true) == true
+            if (!addressesCaretaker) {
+                text = Regex("(?i)^$escaped[,:\\-]+\\s*").replaceFirst(text, "")
+            }
         }
         return text.trim()
     }
@@ -170,11 +202,17 @@ object PetReactionParser {
         return text to expression
     }
 
-    fun stripForStreaming(partial: String, petName: String? = null): String {
-        val normalized = normalizeRaw(partial, petName)
+    fun stripForStreaming(
+        partial: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): String {
+        val normalized = normalizeRaw(partial, petName, caretakerName)
         val pipe = normalized.indexOf('|')
         val body = if (pipe >= 0) normalized.substring(0, pipe) else normalized
-        return collapseCommaRepetition(normalizedLines(body, petName).joinToString(" ").trim())
+        return collapseCommaRepetition(
+            normalizedLines(body, petName, caretakerName).joinToString(" ").trim(),
+        )
     }
 
     internal fun collapseCommaRepetition(text: String): String {

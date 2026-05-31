@@ -12,6 +12,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import androidx.glance.layout.Column
+import androidx.glance.layout.Row
 import androidx.glance.layout.padding
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -37,18 +38,39 @@ private fun PetWidgetContent(snapshot: PetWidgetSnapshot.Snapshot, launch: Inten
             .padding(12.dp)
             .clickable(actionStartActivity(launch)),
     ) {
-        Text(
-            text = snapshot.name,
-            style = TextStyle(fontSize = 16.sp, color = ColorProvider(android.graphics.Color.WHITE)),
-        )
-        Text(
-            text = snapshot.stage.lowercase().replaceFirstChar { it.titlecase() },
-            style = TextStyle(fontSize = 12.sp, color = ColorProvider(android.graphics.Color.LTGRAY)),
-        )
+        Row(modifier = GlanceModifier.padding(bottom = 4.dp)) {
+            Text(
+                text = snapshot.glyph,
+                style = TextStyle(fontSize = 28.sp, color = ColorProvider(android.graphics.Color.parseColor("#9AE66E"))),
+                modifier = GlanceModifier.padding(end = 8.dp),
+            )
+            Column {
+                Text(
+                    text = snapshot.name,
+                    style = TextStyle(fontSize = 16.sp, color = ColorProvider(android.graphics.Color.WHITE)),
+                )
+                Text(
+                    text = snapshot.stage.lowercase().replaceFirstChar { it.titlecase() },
+                    style = TextStyle(fontSize = 12.sp, color = ColorProvider(android.graphics.Color.LTGRAY)),
+                )
+            }
+        }
+        if (snapshot.cosmetic.isNotBlank()) {
+            Text(
+                text = snapshot.cosmetic.replace('_', ' ').lowercase(),
+                style = TextStyle(fontSize = 10.sp, color = ColorProvider(android.graphics.Color.parseColor("#9AE66E"))),
+            )
+        }
         if (snapshot.need != "NONE") {
             Text(
                 text = "Needs: ${snapshot.need.lowercase()}",
                 style = TextStyle(fontSize = 11.sp, color = ColorProvider(android.graphics.Color.YELLOW)),
+            )
+        }
+        if (snapshot.streakDays > 0) {
+            Text(
+                text = "Streak ${snapshot.streakDays}d · mood ${snapshot.mood}",
+                style = TextStyle(fontSize = 10.sp, color = ColorProvider(android.graphics.Color.LTGRAY)),
             )
         }
     }

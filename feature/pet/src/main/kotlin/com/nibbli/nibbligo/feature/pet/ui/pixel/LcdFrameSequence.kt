@@ -87,15 +87,22 @@ fun SpriteSelection.lcdFrameSequence(): List<NibbliSpriteAtlas.Frame> {
 fun SpriteSelection.frameAtIndex(index: Int): NibbliSpriteAtlas.Frame =
     frameAt(toSequence(), index)
 
-fun SpriteSelection.frameIntervalMs(): Long = when (primary) {
-    NibbliSpriteAtlas.Frame.EATING_A -> 165L
-    NibbliSpriteAtlas.Frame.PLAYFUL -> 175L
-    NibbliSpriteAtlas.Frame.ATTENTION -> 200L
-    NibbliSpriteAtlas.Frame.IDLE_A -> 280L
-    NibbliSpriteAtlas.Frame.HAPPY -> 220L
-    NibbliSpriteAtlas.Frame.HUNGRY -> 300L
-    NibbliSpriteAtlas.Frame.SICK -> 420L
-    NibbliSpriteAtlas.Frame.SLEEPING -> 720L
-    NibbliSpriteAtlas.Frame.EGG -> 340L
-    else -> 300L
+fun SpriteSelection.frameIntervalMs(): Long {
+    val base = when (primary) {
+        NibbliSpriteAtlas.Frame.EATING_A -> 165L
+        NibbliSpriteAtlas.Frame.PLAYFUL -> 175L
+        NibbliSpriteAtlas.Frame.ATTENTION -> 200L
+        NibbliSpriteAtlas.Frame.IDLE_A -> 280L
+        NibbliSpriteAtlas.Frame.HAPPY -> 220L
+        NibbliSpriteAtlas.Frame.HUNGRY -> 300L
+        NibbliSpriteAtlas.Frame.SICK -> 420L
+        NibbliSpriteAtlas.Frame.SLEEPING -> 720L
+        NibbliSpriteAtlas.Frame.EGG -> 340L
+        else -> 300L
+    }
+    return if (primary == NibbliSpriteAtlas.Frame.SLEEPING) {
+        base
+    } else {
+        (base * LcdAwakeMotionTuning.FRAME_INTERVAL_SCALE).toLong()
+    }
 }

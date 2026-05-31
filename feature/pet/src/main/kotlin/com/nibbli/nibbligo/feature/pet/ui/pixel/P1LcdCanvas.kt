@@ -67,16 +67,17 @@ fun P1LcdCanvas(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(P1DisplaySpec.LCD_WIDTH_PX / P1DisplaySpec.LCD_HEIGHT_PX.toFloat()),
+            .aspectRatio(P1DisplaySpec.lcdAspectRatio),
     ) {
-        val scale = size.width / P1DisplaySpec.LCD_WIDTH_PX
+        val scaleX = size.width / P1DisplaySpec.LCD_WIDTH_PX
+        val scaleY = size.height / P1DisplaySpec.LCD_HEIGHT_PX
 
         drawRect(color = lcdBg, size = size)
         drawRect(
             color = colors.lcdGreenDark,
-            topLeft = Offset(scale, scale),
-            size = Size(size.width - 2 * scale, size.height - 2 * scale),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = scale),
+            topLeft = Offset(scaleX, scaleY),
+            size = Size(size.width - 2 * scaleX, size.height - 2 * scaleY),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = scaleX),
         )
 
         val petZoneHeight = when {
@@ -85,10 +86,11 @@ fun P1LcdCanvas(
             frame == NibbliSpriteAtlas.Frame.EGG -> P1DisplaySpec.PET_ZONE_HEIGHT_PX * 0.65f
             else -> P1DisplaySpec.PET_ZONE_HEIGHT_PX.toFloat()
         }
+        val propOffset = if (talkLcdMode) 0f else petPropVerticalOffset(pet.equippedProp)
         val zoneTopPx = if (talkLcdMode) {
             P1DisplaySpec.BOTTOM_STRIP_TOP_PX.toFloat()
         } else {
-            P1DisplaySpec.PET_ZONE_TOP_PX + motion.bobOffsetPx
+            P1DisplaySpec.PET_ZONE_TOP_PX + motion.bobOffsetPx + propOffset
         }
         val zoneLeftPx = if (talkLcdMode) {
             P1DisplaySpec.TALK_PET_LEFT_PX.toFloat()
@@ -100,6 +102,27 @@ fun P1LcdCanvas(
         } else {
             P1DisplaySpec.LCD_WIDTH_PX.toFloat()
         }
+        if (!talkLcdMode) {
+            drawLcdScene(
+                pet = pet,
+                lcdScaleX = scaleX,
+                lcdScaleY = scaleY,
+                colors = colors,
+                frameIndex = frameIndex,
+                zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX.toFloat(),
+                zoneHeightPx = petZoneHeight,
+            )
+            drawLcdProp(
+                pet = pet,
+                lcdScaleX = scaleX,
+                lcdScaleY = scaleY,
+                colors = colors,
+                frameIndex = frameIndex,
+                zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX.toFloat(),
+                zoneHeightPx = petZoneHeight,
+                zoneWidthPx = zoneWidthPx,
+            )
+        }
         val talkSpriteScale = if (talkLcdMode) 1f else motion.scale
         drawAtlasFrameInZone(
             atlas = atlas,
@@ -108,7 +131,8 @@ fun P1LcdCanvas(
             zoneTopPx = zoneTopPx,
             zoneWidthPx = zoneWidthPx,
             zoneHeightPx = petZoneHeight,
-            lcdScale = scale,
+            lcdScaleX = scaleX,
+            lcdScaleY = scaleY,
             swayOffsetPx = if (talkLcdMode) 0f else motion.swayOffsetPx,
             spriteScale = talkSpriteScale,
             spriteScaleY = if (talkLcdMode) 1f else motion.scaleY,
@@ -120,7 +144,8 @@ fun P1LcdCanvas(
                 frame = frame,
                 zoneTopPx = zoneTopPx,
                 zoneHeightPx = petZoneHeight,
-                lcdScale = scale,
+                lcdScaleX = scaleX,
+                lcdScaleY = scaleY,
                 colors = colors,
                 frameIndex = frameIndex,
             )
@@ -139,7 +164,8 @@ fun P1LcdCanvas(
                 zoneTopPx = zoneTopPx,
                 zoneWidthPx = zoneWidthPx,
                 zoneHeightPx = petZoneHeight,
-                lcdScale = scale,
+                lcdScaleX = scaleX,
+                lcdScaleY = scaleY,
                 alpha = overlayAlpha,
                 swayOffsetPx = motion.swayOffsetPx,
                 spriteScale = motion.scale,
@@ -148,26 +174,29 @@ fun P1LcdCanvas(
         }
 
         if (!dialogueVisible && !talkLcdMode) {
+            val labelText = menuLabel
             drawMenuLabel(
-                label = menuLabel,
+                label = labelText,
                 topPx = P1DisplaySpec.MENU_BAND_TOP_PX.toFloat(),
-                lcdScale = scale,
+                lcdScaleX = scaleX,
+                lcdScaleY = scaleY,
             )
         }
 
         drawStatIconStrip(
             pet = pet,
             colors = colors,
-            lcdScale = scale,
+            lcdScaleX = scaleX,
+            lcdScaleY = scaleY,
             pulsePhase = statPulse,
             talkLcdMode = talkLcdMode,
         )
     }
 }
 
-private fun DrawScope.drawMenuLabel(label: String, topPx: Float, lcdScale: Float) {
+private fun DrawScope.drawMenuLabel(label: String, topPx: Float, lcdScaleX: Float, lcdScaleY: Float) {
     val text = label.uppercase().take(8)
-    val textSizePx = 6f * lcdScale
+    val textSizePx = 6f * lcdScaleX
     val paint = Paint().apply {
         color = android.graphics.Color.parseColor("#1A1A1E")
         this.textSize = textSizePx
@@ -176,7 +205,7 @@ private fun DrawScope.drawMenuLabel(label: String, topPx: Float, lcdScale: Float
     }
     val textWidth = paint.measureText(text)
     val x = (size.width - textWidth) / 2f
-    val y = (topPx + 6f) * lcdScale
+    val y = (topPx + 6f) * lcdScaleY
     drawIntoCanvas { canvas ->
         canvas.nativeCanvas.drawText(text, x, y, paint)
     }
@@ -185,7 +214,8 @@ private fun DrawScope.drawMenuLabel(label: String, topPx: Float, lcdScale: Float
 private fun DrawScope.drawStatIconStrip(
     pet: PetState,
     colors: P1Colors,
-    lcdScale: Float,
+    lcdScaleX: Float,
+    lcdScaleY: Float,
     pulsePhase: Float,
     talkLcdMode: Boolean = false,
 ) {
@@ -215,8 +245,8 @@ private fun DrawScope.drawStatIconStrip(
         }
         drawP1Icon(
             icon = icon,
-            topLeft = Offset(x * lcdScale, y * lcdScale),
-            scale = P1DisplaySpec.ICON_SCALE * lcdScale,
+            topLeft = Offset(x * lcdScaleX, y * lcdScaleY),
+            scale = P1DisplaySpec.ICON_SCALE * lcdScaleX,
             color = colors.lcdPixel.copy(alpha = alpha),
         )
         x += iconPx + P1DisplaySpec.BOTTOM_STRIP_GAP_PX
@@ -267,7 +297,8 @@ fun DrawScope.drawAtlasFrameInZone(
     zoneTopPx: Float,
     zoneWidthPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
+    lcdScaleY: Float = lcdScaleX,
     swayOffsetPx: Float = 0f,
     spriteScale: Float = 1f,
     spriteScaleY: Float = 1f,
@@ -288,8 +319,8 @@ fun DrawScope.drawAtlasFrameInZone(
         image = atlas,
         srcOffset = IntOffset(frame.col * framePx, 0),
         srcSize = IntSize(framePx, framePx),
-        dstOffset = IntOffset((rect.left * lcdScale).toInt(), (rect.top * lcdScale).toInt()),
-        dstSize = IntSize((rect.spriteW * lcdScale).toInt(), (rect.spriteH * lcdScale).toInt()),
+        dstOffset = IntOffset((rect.left * lcdScaleX).toInt(), (rect.top * lcdScaleY).toInt()),
+        dstSize = IntSize((rect.spriteW * lcdScaleX).toInt(), (rect.spriteH * lcdScaleY).toInt()),
         filterQuality = FilterQuality.None,
     )
 }
@@ -301,7 +332,8 @@ fun DrawScope.drawCosmeticOverlayInZone(
     zoneTopPx: Float,
     zoneWidthPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
+    lcdScaleY: Float = lcdScaleX,
     alpha: Float = 1f,
     swayOffsetPx: Float = 0f,
     spriteScale: Float = 1f,
@@ -321,8 +353,8 @@ fun DrawScope.drawCosmeticOverlayInZone(
         image = atlas,
         srcOffset = IntOffset(overlay.col * framePx, NibbliSpriteAtlas.OVERLAY_ROW_PX),
         srcSize = IntSize(framePx, framePx),
-        dstOffset = IntOffset((rect.left * lcdScale).toInt(), (rect.top * lcdScale).toInt()),
-        dstSize = IntSize((rect.spriteW * lcdScale).toInt(), (rect.spriteH * lcdScale).toInt()),
+        dstOffset = IntOffset((rect.left * lcdScaleX).toInt(), (rect.top * lcdScaleY).toInt()),
+        dstSize = IntSize((rect.spriteW * lcdScaleX).toInt(), (rect.spriteH * lcdScaleY).toInt()),
         alpha = alpha,
         filterQuality = FilterQuality.None,
     )

@@ -8,6 +8,7 @@ import com.nibbli.nibbligo.core.model.PetState
 data class P1MenuEntry(
     val label: String,
     val interaction: PetInteraction,
+    val opensItemPicker: Boolean = false,
 )
 
 fun p1CareMenu(pet: PetState): List<P1MenuEntry> = buildList {
@@ -23,9 +24,11 @@ fun p1CareMenu(pet: PetState): List<P1MenuEntry> = buildList {
         add(P1MenuEntry("Sleep", PetInteraction.SLEEP))
     }
     add(P1MenuEntry("Train", PetInteraction.TRAIN))
+    add(P1MenuEntry("Items", PetInteraction.ITEMS, opensItemPicker = true))
 }
 
 fun P1MenuEntry.isConfirmEnabled(pet: PetState): Boolean {
+    if (opensItemPicker) return pet.isAlive && pet.stage != LifeStage.EGG
     if (pet.condition == PetCondition.DEAD) return false
     if (pet.stage == LifeStage.EGG && interaction != PetInteraction.TALK) return false
     return pet.isAlive || interaction == PetInteraction.WAKE

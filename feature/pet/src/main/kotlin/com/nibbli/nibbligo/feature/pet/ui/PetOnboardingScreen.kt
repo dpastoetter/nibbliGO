@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -45,6 +47,8 @@ fun PetOnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
@@ -68,23 +72,26 @@ fun PetOnboardingScreen(
                 NibbliCard {
                     when (uiState.stepIndex) {
                         0 -> WelcomeStep()
-                        1 -> CaretakerNameStep(
-                            value = uiState.caretakerName,
-                            onValueChange = viewModel::updateCaretakerName,
-                        )
-                        2 -> PetNameStep(
+                        1 -> PetNameStep(
                             value = uiState.petName,
                             onValueChange = viewModel::updatePetName,
+                        )
+                        2 -> CaretakerNameStep(
+                            petName = uiState.petName.trim().ifBlank { "Pixel Friend" },
+                            value = uiState.caretakerName,
+                            onValueChange = viewModel::updateCaretakerName,
                         )
                         3 -> PersonalityStep(
                             selected = uiState.personality,
                             onSelect = viewModel::updatePersonality,
                         )
                         4 -> AboutYouStep(
+                            petName = uiState.petName.trim().ifBlank { "Pixel Friend" },
                             value = uiState.aboutYou,
                             onValueChange = viewModel::updateAboutYou,
                         )
                         else -> CompanionGoalStep(
+                            petName = uiState.petName.trim().ifBlank { "Pixel Friend" },
                             value = uiState.companionGoal,
                             onValueChange = viewModel::updateCompanionGoal,
                         )
@@ -120,7 +127,7 @@ fun PetOnboardingScreen(
                     Text(
                         when {
                             uiState.isSaving -> "Saving…"
-                            isLastStep -> "Meet nibbli"
+                            isLastStep -> "Meet ${uiState.petName.trim().ifBlank { "Pixel Friend" }}"
                             else -> "Continue"
                         },
                     )
@@ -140,7 +147,7 @@ private fun WelcomeStep() {
         )
         Text(
             text = "Your Pixel Friend runs entirely on your phone. " +
-                "A quick setup helps nibbli talk to you in a more personal way.",
+                "A quick setup helps your companion talk to you in a more personal way.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -149,12 +156,13 @@ private fun WelcomeStep() {
 
 @Composable
 private fun CaretakerNameStep(
+    petName: String,
     value: String,
     onValueChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "What should nibbli call you?",
+            text = "What should $petName call you?",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
@@ -220,17 +228,18 @@ private fun PersonalityStep(
 
 @Composable
 private fun AboutYouStep(
+    petName: String,
     value: String,
     onValueChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Tell nibbli a little about you",
+            text = "Tell $petName a little about you",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = "Optional — hobbies, how you like to chat, anything that helps nibbli feel like yours.",
+            text = "Optional — hobbies, how you like to chat, anything that helps $petName feel like yours.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -247,6 +256,7 @@ private fun AboutYouStep(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CompanionGoalStep(
+    petName: String,
     value: String,
     onValueChange: (String) -> Unit,
 ) {
@@ -258,7 +268,7 @@ private fun CompanionGoalStep(
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "What do you want from nibbli?",
+            text = "What do you want from $petName?",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )

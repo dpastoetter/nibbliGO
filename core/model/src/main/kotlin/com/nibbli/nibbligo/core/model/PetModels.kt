@@ -86,6 +86,7 @@ enum class PetInteraction {
     TALK,
     TRAIN,
     GUIDE,
+    ITEMS,
 }
 
 enum class PetCosmetic(val unlockSkill: Int, val unlockTrust: Int) {
@@ -123,10 +124,14 @@ data class PetState(
     val dialogueLine: String = "Hello! I'm nibbli, your pocket AI friend.",
     val memorySummary: String = "",
     val unlockedCosmetics: Set<PetCosmetic> = emptySet(),
+    val unlockedScenes: Set<PetLcdScene> = setOf(PetLcdScene.COZY),
+    val unlockedProps: Set<PetLcdProp> = emptySet(),
+    val equippedProp: PetLcdProp? = null,
     val hasMess: Boolean = false,
     val roomId: String = "cozy",
     val careScore: Int = 50,
     val criticalNeglectSinceMillis: Long? = null,
+    val engagement: PetEngagement = PetEngagement(),
 ) {
     val isAlive: Boolean get() = condition != PetCondition.DEAD
 

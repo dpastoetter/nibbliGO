@@ -9,6 +9,9 @@ import com.nibbli.nibbligo.core.model.PetExpression
 import com.nibbli.nibbligo.core.model.PetGameReference
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetInteractionResult
+import com.nibbli.nibbligo.core.model.PetLcdItemUnlocks
+import com.nibbli.nibbligo.core.model.PetLcdProp
+import com.nibbli.nibbligo.core.model.PetLcdScene
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.core.model.PetState
@@ -123,6 +126,7 @@ class PetSimulationEngine {
                 lastInteractionAtMillis = nowMillis,
             )
             evolved = true
+            updated = applyLcdItemUnlocks(updated, updated.stats).state
         }
 
         if (criticalSince != null && nowMillis - criticalSince > PetGameReference.CRITICAL_DEATH_MS) {
@@ -146,6 +150,7 @@ class PetSimulationEngine {
                 nowMillis = nowMillis,
             ),
         )
+        updated = applyLcdItemUnlocks(updated, updated.stats).state
 
         val hoursAway = (nowMillis - state.lastInteractionAtMillis) / (1000 * 60 * 60f)
         val welcomeBack = hoursAway >= 6f
@@ -169,17 +174,23 @@ class PetSimulationEngine {
             return PetInteractionResult(state, state.dialogueLine)
         }
 
-        var stats = state.stats
-        var condition = state.condition
-        var hasMess = state.hasMess
-        var animation = PetAnimation.IDLE
-        var careScore = (state.careScore + PetGameReference.CARE_SCORE_PER_INTERACTION).coerceAtMost(100)
+        var workingState = state
+        if (state.condition == PetCondition.SLEEPING &&
+            interaction != PetInteraction.SLEEP &&
+            interaction != PetInteraction.WAKE
+        ) {
+            workingState = wakeFromSleep(workingState, nowMillis)
+        }
+
+        var stats = workingState.stats
+        var condition = workingState.condition
+        var hasMess = workingState.hasMess
+        var animation = workingState.animation
+        var careScore = (workingState.careScore + PetGameReference.CARE_SCORE_PER_INTERACTION).coerceAtMost(100)
 
         val templateDialogue = when (interaction) {
             PetInteraction.FEED_MEAL -> {
-                if (condition == PetCondition.SLEEPING) {
-                    "Zzz… save breakfast for when I wake?"
-                } else if (stats.hunger > 85) {
+                if (stats.hunger > 85) {
                     stats = stats.copy(weight = stats.weight + 3, mood = stats.mood - 2)
                     "I'm stuffed! Maybe a snack later?"
                 } else {
@@ -200,7 +211,7 @@ class PetSimulationEngine {
                 } else {
                     stats = stats.copy(energy = stats.energy - 12, mood = stats.mood + 18, curiosity = stats.curiosity + 4)
                     animation = PetAnimation.PLAY
-                    "That was fun! Let's explore Prompt Lab next!"
+                    "That was fun! Want to chat or play Catch next?"
                 }
             }
             PetInteraction.CLEAN -> {
@@ -257,15 +268,18 @@ class PetSimulationEngine {
                 stats = stats.copy(discipline = stats.discipline + 8, trust = stats.trust + 2)
                 "Got it! I'll behave better."
             }
+            PetInteraction.ITEMS -> {
+                "Use ◀ to leave · ▶ browse · ● equip."
+            }
         }
 
         stats = stats.clamped()
         val need = PetNeedRules.deriveNeed(
-            state.copy(stats = stats, condition = condition, hasMess = hasMess),
+            workingState.copy(stats = stats, condition = condition, hasMess = hasMess),
             nowMillis,
         )
-        val cosmetics = applyCosmeticUnlocks(state, stats)
-        val updated = state.copy(
+        val lcdUnlocks = applyLcdItemUnlocks(workingState, stats)
+        val updated = workingState.copy(
             stats = stats,
             condition = condition,
             hasMess = hasMess,
@@ -276,10 +290,31 @@ class PetSimulationEngine {
             lastTickAtMillis = nowMillis,
             careScore = careScore,
             criticalNeglectSinceMillis = null,
-            unlockedCosmetics = cosmetics.unlockedCosmetics,
-            equippedCosmetic = cosmetics.equippedCosmetic,
+            unlockedCosmetics = lcdUnlocks.unlockedCosmetics,
+            equippedCosmetic = lcdUnlocks.equippedCosmetic,
+            unlockedScenes = lcdUnlocks.unlockedScenes,
+            unlockedProps = lcdUnlocks.unlockedProps,
         )
         return PetInteractionResult(updated, templateDialogue)
+    }
+
+    private fun wakeFromSleep(state: PetState, nowMillis: Long): PetState {
+        if (state.condition != PetCondition.SLEEPING) return state
+        val stats = state.stats.copy(energy = (state.stats.energy + 15).coerceAtMost(100))
+        val condition = PetCondition.HEALTHY
+        val need = PetNeedRules.deriveNeed(
+            state.copy(stats = stats, condition = condition),
+            nowMillis,
+        )
+        return state.copy(
+            stats = stats,
+            condition = condition,
+            animation = PetAnimation.HAPPY,
+            expression = deriveExpression(stats, condition, need),
+            activeNeed = need,
+            lastInteractionAtMillis = nowMillis,
+            lastTickAtMillis = nowMillis,
+        )
     }
 
     fun onPetEvent(state: PetState, event: PetEvent): PetState {
@@ -306,7 +341,7 @@ class PetSimulationEngine {
             }
             PetEvent.AgentStepCompleted -> {
                 stats = stats.copy(skill = stats.skill + 5, trust = stats.trust + 6, curiosity = stats.curiosity + 4)
-                "Nice agent work — we're learning together!"
+                "Nice chat — we're learning together!"
             }
             is PetEvent.SkillInvoked -> {
                 stats = stats.copy(curiosity = stats.curiosity + 10, skill = stats.skill + 3)
@@ -331,15 +366,17 @@ class PetSimulationEngine {
         if (becameSick) condition = PetCondition.SICK
 
         val need = PetNeedRules.deriveNeed(state.copy(stats = stats, condition = condition))
-        val cosmetics = applyCosmeticUnlocks(state, stats)
+        val lcdUnlocks = applyLcdItemUnlocks(state, stats)
         return state.copy(
             stats = stats,
             condition = condition,
             expression = deriveExpression(stats, condition, need),
             activeNeed = need,
             dialogueLine = line,
-            unlockedCosmetics = cosmetics.unlockedCosmetics,
-            equippedCosmetic = cosmetics.equippedCosmetic,
+            unlockedCosmetics = lcdUnlocks.unlockedCosmetics,
+            equippedCosmetic = lcdUnlocks.equippedCosmetic,
+            unlockedScenes = lcdUnlocks.unlockedScenes,
+            unlockedProps = lcdUnlocks.unlockedProps,
         )
     }
 
@@ -364,13 +401,47 @@ class PetSimulationEngine {
 
     fun applyMinigameWin(state: PetState, nowMillis: Long): PetState {
         val stats = state.stats.copy(mood = state.stats.mood + 20, skill = state.stats.skill + 2).clamped()
-        return state.copy(
+        var updated = state.copy(
             stats = stats,
             animation = PetAnimation.HAPPY,
             expression = PetExpression.HAPPY,
             lastInteractionAtMillis = nowMillis,
             dialogueLine = "You win! Best caretaker ever.",
+            unlockedProps = PetLcdItemUnlocks.grantNextProp(state.unlockedProps),
         )
+        updated = applyLcdItemUnlocks(updated, stats).state
+        return updated
+    }
+
+    fun applyLcdItemUnlocks(state: PetState, stats: PetStats): LcdItemUnlockResult {
+        val unlockedCosmetics = PetLcdItemUnlocks.unlockCosmetics(stats, state.unlockedCosmetics)
+        val newlyUnlockedCosmetics = unlockedCosmetics - state.unlockedCosmetics
+        val equippedCosmetic = when {
+            newlyUnlockedCosmetics.isNotEmpty() && state.equippedCosmetic == null ->
+                newlyUnlockedCosmetics.maxBy { it.ordinal }
+            else -> state.equippedCosmetic
+        }
+        val unlockedScenes = PetLcdItemUnlocks.unlockScenes(state)
+        return LcdItemUnlockResult(
+            state = state.copy(
+                unlockedCosmetics = unlockedCosmetics,
+                equippedCosmetic = equippedCosmetic,
+                unlockedScenes = unlockedScenes,
+            ),
+            unlockedCosmetics = unlockedCosmetics,
+            equippedCosmetic = equippedCosmetic,
+            unlockedScenes = unlockedScenes,
+            unlockedProps = state.unlockedProps,
+            newlyUnlockedScenes = unlockedScenes - state.unlockedScenes,
+            newlyUnlockedCosmetics = newlyUnlockedCosmetics,
+            newlyUnlockedProps = emptySet(),
+        )
+    }
+
+    fun grantPropUnlock(state: PetState): PetState {
+        val props = PetLcdItemUnlocks.grantNextProp(state.unlockedProps)
+        if (props == state.unlockedProps) return state
+        return state.copy(unlockedProps = props)
     }
 
     private fun evolutionLine(stage: LifeStage): String = when (stage) {
@@ -423,29 +494,14 @@ class PetSimulationEngine {
         else -> "Beep! I need you!"
     }
 
-    private data class CosmeticUnlockResult(
+    data class LcdItemUnlockResult(
+        val state: PetState,
         val unlockedCosmetics: Set<PetCosmetic>,
         val equippedCosmetic: PetCosmetic?,
+        val unlockedScenes: Set<PetLcdScene>,
+        val unlockedProps: Set<PetLcdProp>,
+        val newlyUnlockedCosmetics: Set<PetCosmetic> = emptySet(),
+        val newlyUnlockedScenes: Set<PetLcdScene> = emptySet(),
+        val newlyUnlockedProps: Set<PetLcdProp> = emptySet(),
     )
-
-    private fun applyCosmeticUnlocks(state: PetState, stats: PetStats): CosmeticUnlockResult {
-        val unlocked = unlockCosmetics(stats, state.unlockedCosmetics)
-        val newlyUnlocked = unlocked - state.unlockedCosmetics
-        val equipped = when {
-            newlyUnlocked.isNotEmpty() && state.equippedCosmetic == null ->
-                newlyUnlocked.maxBy { it.ordinal }
-            else -> state.equippedCosmetic
-        }
-        return CosmeticUnlockResult(unlockedCosmetics = unlocked, equippedCosmetic = equipped)
-    }
-
-    private fun unlockCosmetics(stats: PetStats, current: Set<PetCosmetic>): Set<PetCosmetic> {
-        val unlocked = current.toMutableSet()
-        PetCosmetic.entries.forEach { cosmetic ->
-            if (stats.skill >= cosmetic.unlockSkill && stats.trust >= cosmetic.unlockTrust) {
-                unlocked.add(cosmetic)
-            }
-        }
-        return unlocked
-    }
 }

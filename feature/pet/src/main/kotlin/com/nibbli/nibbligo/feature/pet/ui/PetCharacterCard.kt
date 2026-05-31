@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetState
+import com.nibbli.nibbligo.feature.pet.ui.pixel.LcdPickerEntry
 import com.nibbli.nibbligo.feature.pet.ui.pixel.P1DeviceShell
 
 @Composable
@@ -20,10 +21,14 @@ fun PetCharacterCard(
     pet: PetState,
     onPetTap: () -> Unit,
     onCareAction: (PetInteraction) -> Unit,
+    onEquipLcdItem: (LcdPickerEntry) -> Unit,
+    onLcdActivity: () -> Unit = {},
     dialogueLine: String = "",
     isGeneratingDialogue: Boolean = false,
     talkLcdMode: Boolean = false,
     onDismissTalkLcd: () -> Unit = {},
+    visitLabel: String? = null,
+    carePet: PetState = pet,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -45,12 +50,16 @@ fun PetCharacterCard(
             Column(modifier = Modifier.fillMaxWidth()) {
                 P1DeviceShell(
                     pet = pet,
+                    carePet = carePet,
                     onPetTap = onPetTap,
                     onCareAction = onCareAction,
+                    onEquipLcdItem = onEquipLcdItem,
+                    onLcdActivity = onLcdActivity,
                     dialogueLine = dialogueLine,
                     isGeneratingDialogue = isGeneratingDialogue,
                     talkLcdMode = talkLcdMode,
                     onDismissTalkLcd = onDismissTalkLcd,
+                    visitLabel = visitLabel,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

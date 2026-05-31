@@ -81,7 +81,7 @@ fun OnDeviceBadge(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
-        color = OnDeviceGreen.copy(alpha = 0.2f),
+        color = MaterialTheme.colorScheme.primaryContainer,
     ) {
         Text(
             text = label ?: if (compact) "On-device" else "Processed on-device",
@@ -94,7 +94,7 @@ fun OnDeviceBadge(
             } else {
                 MaterialTheme.typography.labelMedium
             },
-            color = OnDeviceGreen,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

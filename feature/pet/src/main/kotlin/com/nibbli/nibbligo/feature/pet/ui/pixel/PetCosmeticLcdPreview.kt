@@ -1,7 +1,8 @@
 package com.nibbli.nibbligo.feature.pet.ui.pixel
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -22,8 +23,13 @@ fun PetCosmeticLcdPreview(
     val lcdWidth = P1DisplaySpec.LCD_WIDTH_PX.toFloat()
     val petZoneHeight = P1DisplaySpec.PET_ZONE_HEIGHT_PX.toFloat()
 
-    Canvas(modifier = modifier.size(96.dp, 72.dp)) {
-        val lcdScale = size.width / lcdWidth
+    Canvas(
+        modifier = modifier
+            .width(96.dp)
+            .aspectRatio(P1DisplaySpec.lcdAspectRatio),
+    ) {
+        val lcdScaleX = size.width / lcdWidth
+        val lcdScaleY = size.height / P1DisplaySpec.LCD_HEIGHT_PX
         drawRect(color = colors.lcdGreen, size = size)
         drawAtlasFrameInZone(
             atlas = atlas,
@@ -32,7 +38,8 @@ fun PetCosmeticLcdPreview(
             zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX.toFloat(),
             zoneWidthPx = lcdWidth,
             zoneHeightPx = petZoneHeight,
-            lcdScale = lcdScale,
+            lcdScaleX = lcdScaleX,
+            lcdScaleY = lcdScaleY,
         )
         equippedCosmetic?.let { cosmetic ->
             drawCosmeticOverlayInZone(
@@ -42,14 +49,15 @@ fun PetCosmeticLcdPreview(
                 zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX.toFloat(),
                 zoneWidthPx = lcdWidth,
                 zoneHeightPx = petZoneHeight,
-                lcdScale = lcdScale,
+                lcdScaleX = lcdScaleX,
+                lcdScaleY = lcdScaleY,
             )
         }
         drawRect(
             color = colors.lcdGreenDark,
-            topLeft = Offset(lcdScale, lcdScale),
-            size = Size(size.width - 2 * lcdScale, size.height - 2 * lcdScale),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = lcdScale),
+            topLeft = Offset(lcdScaleX, lcdScaleY),
+            size = Size(size.width - 2 * lcdScaleX, size.height - 2 * lcdScaleY),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = lcdScaleX),
         )
     }
 }

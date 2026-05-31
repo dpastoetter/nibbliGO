@@ -18,7 +18,8 @@ fun DrawScope.drawLcdAmbientEffects(
     frame: NibbliSpriteAtlas.Frame,
     zoneTopPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
+    lcdScaleY: Float = lcdScaleX,
     colors: P1Colors,
     frameIndex: Int,
 ) {
@@ -26,7 +27,7 @@ fun DrawScope.drawLcdAmbientEffects(
         drawSleepZzz(
             zoneTopPx = zoneTopPx,
             zoneHeightPx = zoneHeightPx,
-            lcdScale = lcdScale,
+            lcdScaleX = lcdScaleX,
             frameIndex = frameIndex,
         )
     }
@@ -34,7 +35,7 @@ fun DrawScope.drawLcdAmbientEffects(
         PetAnimation.EAT -> drawEatCrumbs(
             zoneTopPx = zoneTopPx,
             zoneHeightPx = zoneHeightPx,
-            lcdScale = lcdScale,
+            lcdScaleX = lcdScaleX,
             colors = colors,
             frameIndex = frameIndex,
         )
@@ -43,7 +44,7 @@ fun DrawScope.drawLcdAmbientEffects(
                 drawPlayfulHeart(
                     zoneTopPx = zoneTopPx,
                     zoneHeightPx = zoneHeightPx,
-                    lcdScale = lcdScale,
+                    lcdScaleX = lcdScaleX,
                     colors = colors,
                     frameIndex = frameIndex,
                     offsetXFactor = 0.78f,
@@ -53,7 +54,7 @@ fun DrawScope.drawLcdAmbientEffects(
                 drawSparkle(
                     zoneTopPx = zoneTopPx,
                     zoneHeightPx = zoneHeightPx,
-                    lcdScale = lcdScale,
+                    lcdScaleX = lcdScaleX,
                     colors = colors,
                     frameIndex = frameIndex + 2,
                     offsetXFactor = 0.22f,
@@ -65,7 +66,7 @@ fun DrawScope.drawLcdAmbientEffects(
                 drawPlayfulHeart(
                     zoneTopPx = zoneTopPx,
                     zoneHeightPx = zoneHeightPx,
-                    lcdScale = lcdScale,
+                    lcdScaleX = lcdScaleX,
                     colors = colors,
                     frameIndex = frameIndex,
                     offsetXFactor = 0.76f,
@@ -75,7 +76,7 @@ fun DrawScope.drawLcdAmbientEffects(
                 drawSparkle(
                     zoneTopPx = zoneTopPx,
                     zoneHeightPx = zoneHeightPx,
-                    lcdScale = lcdScale,
+                    lcdScaleX = lcdScaleX,
                     colors = colors,
                     frameIndex = frameIndex,
                     offsetXFactor = 0.24f,
@@ -86,7 +87,7 @@ fun DrawScope.drawLcdAmbientEffects(
             drawAttentionPing(
                 zoneTopPx = zoneTopPx,
                 zoneHeightPx = zoneHeightPx,
-                lcdScale = lcdScale,
+                lcdScaleX = lcdScaleX,
                 colors = colors,
                 frameIndex = frameIndex,
             )
@@ -95,7 +96,7 @@ fun DrawScope.drawLcdAmbientEffects(
             drawPlayfulHeart(
                 zoneTopPx = zoneTopPx,
                 zoneHeightPx = zoneHeightPx,
-                lcdScale = lcdScale,
+                lcdScaleX = lcdScaleX,
                 colors = colors,
                 frameIndex = frameIndex,
                 offsetXFactor = 0.78f,
@@ -108,7 +109,7 @@ fun DrawScope.drawLcdAmbientEffects(
             drawAttentionPing(
                 zoneTopPx = zoneTopPx,
                 zoneHeightPx = zoneHeightPx,
-                lcdScale = lcdScale,
+                lcdScaleX = lcdScaleX,
                 colors = colors,
                 frameIndex = frameIndex,
             )
@@ -122,7 +123,7 @@ fun DrawScope.drawLcdAmbientEffects(
             drawHungryDots(
                 zoneTopPx = zoneTopPx,
                 zoneHeightPx = zoneHeightPx,
-                lcdScale = lcdScale,
+                lcdScaleX = lcdScaleX,
                 colors = colors,
                 frameIndex = frameIndex,
             )
@@ -133,12 +134,12 @@ fun DrawScope.drawLcdAmbientEffects(
 private fun DrawScope.drawSleepZzz(
     zoneTopPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
     frameIndex: Int,
 ) {
     val paint = Paint().apply {
         color = android.graphics.Color.parseColor("#1A1A1E")
-        textSize = 5f * lcdScale
+        textSize = 5f * lcdScaleX
         typeface = Typeface.MONOSPACE
         isAntiAlias = false
     }
@@ -154,8 +155,8 @@ private fun DrawScope.drawSleepZzz(
         drawIntoCanvas { canvas ->
             canvas.nativeCanvas.drawText(
                 zText,
-                (baseX + driftX + i * 3f) * lcdScale,
-                (baseY - driftY + i * 2f) * lcdScale,
+                (baseX + driftX + i * 3f) * lcdScaleX,
+                (baseY - driftY + i * 2f) * lcdScaleX,
                 paint,
             )
         }
@@ -165,11 +166,11 @@ private fun DrawScope.drawSleepZzz(
 private fun DrawScope.drawEatCrumbs(
     zoneTopPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
     colors: P1Colors,
     frameIndex: Int,
 ) {
-    val pixel = lcdScale
+    val pixel = lcdScaleX
     val color = colors.lcdPixel.copy(alpha = 0.7f)
     val baseX = P1DisplaySpec.LCD_WIDTH_PX * 0.62f
     val baseY = zoneTopPx + zoneHeightPx * 0.72f
@@ -180,8 +181,8 @@ private fun DrawScope.drawEatCrumbs(
         drawRect(
             color = color.copy(alpha = 0.5f + (1f - phase / 8f) * 0.4f),
             topLeft = Offset(
-                (baseX + spread) * lcdScale - pixel / 2f,
-                (baseY + drop) * lcdScale - pixel / 2f,
+                (baseX + spread) * lcdScaleX - pixel / 2f,
+                (baseY + drop) * lcdScaleX - pixel / 2f,
             ),
             size = Size(pixel, pixel),
         )
@@ -191,11 +192,11 @@ private fun DrawScope.drawEatCrumbs(
 private fun DrawScope.drawHungryDots(
     zoneTopPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
     colors: P1Colors,
     frameIndex: Int,
 ) {
-    val pixel = lcdScale
+    val pixel = lcdScaleX
     val color = colors.lcdPixel.copy(alpha = 0.65f)
     val baseX = P1DisplaySpec.LCD_WIDTH_PX * 0.68f
     val baseY = zoneTopPx + zoneHeightPx * 0.18f
@@ -204,8 +205,8 @@ private fun DrawScope.drawHungryDots(
         drawRect(
             color = color,
             topLeft = Offset(
-                (baseX + i * 3f) * lcdScale - pixel / 2f,
-                (baseY + bounce - i * 0.5f) * lcdScale - pixel / 2f,
+                (baseX + i * 3f) * lcdScaleX - pixel / 2f,
+                (baseY + bounce - i * 0.5f) * lcdScaleX - pixel / 2f,
             ),
             size = Size(pixel, pixel),
         )
@@ -215,11 +216,11 @@ private fun DrawScope.drawHungryDots(
 private fun DrawScope.drawAttentionPing(
     zoneTopPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
     colors: P1Colors,
     frameIndex: Int,
 ) {
-    val pixel = lcdScale
+    val pixel = lcdScaleX
     val pulse = 0.55f + sin(frameIndex * 1.1f) * 0.35f
     val color = colors.lcdPixel.copy(alpha = pulse)
     val centerX = P1DisplaySpec.LCD_WIDTH_PX * 0.82f
@@ -233,8 +234,8 @@ private fun DrawScope.drawAttentionPing(
         drawRect(
             color = color,
             topLeft = Offset(
-                (centerX + offset.x) * lcdScale - pixel / 2f,
-                (centerY + offset.y) * lcdScale - pixel / 2f,
+                (centerX + offset.x) * lcdScaleX - pixel / 2f,
+                (centerY + offset.y) * lcdScaleX - pixel / 2f,
             ),
             size = Size(pixel, pixel),
         )
@@ -244,12 +245,12 @@ private fun DrawScope.drawAttentionPing(
 private fun DrawScope.drawSparkle(
     zoneTopPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
     colors: P1Colors,
     frameIndex: Int,
     offsetXFactor: Float,
 ) {
-    val pixel = lcdScale
+    val pixel = lcdScaleX
     val bob = sin(frameIndex * 0.9f) * 1.8f
     val centerX = P1DisplaySpec.LCD_WIDTH_PX * offsetXFactor
     val centerY = zoneTopPx + zoneHeightPx * 0.28f + bob
@@ -262,8 +263,8 @@ private fun DrawScope.drawSparkle(
         drawRect(
             color = color,
             topLeft = Offset(
-                (centerX + offset.x) * lcdScale - pixel / 2f,
-                (centerY + offset.y) * lcdScale - pixel / 2f,
+                (centerX + offset.x) * lcdScaleX - pixel / 2f,
+                (centerY + offset.y) * lcdScaleX - pixel / 2f,
             ),
             size = Size(pixel, pixel),
         )
@@ -273,7 +274,7 @@ private fun DrawScope.drawSparkle(
 private fun DrawScope.drawPlayfulHeart(
     zoneTopPx: Float,
     zoneHeightPx: Float,
-    lcdScale: Float,
+    lcdScaleX: Float,
     colors: P1Colors,
     frameIndex: Int,
     offsetXFactor: Float = 0.78f,
@@ -281,7 +282,7 @@ private fun DrawScope.drawPlayfulHeart(
     val bob = sin(frameIndex * 0.7f) * 2f
     val centerX = P1DisplaySpec.LCD_WIDTH_PX * offsetXFactor
     val centerY = zoneTopPx + zoneHeightPx * 0.22f + bob
-    val pixel = lcdScale
+    val pixel = lcdScaleX
     val color = colors.lcdPixel.copy(alpha = 0.75f + sin(frameIndex * 0.5f) * 0.2f)
     val heart = listOf(
         Offset(-2f, -1f), Offset(-1f, -2f), Offset(0f, -2f), Offset(1f, -2f), Offset(2f, -1f),
@@ -293,8 +294,8 @@ private fun DrawScope.drawPlayfulHeart(
         drawRect(
             color = color,
             topLeft = Offset(
-                (centerX + offset.x) * lcdScale - pixel / 2f,
-                (centerY + offset.y) * lcdScale - pixel / 2f,
+                (centerX + offset.x) * lcdScaleX - pixel / 2f,
+                (centerY + offset.y) * lcdScaleX - pixel / 2f,
             ),
             size = Size(pixel, pixel),
         )

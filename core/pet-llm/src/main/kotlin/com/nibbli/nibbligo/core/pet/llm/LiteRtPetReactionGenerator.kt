@@ -41,7 +41,7 @@ class LiteRtPetReactionGenerator @Inject constructor(
             return generateUserTalk(enriched, modelId)
         }
 
-        val onboardingContext = resolveOnboardingContext()
+        val onboardingContext = resolveOnboardingContext(enriched.state.name)
         val parts = PetPromptBuilder.buildParts(enriched, modelId, onboardingContext)
         if (!ensurePetModelReady(modelId, parts.systemInstruction)) {
             return PetReactionParser.fallback(enriched)
@@ -70,7 +70,7 @@ class LiteRtPetReactionGenerator @Inject constructor(
             return@flow
         }
 
-        val onboardingContext = resolveOnboardingContext()
+        val onboardingContext = resolveOnboardingContext(enriched.state.name)
         val parts = PetPromptBuilder.buildParts(enriched, modelId, onboardingContext)
 
         if (!ensurePetModelReady(modelId, parts.systemInstruction)) {
@@ -103,6 +103,7 @@ class LiteRtPetReactionGenerator @Inject constructor(
                             PetReactionParser.stripForStreaming(
                                 builder.toString(),
                                 request.state.name,
+                                request.caretakerName,
                             ),
                         ),
                     )
@@ -139,9 +140,9 @@ class LiteRtPetReactionGenerator @Inject constructor(
     }
 
     private suspend fun generateUserTalk(request: PetReactionRequest, modelId: String): PetReaction {
-        val onboardingContext = resolveOnboardingContext()
+        val onboardingContext = resolveOnboardingContext(request.state.name)
         val parts = PetPromptBuilder.buildHomeTalkParts(request, modelId, onboardingContext)
-        if (!ensureHomeTalkSession(modelId)) {
+        if (!ensureHomeTalkSession(modelId, request.state.name)) {
             return PetReactionParser.fallback(request)
         }
         maybeResetHomeTalkSession(modelId)
@@ -167,9 +168,9 @@ class LiteRtPetReactionGenerator @Inject constructor(
         request: PetReactionRequest,
         modelId: String,
     ): Flow<PetReactionStreamEvent> = flow {
-        val onboardingContext = resolveOnboardingContext()
+        val onboardingContext = resolveOnboardingContext(request.state.name)
         val parts = PetPromptBuilder.buildHomeTalkParts(request, modelId, onboardingContext)
-        if (!ensureHomeTalkSession(modelId)) {
+        if (!ensureHomeTalkSession(modelId, request.state.name)) {
             emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(request)))
             return@flow
         }
@@ -194,6 +195,7 @@ class LiteRtPetReactionGenerator @Inject constructor(
                             PetReactionParser.stripForStreaming(
                                 builder.toString(),
                                 request.state.name,
+                                request.caretakerName,
                             ),
                         ),
                     )
@@ -221,7 +223,7 @@ class LiteRtPetReactionGenerator @Inject constructor(
 
         if (streamFailed || raw.isBlank()) {
             val compactParts = PetPromptBuilder.buildCompactHomeTalkParts(request, onboardingContext)
-            if (ensureHomeTalkSession(modelId)) {
+            if (ensureHomeTalkSession(modelId, request.state.name)) {
                 parseModelOutput(completeHomeTalkTurn(modelId, compactParts), request)?.let {
                     emit(PetReactionStreamEvent.Done(it))
                     return@flow
@@ -235,16 +237,24 @@ class LiteRtPetReactionGenerator @Inject constructor(
 
     private suspend fun enrichRequest(request: PetReactionRequest): PetReactionRequest {
         val personality = userPreferencesRepository.petPersonality.first()
-        return request.copy(personality = personality)
+        val profile = userPreferencesRepository.petOnboardingProfile.first()
+        return request.copy(
+            personality = personality,
+            caretakerName = profile.caretakerName.trim().takeIf { it.isNotBlank() },
+        )
     }
 
-    private suspend fun resolveOnboardingContext(): String? =
+    private suspend fun resolveOnboardingContext(petName: String): String? =
         PetOnboardingPrompt.formatForSystemInstruction(
             userPreferencesRepository.petOnboardingProfile.first(),
+            petName,
         )
 
-    private suspend fun ensureHomeTalkSession(modelId: String): Boolean {
-        val systemInstruction = PetPromptBuilder.homeTalkSystemInstruction(resolveOnboardingContext())
+    private suspend fun ensureHomeTalkSession(modelId: String, petName: String): Boolean {
+        val systemInstruction = PetPromptBuilder.homeTalkSystemInstruction(
+            resolveOnboardingContext(petName),
+            petName,
+        )
         return when (val result = inferenceRuntime.ensureHomeTalkSession(modelId, systemInstruction)) {
             is RuntimeResult.Success -> true
             is RuntimeResult.Error -> {
@@ -341,9 +351,9 @@ class LiteRtPetReactionGenerator @Inject constructor(
                 Log.w(TAG, "User talk degenerate repetition; treating as empty")
                 return null
             }
-            return PetReactionParser.parseTalk(raw, request.state.name)
+            return PetReactionParser.parseTalk(raw, request.state.name, request.caretakerName)
         }
-        return PetReactionParser.parse(raw, request.state.name)
+        return PetReactionParser.parse(raw, request.state.name, request.caretakerName)
     }
 
     internal fun isInferenceFailureText(raw: String): Boolean {

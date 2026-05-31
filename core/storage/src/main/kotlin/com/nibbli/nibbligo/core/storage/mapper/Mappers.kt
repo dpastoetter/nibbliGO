@@ -11,7 +11,10 @@ import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.PetAnimation
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetCosmetic
+import com.nibbli.nibbligo.core.model.PetEngagement
 import com.nibbli.nibbligo.core.model.PetExpression
+import com.nibbli.nibbligo.core.model.PetLcdProp
+import com.nibbli.nibbligo.core.model.PetLcdScene
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.PetStats
@@ -55,10 +58,35 @@ fun PetStateEntity.toDomain(): PetState = PetState(
         .filter { it.isNotBlank() }
         .mapNotNull { runCatching { PetCosmetic.valueOf(it) }.getOrNull() }
         .toSet(),
+    unlockedScenes = unlockedScenes.split(",")
+        .filter { it.isNotBlank() }
+        .mapNotNull { PetLcdScene.fromId(it) }
+        .toSet()
+        .ifEmpty { setOf(PetLcdScene.COZY) },
+    unlockedProps = unlockedProps.split(",")
+        .filter { it.isNotBlank() }
+        .mapNotNull { PetLcdProp.fromId(it) }
+        .toSet(),
+    equippedProp = equippedProp?.let { PetLcdProp.fromId(it) },
     hasMess = hasMess,
     roomId = roomId,
     careScore = careScore,
     criticalNeglectSinceMillis = criticalNeglectSinceMillis,
+    engagement = PetEngagement(
+        careStreakDays = careStreakDays,
+        lastCareDayEpoch = lastCareDayEpoch,
+        dailyQuestDayEpoch = dailyQuestDayEpoch,
+        dailyQuestFeed = dailyQuestFeed,
+        dailyQuestPlay = dailyQuestPlay,
+        dailyQuestTalk = dailyQuestTalk,
+        dailyQuestBonusClaimed = dailyQuestBonusClaimed,
+        catchHighScore = catchHighScore,
+        catchBestCombo = catchBestCombo,
+        dailyCatchTargetScore = dailyCatchTargetScore,
+        dailyCatchDayEpoch = dailyCatchDayEpoch,
+        dailyCatchChallengeCompleted = dailyCatchChallengeCompleted,
+        friendCode = friendCode,
+    ),
 )
 
 fun PetState.toEntity(): PetStateEntity = PetStateEntity(
@@ -87,10 +115,26 @@ fun PetState.toEntity(): PetStateEntity = PetStateEntity(
     dialogueLine = dialogueLine,
     memorySummary = memorySummary,
     unlockedCosmetics = unlockedCosmetics.joinToString(",") { it.name },
+    unlockedScenes = unlockedScenes.joinToString(",") { it.id },
+    unlockedProps = unlockedProps.joinToString(",") { it.id },
+    equippedProp = equippedProp?.id,
     hasMess = hasMess,
     roomId = roomId,
     careScore = careScore,
     criticalNeglectSinceMillis = criticalNeglectSinceMillis,
+    careStreakDays = engagement.careStreakDays,
+    lastCareDayEpoch = engagement.lastCareDayEpoch,
+    dailyQuestDayEpoch = engagement.dailyQuestDayEpoch,
+    dailyQuestFeed = engagement.dailyQuestFeed,
+    dailyQuestPlay = engagement.dailyQuestPlay,
+    dailyQuestTalk = engagement.dailyQuestTalk,
+    dailyQuestBonusClaimed = engagement.dailyQuestBonusClaimed,
+    catchHighScore = engagement.catchHighScore,
+    catchBestCombo = engagement.catchBestCombo,
+    dailyCatchTargetScore = engagement.dailyCatchTargetScore,
+    dailyCatchDayEpoch = engagement.dailyCatchDayEpoch,
+    dailyCatchChallengeCompleted = engagement.dailyCatchChallengeCompleted,
+    friendCode = engagement.friendCode,
 )
 
 fun ModelInstallEntity.toDomain() = InstalledModel(modelId, localPath, installedAtMillis, sizeBytes)

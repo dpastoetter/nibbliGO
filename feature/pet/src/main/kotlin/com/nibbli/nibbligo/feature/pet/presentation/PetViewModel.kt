@@ -8,10 +8,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
+import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
+import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.LifeStage
 import com.nibbli.nibbligo.core.model.PetCondition
-import com.nibbli.nibbligo.core.model.PetCosmetic
+import com.nibbli.nibbligo.feature.pet.ui.pixel.LcdPickerEntry
+import com.nibbli.nibbligo.feature.pet.ui.pixel.applyPickerEquip
 import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
@@ -26,6 +30,12 @@ import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
 import com.nibbli.nibbligo.core.pet.llm.PetTalkLimits
 import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.feature.pet.domain.PetDiaryExporter
+import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
+import com.nibbli.nibbligo.feature.pet.domain.PetPostcard
+import com.nibbli.nibbligo.feature.pet.domain.PetVisitQrCodec
+import com.nibbli.nibbligo.feature.pet.domain.PetVisitQrExporter
+import com.nibbli.nibbligo.feature.pet.domain.PetPostcardStore
+import com.nibbli.nibbligo.feature.pet.domain.PetShareExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
@@ -66,7 +76,14 @@ data class PetUiState(
     val talkLcdMode: Boolean = false,
     val isVoiceListening: Boolean = false,
     val petModelLabel: String = "No model",
+    val petModelInstalled: Boolean = false,
     val isWarmingModel: Boolean = false,
+    val evolutionShareStage: LifeStage? = null,
+    val showPostcardSheet: Boolean = false,
+    val visitPostcard: PetPostcard? = null,
+    val catchGhostScore: Int? = null,
+    val lastCatchScore: Int? = null,
+    val lastCatchCombo: Int? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -81,7 +98,11 @@ class PetViewModel @Inject constructor(
     private val engine: PetSimulationEngine,
     private val assistVoiceRequestBus: AssistVoiceRequestBus,
     private val liteRtModelPreloader: LiteRtModelPreloader,
+    private val petDeepLinkBus: PetDeepLinkBus,
+    private val modelAvailabilityGate: ModelAvailabilityGate,
 ) : ViewModel() {
+
+    private val postcardStore = PetPostcardStore(context)
 
     private val _uiState = MutableStateFlow(PetUiState())
     val uiState: StateFlow<PetUiState> = _uiState.asStateFlow()
@@ -97,19 +118,22 @@ class PetViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 var state = petRepository.getPetState()
-                val tick = engine.tick(state, System.currentTimeMillis())
+                val now = System.currentTimeMillis()
+                state = PetEngagementEngine.onSessionOpen(state, now)
+                val tick = engine.tick(state, now)
                 state = tick.state
-                tick.templateDialogue?.let { state = state.copy(dialogueLine = it) }
+                tick.templateDialogue?.let { line -> state = state.copy(dialogueLine = line) }
                 petRepository.savePetState(state)
-                _uiState.update { it.copy(petState = state) }
-                if (tick.welcomeBack) {
-                    launchBackgroundReaction {
-                        generateReaction(state, lastAction = "returning after a while")
-                    }
-                }
+                val visit = postcardStore.load()
+                _uiState.update { it.copy(petState = state, visitPostcard = visit) }
                 if (tick.evolved) {
+                    _uiState.update { it.copy(evolutionShareStage = state.stage) }
                     launchBackgroundReaction {
                         generateReaction(state, lastAction = "evolving to ${state.stage.name.lowercase()}")
+                    }
+                } else if (tick.welcomeBack) {
+                    launchBackgroundReaction {
+                        generateReaction(state, lastAction = "returning after a while")
                     }
                 }
             } finally {
@@ -121,8 +145,8 @@ class PetViewModel @Inject constructor(
             petEventBus.events.collect { event ->
                 val updated = engine.onPetEvent(_uiState.value.petState, event)
                 persist(updated)
-                val toast = when {
-                    event.javaClass.simpleName.contains("Agent") -> "nibbli noticed your agent work!"
+                val toast = when (event) {
+                    PetEvent.AssistantSuccess -> "nibbli noticed your chat!"
                     else -> null
                 }
                 _uiState.update { it.copy(agentToast = toast) }
@@ -140,11 +164,22 @@ class PetViewModel @Inject constructor(
                 _uiState.update { it.copy(isWarmingModel = warming) }
             }
         }
+        viewModelScope.launch {
+            petDeepLinkBus.pendingCatchChallengeScore.collect { score ->
+                if (score != null && score > 0) {
+                    petDeepLinkBus.consumeCatchChallenge()
+                    _uiState.update {
+                        it.copy(catchGhostScore = score, showMinigame = true)
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun refreshPetModelLabel() {
         val label = petReactionPort.activeModelDisplayName()
-        _uiState.update { it.copy(petModelLabel = label) }
+        val installed = modelAvailabilityGate.hasUsableModel()
+        _uiState.update { it.copy(petModelLabel = label, petModelInstalled = installed) }
     }
 
     fun setHomeActive(active: Boolean) {
@@ -273,15 +308,15 @@ class PetViewModel @Inject constructor(
 
     private fun activityHintFor(event: PetEvent): String? = when (event) {
         PetEvent.AgentStepCompleted ->
-            "Your human just finished an agent task on-device."
+            "Your human just had a good Chat conversation on-device."
         is PetEvent.NewModelTried ->
             "They tried a new local model (${event.modelId})."
         PetEvent.PromptLabRun ->
-            "They experimented in Prompt Lab."
+            "They tried something new on-device."
         PetEvent.ActionCompleted ->
             "They completed an on-device action."
         PetEvent.AssistantSuccess ->
-            "Their assistant gave a helpful answer."
+            "They had a helpful Chat conversation on-device."
         is PetEvent.SkillInvoked ->
             "They used skill ${event.skillId}."
         PetEvent.NeglectTick,
@@ -292,17 +327,24 @@ class PetViewModel @Inject constructor(
 
     fun onInteraction(interaction: PetInteraction) {
         if (interaction == PetInteraction.TALK) {
-            dismissTalkLcdMode()
-            _uiState.update { it.copy(showTalkSheet = true) }
+            viewModelScope.launch {
+                wakeIfSleeping()
+                dismissTalkLcdMode()
+                _uiState.update { it.copy(showTalkSheet = true) }
+            }
+            return
+        }
+        if (petInferenceJob?.isActive == true && _uiState.value.talkLcdMode) {
             return
         }
         dismissTalkLcdMode()
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             val result = engine.interact(_uiState.value.petState, interaction, now)
-            persist(result.state.copy(dialogueLine = result.templateDialogue))
+            var state = PetEngagementEngine.recordCareInteraction(result.state, interaction, now)
+            persist(state.copy(dialogueLine = result.templateDialogue))
             launchBackgroundReaction {
-                generateReaction(result.state, lastAction = interaction.name.lowercase().replace('_', ' '))
+                generateReaction(state, lastAction = interaction.name.lowercase().replace('_', ' '))
             }
         }
     }
@@ -341,7 +383,8 @@ class PetViewModel @Inject constructor(
                 val warmLoad = async { awaitWarmLoad() }
                 val talkState = async {
                     val tick = engine.tick(_uiState.value.petState, now)
-                    engine.interact(tick.state, PetInteraction.TALK, now).state
+                    val interacted = engine.interact(tick.state, PetInteraction.TALK, now)
+                    PetEngagementEngine.recordTalk(interacted.state, now)
                 }
                 val warmLoaded = warmLoad.await()
                 launch(Dispatchers.Default) {
@@ -371,14 +414,21 @@ class PetViewModel @Inject constructor(
         clearGeneratingDialogue()
     }
 
+    fun onLcdActivity() {
+        viewModelScope.launch {
+            wakeIfSleeping()
+        }
+    }
+
     fun onPetTapped() {
         val pet = _uiState.value.petState
         if (!pet.isAlive) return
         viewModelScope.launch {
-            val withStats = pet.copy(
-                stats = pet.stats.copy(
-                    mood = (pet.stats.mood + 3).coerceAtMost(100),
-                    trust = (pet.stats.trust + 2).coerceAtMost(100),
+            val current = wakeIfSleeping() ?: pet
+            val withStats = current.copy(
+                stats = current.stats.copy(
+                    mood = (current.stats.mood + 3).coerceAtMost(100),
+                    trust = (current.stats.trust + 2).coerceAtMost(100),
                 ).clamped(),
             )
             persist(withStats)
@@ -388,15 +438,23 @@ class PetViewModel @Inject constructor(
         }
     }
 
+    private suspend fun wakeIfSleeping(): PetState? {
+        val pet = _uiState.value.petState
+        if (pet.condition != PetCondition.SLEEPING || !pet.isAlive) return null
+        val result = engine.interact(pet, PetInteraction.WAKE, System.currentTimeMillis())
+        persist(result.state.copy(dialogueLine = result.templateDialogue))
+        return result.state
+    }
+
     fun dismissTalkSheet() {
         _uiState.update { it.copy(showTalkSheet = false) }
     }
 
-    fun onEquipCosmetic(cosmetic: PetCosmetic?) {
+    fun onEquipLcdItem(entry: LcdPickerEntry) {
         viewModelScope.launch {
             val pet = _uiState.value.petState
-            if (cosmetic != null && cosmetic !in pet.unlockedCosmetics) return@launch
-            persist(pet.copy(equippedCosmetic = cosmetic))
+            val updated = pet.applyPickerEquip(entry) ?: return@launch
+            persist(updated)
         }
     }
 
@@ -406,12 +464,89 @@ class PetViewModel @Inject constructor(
 
     fun onMinigameWin() {
         viewModelScope.launch {
-            val updated = engine.applyMinigameWin(_uiState.value.petState, System.currentTimeMillis())
+            val now = System.currentTimeMillis()
+            val updated = engine.applyMinigameWin(_uiState.value.petState, now)
             persist(updated)
             launchBackgroundReaction {
-                generateReaction(updated, lastAction = "winning the catch game")
+                generateReaction(updated, lastAction = "winning a mini-game")
             }
         }
+    }
+
+    fun onMinigameEnd(score: Int, bestCombo: Int, won: Boolean) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val updated = PetEngagementEngine.recordCatchGame(
+                _uiState.value.petState,
+                score,
+                bestCombo,
+                won,
+                now,
+            )
+            persist(updated)
+            _uiState.update {
+                it.copy(lastCatchScore = score, lastCatchCombo = bestCombo)
+            }
+        }
+    }
+
+    fun shareTodayCard(): Intent = PetShareExporter.shareTodayCard(context, _uiState.value.petState)
+
+    fun shareCatchCard(): Intent {
+        val ui = _uiState.value
+        return PetShareExporter.shareCatchCard(
+            context,
+            ui.petState,
+            ui.lastCatchScore ?: ui.petState.engagement.catchHighScore,
+            ui.lastCatchCombo ?: ui.petState.engagement.catchBestCombo,
+        )
+    }
+
+    fun shareEvolutionCard(): Intent? {
+        val stage = _uiState.value.evolutionShareStage ?: return null
+        return PetShareExporter.shareEvolutionCard(context, _uiState.value.petState, stage)
+    }
+
+    fun shareQuoteCard(): Intent =
+        PetShareExporter.shareQuoteCard(context, _uiState.value.petState, _uiState.value.petState.dialogueLine)
+
+    fun dismissEvolutionSharePrompt() {
+        _uiState.update { it.copy(evolutionShareStage = null) }
+    }
+
+    fun openPostcardSheet() {
+        _uiState.update { it.copy(showPostcardSheet = true) }
+    }
+
+    fun dismissPostcardSheet() {
+        _uiState.update { it.copy(showPostcardSheet = false) }
+    }
+
+    fun importVisitFromQr(raw: String) {
+        val postcard = PetVisitQrCodec.decode(raw) ?: run {
+            _uiState.update { it.copy(statusMessage = "Invalid visit QR code") }
+            return
+        }
+        postcardStore.save(postcard)
+        _uiState.update {
+            it.copy(
+                visitPostcard = postcard,
+                showPostcardSheet = false,
+                statusMessage = "Visiting ${postcard.senderName}'s nibbli!",
+            )
+        }
+    }
+
+    fun shareVisitQr(): Intent =
+        PetVisitQrExporter.shareVisitQr(context, _uiState.value.petState)
+
+    fun endPostcardVisit() {
+        postcardStore.clear()
+        _uiState.update { it.copy(visitPostcard = null) }
+    }
+
+    fun clearCatchGhost() {
+        _uiState.update { it.copy(catchGhostScore = null) }
     }
 
     fun dismissMinigame() {
@@ -458,7 +593,7 @@ class PetViewModel @Inject constructor(
         if (trimmed.isEmpty()) return
         assistVoiceRequestBus.submitVoiceMessage(trimmed)
         _uiState.update {
-            it.copy(statusMessage = "Sent to Assist — on-device agent is thinking…")
+            it.copy(statusMessage = "Sent to Chat — on-device model is thinking…")
         }
     }
 

@@ -4,7 +4,12 @@ package com.nibbli.nibbligo.feature.pet.ui.pixel
 object P1DisplaySpec {
     const val LCD_WIDTH_PX = 128
     const val LCD_HEIGHT_PX = 64
+    /** On-screen LCD is slightly taller than the authentic 2:1 ratio for readability. */
+    const val LCD_DISPLAY_HEIGHT_SCALE = 1.125f
     const val LCD_SCALE = 2f
+
+    val lcdAspectRatio: Float
+        get() = LCD_WIDTH_PX / (LCD_HEIGHT_PX * LCD_DISPLAY_HEIGHT_SCALE)
 
     /** Pet draw zone — upper portion of LCD. */
     const val PET_ZONE_TOP_PX = 4

@@ -27,7 +27,8 @@ fun LcdSpriteAnimator(
 
     Box(modifier = modifier) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val lcdScale = size.width / P1DisplaySpec.LCD_WIDTH_PX
+            val lcdScaleX = size.width / P1DisplaySpec.LCD_WIDTH_PX
+            val lcdScaleY = size.height / P1DisplaySpec.LCD_HEIGHT_PX
             val zoneHeight = if (frame == NibbliSpriteAtlas.Frame.EGG) {
                 P1DisplaySpec.PET_ZONE_HEIGHT_PX * 0.65f
             } else {
@@ -40,7 +41,8 @@ fun LcdSpriteAnimator(
                 zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX + motion.bobOffsetPx,
                 zoneWidthPx = P1DisplaySpec.LCD_WIDTH_PX.toFloat(),
                 zoneHeightPx = zoneHeight,
-                lcdScale = lcdScale,
+                lcdScaleX = lcdScaleX,
+                lcdScaleY = lcdScaleY,
                 swayOffsetPx = motion.swayOffsetPx,
                 spriteScale = motion.scale,
                 spriteScaleY = motion.scaleY,
@@ -57,15 +59,17 @@ fun LcdSpriteView(
 ) {
     val atlas = ImageBitmap.imageResource(R.drawable.nibbli_sprites)
     Canvas(modifier = modifier) {
-        val lcdScale = size.width / P1DisplaySpec.LCD_WIDTH_PX
+        val lcdScaleX = size.width / P1DisplaySpec.LCD_WIDTH_PX
+        val lcdScaleY = size.height / P1DisplaySpec.LCD_HEIGHT_PX
         drawAtlasFrameInZone(
             atlas = atlas,
             frame = frame,
             zoneLeftPx = 0f,
             zoneTopPx = bobOffsetPx,
             zoneWidthPx = P1DisplaySpec.LCD_WIDTH_PX.toFloat(),
-            zoneHeightPx = size.height / lcdScale,
-            lcdScale = lcdScale,
+            zoneHeightPx = size.height / lcdScaleY,
+            lcdScaleX = lcdScaleX,
+            lcdScaleY = lcdScaleY,
         )
     }
 }

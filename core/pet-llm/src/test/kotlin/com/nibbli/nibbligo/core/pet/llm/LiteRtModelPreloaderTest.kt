@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo.core.pet.llm
 
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
+import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.GenerationParams
@@ -9,6 +10,7 @@ import com.nibbli.nibbligo.core.model.ModelCapabilities
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetPersonality
+import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.RuntimeKind
 import com.nibbli.nibbligo.core.model.RuntimeResult
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
@@ -94,7 +96,12 @@ class LiteRtModelPreloaderTest {
             override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
         }
         val resolver = PetModelResolver(runtime, prefs, gate)
-        return LiteRtModelPreloader(gate, resolver, runtime, prefs)
+        val petRepo = object : PetRepository {
+            override fun observePetState() = flowOf(PetState(name = "Pixel"))
+            override suspend fun getPetState() = PetState(name = "Pixel")
+            override suspend fun savePetState(state: PetState) = Unit
+        }
+        return LiteRtModelPreloader(gate, resolver, runtime, prefs, petRepo)
     }
 }
 

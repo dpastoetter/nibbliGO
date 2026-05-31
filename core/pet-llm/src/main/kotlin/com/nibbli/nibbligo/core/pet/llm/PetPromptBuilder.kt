@@ -165,7 +165,7 @@ object PetPromptBuilder {
         val caretakerMessage = request.userMessage.orEmpty()
         val tier = resolveHomeTalkTier(caretakerMessage)
         return PetPromptParts(
-            systemInstruction = homeTalkSystemInstruction(onboardingContext),
+            systemInstruction = homeTalkSystemInstruction(onboardingContext, request.state.name),
             userMessage = buildHomeTalkUserTurn(request, modelId, tier),
         )
     }
@@ -175,7 +175,7 @@ object PetPromptBuilder {
         onboardingContext: String? = null,
     ): PetPromptParts {
         return PetPromptParts(
-            systemInstruction = homeTalkSystemInstruction(onboardingContext),
+            systemInstruction = homeTalkSystemInstruction(onboardingContext, request.state.name),
             userMessage = buildCompactHomeTalkUserTurn(request),
         )
     }
@@ -183,8 +183,8 @@ object PetPromptBuilder {
     fun buildCompactChatTalkParts(request: PetReactionRequest, modelId: String): PetPromptParts =
         buildCompactHomeTalkParts(request)
 
-    fun homeTalkSystemInstruction(onboardingContext: String? = null): String =
-        buildMinimalChatTalkRules(onboardingContext)
+    fun homeTalkSystemInstruction(onboardingContext: String? = null, petName: String? = null): String =
+        buildMinimalChatTalkRules(onboardingContext, petName)
 
     fun resolveHomeTalkTier(message: String): HomeTalkPromptTier = when {
         PetStatusSnapshot.isStatusQuestion(message) || needsStatusContext(message) ->
@@ -236,11 +236,11 @@ object PetPromptBuilder {
         }
     }
 
-    private fun buildMinimalChatTalkRules(onboardingContext: String? = null): String =
+    private fun buildMinimalChatTalkRules(onboardingContext: String? = null, petName: String? = null): String =
         buildString {
             appendLine("You are a Pixel Friend AI pet in nibbliGO (local on-device).")
             appendLine("Reply to the Caretaker naturally in character. No markdown.")
-            appendLine(firstPersonVoiceRule())
+            appendLine(firstPersonVoiceRule(petName))
             if (!onboardingContext.isNullOrBlank()) {
                 appendLine()
                 appendLine(onboardingContext.trim())
@@ -263,6 +263,8 @@ object PetPromptBuilder {
 
     private fun buildCompactHomeTalkUserTurn(request: PetReactionRequest): String =
         buildString {
+            appendLine("Pet name: ${request.state.name}")
+            appendLine("Personality: ${personalityHint(request.personality)}")
             appendLine("Keep it brief (1-2 sentences).")
             append("Caretaker: ${request.userMessage.orEmpty()}")
         }.trim()
@@ -287,6 +289,7 @@ object PetPromptBuilder {
         val profile = profileFor(modelId)
         val caretakerMessage = request.userMessage.orEmpty()
         return buildString {
+            appendLine("Pet name: ${request.state.name}")
             appendLine(
                 "Game help facts (answer accurately, stay in character):",
             )
@@ -295,8 +298,14 @@ object PetPromptBuilder {
         }.trim()
     }
 
-    private fun firstPersonVoiceRule(): String =
-        "Speak in first person (I/me/my). Never say nibbli or your pet name to refer to yourself."
+    private fun firstPersonVoiceRule(petName: String? = null): String {
+        val customName = petName?.trim()?.takeIf { it.isNotBlank() && !it.equals("nibbli", ignoreCase = true) }
+        return if (customName != null) {
+            "Speak in first person (I/me/my). Never say $customName or your pet name to refer to yourself."
+        } else {
+            "Speak in first person (I/me/my). Never say nibbli or your pet name to refer to yourself."
+        }
+    }
 
     private fun personalityHint(personality: PetPersonality): String = when (personality) {
         PetPersonality.PLAYFUL -> "Playful and bouncy, like a Pixel Friend."

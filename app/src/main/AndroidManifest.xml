@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- Required to launch FUTO Voice Input and other RECOGNIZE_SPEECH handlers on Android 11+ -->
     <!-- Package visibility for phone actions (email, maps, contacts, calendar) -->
@@ -61,7 +62,23 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="nibbli" android:host="oauth" android:path="/huggingface" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nibbli" android:host="challenge" android:path="/catch" />
+            </intent-filter>
         </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

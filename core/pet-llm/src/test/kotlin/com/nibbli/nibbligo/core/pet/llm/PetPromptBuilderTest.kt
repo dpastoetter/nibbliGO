@@ -142,7 +142,7 @@ class PetPromptBuilderTest {
         assertTrue(parts.userMessage.contains("Caretaker: Tell me a joke"))
         assertTrue(!parts.userMessage.contains("User: Tell me a joke"))
         assertTrue(!parts.userMessage.contains("Status: hunger"))
-        assertTrue(!parts.userMessage.contains("Personality:"))
+        assertTrue(parts.userMessage.contains("Pet name:"))
     }
 
     @Test
@@ -154,6 +154,7 @@ class PetPromptBuilderTest {
         assertEquals(HomeTalkPromptTier.FAST, PetPromptBuilder.resolveHomeTalkTier("Thanks!"))
         assertTrue(parts.userMessage.contains("Keep it brief"))
         assertTrue(parts.userMessage.contains("Caretaker: Thanks!"))
+        assertTrue(parts.userMessage.contains("Pet name:"))
     }
 
     @Test

@@ -14,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,8 +33,8 @@ data class PetOnboardingUiState(
     val canContinue: Boolean
         get() = when (stepIndex) {
             0 -> true
-            1 -> caretakerName.trim().isNotBlank()
-            2 -> petName.trim().isNotBlank()
+            1 -> petName.trim().isNotBlank()
+            2 -> caretakerName.trim().isNotBlank()
             3 -> true
             4, 5 -> true
             else -> false
@@ -56,7 +57,17 @@ class PetOnboardingViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val pet = petRepository.getPetState()
-            _uiState.update { it.copy(petName = pet.name.ifBlank { "nibbli" }) }
+            val profile = userPreferencesRepository.petOnboardingProfile.first()
+            val personality = userPreferencesRepository.petPersonality.first()
+            _uiState.update {
+                it.copy(
+                    petName = pet.name.ifBlank { "nibbli" },
+                    caretakerName = profile.caretakerName,
+                    aboutYou = profile.aboutYou,
+                    companionGoal = profile.companionGoal,
+                    personality = personality,
+                )
+            }
         }
     }
 

@@ -140,14 +140,14 @@ fun SettingsScreen(
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("On-device models", style = MaterialTheme.typography.titleMedium)
             Text(
-                "Choose which installed LiteRT model powers chat, Assist, and Prompt Lab versus " +
-                    "your Pixel Friend. Download more under Manage → Models.",
+                "Choose which installed LiteRT model powers chat versus your Pixel Friend. " +
+                    "Download more under Manage → Models.",
                 modifier = Modifier.padding(top = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
             )
             ModelPreferencePicker(
                 label = "Default app model",
-                hint = "Chat, Prompt Lab, and Assist when no per-screen override is set.",
+                hint = "Chat when no per-screen override is set.",
                 selectedModelId = uiState.defaultModelId,
                 installedModelIds = uiState.installedModelIds,
                 onSelect = viewModel::setDefaultModelId,
@@ -214,7 +214,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Comment on agent work",
+                    "Comment on Chat",
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium,
                 )

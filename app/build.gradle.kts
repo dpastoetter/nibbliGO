@@ -30,8 +30,8 @@ android {
         applicationId = "com.nibbli.nibbligo"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.3"
+        versionCode = 4
+        versionName = "1.0.4"
         testInstrumentationRunner = "com.nibbli.nibbligo.HiltTestRunner"
         manifestPlaceholders["appAuthRedirectScheme"] = "nibbli"
         buildConfigField("String", "HF_OAUTH_CLIENT_ID", "\"$hfClientId\"")
@@ -80,10 +80,8 @@ dependencies {
     implementation(project(":core:mcp"))
     implementation(project(":core:pet-llm"))
     implementation(libs.openid.appauth)
-    implementation(project(":feature:agent"))
     implementation(project(":feature:pet"))
     implementation(project(":feature:chat"))
-    implementation(project(":feature:promptlab"))
     implementation(project(":feature:image"))
     implementation(project(":feature:audio"))
     implementation(project(":feature:actions"))

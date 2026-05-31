@@ -40,7 +40,7 @@ fun ChatScreen(
     if (uiState.installedModelIds.isEmpty()) {
         NibbliScreen(modifier = modifier) {
             NibbliScreenHeader(
-                title = "Local Chat",
+                title = "Chat",
                 showOnDeviceBadge = true,
             )
             EmptyState(
@@ -53,7 +53,7 @@ fun ChatScreen(
 
     NibbliScreen(modifier = modifier) {
         NibbliScreenHeader(
-            title = "Local Chat",
+            title = "Chat",
             subtitle = "On-device conversation with an installed LiteRT model.",
             showOnDeviceBadge = true,
         )

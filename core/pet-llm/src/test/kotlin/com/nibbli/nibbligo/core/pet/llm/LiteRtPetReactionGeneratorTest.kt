@@ -158,8 +158,13 @@ class LiteRtPetReactionGeneratorTest {
             override suspend fun setPetOnboardingProfile(profile: com.nibbli.nibbligo.core.model.PetOnboardingProfile) = Unit
             override suspend fun setLitertAccelerator(preference: com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference) = Unit
         }
+        val petRepo = object : com.nibbli.nibbligo.core.domain.repository.PetRepository {
+            override fun observePetState() = flowOf(com.nibbli.nibbligo.core.model.PetState(name = "Pixel"))
+            override suspend fun getPetState() = com.nibbli.nibbligo.core.model.PetState(name = "Pixel")
+            override suspend fun savePetState(state: com.nibbli.nibbligo.core.model.PetState) = Unit
+        }
         val resolver = PetModelResolver(runtime, prefs, gate)
-        val preloader = LiteRtModelPreloader(gate, resolver, runtime, prefs)
+        val preloader = LiteRtModelPreloader(gate, resolver, runtime, prefs, petRepo)
         return LiteRtPetReactionGenerator(runtime, prefs, gate, resolver, preloader)
     }
 }

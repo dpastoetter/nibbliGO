@@ -9,7 +9,10 @@ import com.nibbli.nibbligo.core.model.PetExpression
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetState
+import com.nibbli.nibbligo.core.model.PetLcdProp
+import com.nibbli.nibbligo.core.model.PetLcdScene
 import com.nibbli.nibbligo.core.model.PetStats
+import com.nibbli.nibbligo.core.model.equippedScene
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -149,5 +152,57 @@ class PetSimulationEngineTest {
 
         val tickLater = engine.tick(played.state, nowMillis = 6_000L)
         assertEquals(PetAnimation.IDLE, tickLater.state.animation)
+    }
+
+    @Test
+    fun feed_meal_while_sleeping_wakes_and_feeds() {
+        val sleeping = PetState(
+            condition = PetCondition.SLEEPING,
+            stats = PetStats(hunger = 40, mood = 50),
+        )
+        val result = engine.interact(sleeping, PetInteraction.FEED_MEAL, 1000L)
+        assertEquals(PetCondition.HEALTHY, result.state.condition)
+        assertTrue(result.state.stats.hunger > 40)
+        assertTrue(!result.templateDialogue.contains("Zzz"))
+    }
+
+    @Test
+    fun play_while_sleeping_wakes_and_plays() {
+        val sleeping = PetState(
+            condition = PetCondition.SLEEPING,
+            stats = PetStats(hunger = 60, energy = 80, mood = 50),
+        )
+        val result = engine.interact(sleeping, PetInteraction.PLAY, 1000L)
+        assertEquals(PetCondition.HEALTHY, result.state.condition)
+        assertEquals(PetAnimation.PLAY, result.state.animation)
+    }
+
+    @Test
+    fun wake_while_sleeping_still_works() {
+        val sleeping = PetState(condition = PetCondition.SLEEPING)
+        val result = engine.interact(sleeping, PetInteraction.WAKE, 1000L)
+        assertEquals(PetCondition.HEALTHY, result.state.condition)
+        assertTrue(result.templateDialogue.contains("Good morning"))
+    }
+
+    @Test
+    fun sleep_while_already_sleeping_stays_asleep() {
+        val sleeping = PetState(condition = PetCondition.SLEEPING)
+        val result = engine.interact(sleeping, PetInteraction.SLEEP, 1000L)
+        assertEquals(PetCondition.SLEEPING, result.state.condition)
+    }
+
+    @Test
+    fun unlocks_stars_scene_when_care_score_high_enough() {
+        val state = PetState(careScore = 65, stats = PetStats())
+        val unlocks = engine.applyLcdItemUnlocks(state, state.stats)
+        assertTrue(unlocks.unlockedScenes.contains(PetLcdScene.STARS))
+    }
+
+    @Test
+    fun minigame_win_grants_prop_unlock() {
+        val state = PetState(stats = PetStats(mood = 50))
+        val result = engine.applyMinigameWin(state, nowMillis = 1000L)
+        assertTrue(result.unlockedProps.contains(PetLcdProp.BALL))
     }
 }

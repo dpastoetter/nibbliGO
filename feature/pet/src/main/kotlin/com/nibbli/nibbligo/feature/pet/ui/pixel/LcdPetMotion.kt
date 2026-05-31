@@ -13,6 +13,30 @@ import com.nibbli.nibbligo.core.model.PetAnimation
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetState
 
+/** Home LCD feels calmer when awake; sleep timing stays unchanged. */
+internal object LcdAwakeMotionTuning {
+    const val PERIOD_SCALE = 1.75f
+    const val AMPLITUDE_SCALE = 0.88f
+    const val FRAME_INTERVAL_SCALE = 1.7f
+    const val MOOD_MOTION_BONUS = 0.12f
+}
+
+private fun isSleepingPet(selection: SpriteSelection, pet: PetState): Boolean =
+    pet.condition == PetCondition.SLEEPING ||
+        selection.primary == NibbliSpriteAtlas.Frame.SLEEPING
+
+private fun LcdMotionProfile.scaledForAwakeHome(): LcdMotionProfile {
+    if (bobPeriodMs >= 1_000) return this
+    return copy(
+        bobPeriodMs = (bobPeriodMs * LcdAwakeMotionTuning.PERIOD_SCALE).toInt(),
+        swayPeriodMs = (swayPeriodMs * LcdAwakeMotionTuning.PERIOD_SCALE).toInt(),
+        bobAmplitudePx = bobAmplitudePx * LcdAwakeMotionTuning.AMPLITUDE_SCALE,
+        swayAmplitudePx = swayAmplitudePx * LcdAwakeMotionTuning.AMPLITUDE_SCALE,
+        hopAmplitudePx = hopAmplitudePx * LcdAwakeMotionTuning.AMPLITUDE_SCALE,
+        breatheScale = breatheScale * 0.85f,
+    )
+}
+
 data class LcdPetMotion(
     val bobOffsetPx: Float = 0f,
     val swayOffsetPx: Float = 0f,
@@ -108,11 +132,13 @@ private fun lcdMotionProfile(selection: SpriteSelection, pet: PetState): LcdMoti
             swayPeriodMs = 760,
             breatheScale = 0.03f,
         )
+    }.let { profile ->
+        if (isSleepingPet(selection, pet)) profile else profile.scaledForAwakeHome()
     }
 }
 
 private fun moodMotionMultiplier(pet: PetState): Float =
-    1f + (pet.stats.mood / 100f) * 0.25f
+    1f + (pet.stats.mood / 100f) * LcdAwakeMotionTuning.MOOD_MOTION_BONUS
 
 private fun actionMotionMultiplier(animation: PetAnimation): Float = when (animation) {
     PetAnimation.PLAY -> 1.5f
@@ -197,7 +223,7 @@ fun rememberLcdPetMotion(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween((profile.bobPeriodMs * 0.75f).toInt().coerceAtLeast(180), easing = FastOutSlowInEasing),
+            animation = tween((profile.bobPeriodMs * 0.75f).toInt().coerceAtLeast(280), easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart,
         ),
         label = "lcd_hop",

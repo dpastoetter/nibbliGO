@@ -2,6 +2,7 @@ package com.nibbli.nibbligo.feature.pet.presentation
 
 import android.content.Context
 import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
+import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
@@ -125,6 +126,11 @@ class PetViewModelInferenceTest {
             engine = PetSimulationEngine(),
             assistVoiceRequestBus = AssistVoiceRequestBus(),
             liteRtModelPreloader = createIdlePreloader(),
+            petDeepLinkBus = PetDeepLinkBus(),
+            modelAvailabilityGate = object : ModelAvailabilityGate {
+                override suspend fun hasUsableModel(): Boolean = true
+                override suspend fun firstUsableModelId(): String = "smollm2-360m-instruct"
+            },
         )
     }
 
@@ -198,6 +204,11 @@ private fun createIdlePreloader(): LiteRtModelPreloader {
         )
     }
     val prefs = FakeUserPreferencesRepository()
+    val petRepo = object : PetRepository {
+        override fun observePetState() = flowOf(PetState())
+        override suspend fun getPetState() = PetState()
+        override suspend fun savePetState(state: PetState) = Unit
+    }
     return LiteRtModelPreloader(
         modelAvailabilityGate = noModelGate,
         petModelResolver = PetModelResolver(
@@ -207,6 +218,7 @@ private fun createIdlePreloader(): LiteRtModelPreloader {
         ),
         inferenceRuntime = idleRuntime,
         userPreferencesRepository = prefs,
+        petRepository = petRepo,
     )
 }
 

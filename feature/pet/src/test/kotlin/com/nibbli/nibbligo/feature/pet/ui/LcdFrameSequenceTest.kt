@@ -18,7 +18,7 @@ class LcdFrameSequenceTest {
         )
         val sequence = selection.toSequence()
         assertEquals(8, sequence.frames.size)
-        assertEquals(165L, sequence.stepMs)
+        assertEquals(280L, sequence.stepMs)
         assertEquals(NibbliSpriteAtlas.Frame.EATING_B, frameAt(sequence, 1))
         assertEquals(NibbliSpriteAtlas.Frame.HAPPY, frameAt(sequence, 6))
     }
@@ -31,7 +31,7 @@ class LcdFrameSequenceTest {
         )
         assertEquals(8, selection.lcdFrameSequence().size)
         val sequence = selection.toSequence()
-        assertEquals(175L, sequence.stepMs)
+        assertEquals(297L, sequence.stepMs)
         assertEquals(NibbliSpriteAtlas.Frame.HAPPY, frameAt(sequence, 1))
         assertEquals(NibbliSpriteAtlas.Frame.HAPPY, frameAt(sequence, 7))
     }

@@ -34,7 +34,7 @@ object PetGameFaq {
             id = "energy",
             topics = setOf("energy", "sleep", "tired"),
             keywords = setOf("energy", "sleep", "tired", "nap", "wake", "rest", "zzz"),
-            answer = "Energy drops while awake and recovers while sleeping. Sleep on the LCD menu; Wake when ready. " +
+            answer = "Energy drops while awake and recovers while sleeping. Sleep on the LCD menu; any LCD tap or button wakes me up. " +
                 "Tired when energy below ${PetGameReference.NEED_TIRED_ENERGY_THRESHOLD}.",
         ),
         PetGameFaqEntry(
@@ -48,15 +48,15 @@ object PetGameFaq {
             id = "trust",
             topics = setOf("trust", "bond"),
             keywords = setOf("trust", "bond", "bonding", "believe"),
-            answer = "Trust grows from Talk, Train, pet taps, and good care. Using Assist chat or Agent " +
+            answer = "Trust grows from Talk, Train, pet taps, and good care. Chat on the Chat tab " +
                 "can also boost trust. Low trust slows cosmetic unlocks.",
         ),
         PetGameFaqEntry(
             id = "skill",
             topics = setOf("skill", "train"),
             keywords = setOf("skill", "train", "training", "smarter", "learn"),
-            answer = "Train on the LCD menu (+6 skill, costs energy). Minigame wins and Assist work also raise skill. " +
-                "Higher skill unlocks Looks cosmetics.",
+            answer = "Train on the LCD menu (+6 skill, costs energy). Minigame wins and Chat also raise skill. " +
+                "Higher skill unlocks wearables in the LCD Items menu.",
         ),
         PetGameFaqEntry(
             id = "needs_priority",
@@ -87,9 +87,7 @@ object PetGameFaq {
             id = "cosmetics",
             topics = setOf("looks", "cosmetic", "unlock"),
             keywords = setOf("looks", "cosmetic", "collar", "patch", "aura", "unlock", "equip", "wear"),
-            answer = "Looks unlock when skill AND trust hit thresholds: " +
-                PetGameReference.formatCosmeticsSummary() +
-                ". Open Looks on Home; highest new unlock may auto-equip.",
+            answer = PetGameReference.formatLcdItemsSummary(),
         ),
         PetGameFaqEntry(
             id = "minigame",
@@ -116,17 +114,18 @@ object PetGameFaq {
                 "SmolLM2 360M is fast and needs no Hugging Face login. Care works without any model.",
         ),
         PetGameFaqEntry(
-            id = "assist_boost",
-            topics = setOf("assist", "agent", "boost"),
+            id = "chat_boost",
+            topics = setOf("chat", "boost"),
             keywords = setOf("assist", "agent", "chat", "boost", "prompt lab", "bonus"),
-            answer = "Using Assist chat, Agent, Prompt Lab, or completing actions can raise my mood, trust, " +
-                "skill, or curiosity. Settings can toggle comments on agent work.",
+            answer = "Using the Chat tab, completing on-device actions, or good care can raise my mood, trust, " +
+                "skill, or curiosity. Settings can toggle comments when you chat.",
         ),
         PetGameFaqEntry(
             id = "care_actions",
             topics = setOf("actions", "lcd", "menu"),
             keywords = setOf("lcd", "menu", "meal", "play", "clean", "meds", "train", "actions", "button"),
-            answer = "LCD care menu: Meal, Talk, Snack, Play, Clean, Meds, Sleep/Wake, Train. " +
+            answer = "LCD care menu: Meal, Talk, Snack, Play, Clean, Meds, Sleep/Wake, Train, Items. " +
+                "Items opens wearables, scenes, and floor props (◀ exit · ▶ browse · ● equip). " +
                 "Eggs can only Talk until they hatch.",
         ),
         PetGameFaqEntry(

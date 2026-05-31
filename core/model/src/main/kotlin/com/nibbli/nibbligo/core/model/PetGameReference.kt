@@ -66,4 +66,11 @@ object PetGameReference {
     fun formatCosmeticsSummary(): String = PetCosmetic.entries.joinToString(" ") { cosmetic ->
         "${cosmetic.name.replace('_', ' ').lowercase()}: skill ${cosmetic.unlockSkill}+ trust ${cosmetic.unlockTrust}+"
     }
+
+    fun formatLcdItemsSummary(): String = buildString {
+        append("LCD Items menu on device: cycle wearables, scenes, and floor props. ")
+        append(formatCosmeticsSummary())
+        append(" Scenes: stars care 60+, clouds teen+, night adult care 75+. ")
+        append("Props: ball, plant, mat unlock from arcade wins and daily quest bonus.")
+    }
 }

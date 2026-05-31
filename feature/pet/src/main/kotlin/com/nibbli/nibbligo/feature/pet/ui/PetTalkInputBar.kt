@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,10 +33,13 @@ private val PetTalkInputShape = RoundedCornerShape(20.dp)
 @Composable
 fun PetTalkInputBar(
     enabled: Boolean,
-    isGeneratingDialogue: Boolean,
+    isPetAlive: Boolean,
+    isUserTalkGenerating: Boolean,
     isVoiceListening: Boolean,
     onTalkToMeClick: () -> Unit,
     onSend: (String) -> Unit,
+    onStopClick: () -> Unit = {},
+    micEnabled: Boolean = enabled,
     isWarmingModel: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -42,8 +47,9 @@ fun PetTalkInputBar(
     val inputEnabled = enabled && !isWarmingModel
     val canSend = inputEnabled && text.isNotBlank() && !isVoiceListening
     val placeholder = when {
+        !isPetAlive -> "Hatch a new egg to talk again…"
         isWarmingModel -> "Warming up model…"
-        isGeneratingDialogue -> "nibbli is thinking…"
+        isUserTalkGenerating -> "nibbli is thinking…"
         isVoiceListening -> "Listening…"
         else -> "Message nibbli…"
     }
@@ -53,12 +59,14 @@ fun PetTalkInputBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        PetTalkToMeButton(
-            enabled = enabled,
-            isListening = isVoiceListening,
-            onClick = onTalkToMeClick,
-            iconOnly = true,
-        )
+        if (isPetAlive) {
+            PetTalkToMeButton(
+                enabled = micEnabled,
+                isListening = isVoiceListening,
+                onClick = onTalkToMeClick,
+                iconOnly = true,
+            )
+        }
 
         Surface(
             modifier = Modifier
@@ -99,26 +107,35 @@ fun PetTalkInputBar(
                         }
                     },
                 )
-                IconButton(
-                    onClick = {
-                        val message = text.trim()
-                        if (message.isEmpty() || !canSend) return@IconButton
-                        text = ""
-                        onSend(message)
-                    },
-                    enabled = canSend,
-                    modifier = Modifier.size(36.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        modifier = Modifier.size(18.dp),
-                        tint = if (canSend) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                if (isUserTalkGenerating) {
+                    TextButton(
+                        onClick = onStopClick,
+                        modifier = Modifier.widthIn(min = 48.dp),
+                    ) {
+                        Text("Stop", style = MaterialTheme.typography.labelMedium)
+                    }
+                } else {
+                    IconButton(
+                        onClick = {
+                            val message = text.trim()
+                            if (message.isEmpty() || !canSend) return@IconButton
+                            text = ""
+                            onSend(message)
                         },
-                    )
+                        enabled = canSend,
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            modifier = Modifier.size(18.dp),
+                            tint = if (canSend) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            },
+                        )
+                    }
                 }
             }
         }

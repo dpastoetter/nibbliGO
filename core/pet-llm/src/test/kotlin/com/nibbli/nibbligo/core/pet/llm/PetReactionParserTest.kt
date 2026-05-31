@@ -154,4 +154,26 @@ class PetReactionParserTest {
             PetReactionParser.normalizeFirstPersonDialogue("Nibbli, hello there!"),
         )
     }
+
+    @Test
+    fun normalizeFirstPersonDialogue_preserves_caretaker_vocative() {
+        assertEquals(
+            "Nibbli, welcome back!",
+            PetReactionParser.normalizeFirstPersonDialogue(
+                "Nibbli, welcome back!",
+                petName = "Pixel",
+                caretakerName = "Nibbli",
+            ),
+        )
+    }
+
+    @Test
+    fun parseTalk_preserves_caretaker_vocative_when_caretaker_is_nibbli() {
+        val reaction = PetReactionParser.parseTalk(
+            "Nibbli, hey there!|HAPPY",
+            petName = "Pixel",
+            caretakerName = "Nibbli",
+        )
+        assertEquals("Nibbli, hey there!", reaction.dialogue)
+    }
 }

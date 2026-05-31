@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
 import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -20,6 +21,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var huggingFaceAuthHandler: HuggingFaceAuthHandler
+    @Inject lateinit var petDeepLinkBus: PetDeepLinkBus
 
     private val requestNotificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -32,12 +34,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             NibbliAppWithTheme()
         }
+        handleDeepLink(intent)
         handleHuggingFaceRedirect(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        handleDeepLink(intent)
         handleHuggingFaceRedirect(intent)
     }
 
@@ -49,6 +53,14 @@ class MainActivity : ComponentActivity() {
             return
         }
         requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun handleDeepLink(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != "nibbli" || data.host != "challenge") return
+        if (data.path != "/catch") return
+        val score = data.getQueryParameter("score")?.toIntOrNull() ?: return
+        petDeepLinkBus.submitCatchChallenge(score)
     }
 
     private fun handleHuggingFaceRedirect(intent: Intent?) {
