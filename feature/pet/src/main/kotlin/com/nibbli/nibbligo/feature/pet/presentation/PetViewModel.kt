@@ -301,6 +301,21 @@ class PetViewModel @Inject constructor(
         _uiState.update { it.copy(petModelLabel = label, petModelInstalled = installed) }
     }
 
+    fun refreshPetModel() {
+        if (_uiState.value.isGeneratingDialogue) return
+        viewModelScope.launch {
+            if (!modelAvailabilityGate.hasUsableModel()) return@launch
+            try {
+                liteRtModelPreloader.reloadPrimaryModel()
+                refreshPetModelLabel()
+                _uiState.update { it.copy(statusMessage = "Model reloaded") }
+            } catch (e: Exception) {
+                Log.w(TAG, "Model reload failed", e)
+                _uiState.update { it.copy(statusMessage = "Model reload failed") }
+            }
+        }
+    }
+
     fun setHomeActive(active: Boolean) {
         homeActive.value = active
         if (active) {

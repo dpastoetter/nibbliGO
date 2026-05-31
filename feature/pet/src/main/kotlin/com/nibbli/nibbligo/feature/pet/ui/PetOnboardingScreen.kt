@@ -1,5 +1,6 @@
 package com.nibbli.nibbligo.feature.pet.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,12 +19,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -100,6 +103,10 @@ fun PetOnboardingScreen(
                             companionGoal = uiState.companionGoal,
                             onAboutYouChange = viewModel::updateAboutYou,
                             onCompanionGoalChange = viewModel::updateCompanionGoal,
+                        )
+                        5 -> TermsStep(
+                            accepted = uiState.termsAccepted,
+                            onAcceptedChange = viewModel::updateTermsAccepted,
                         )
                     }
                 }
@@ -289,4 +296,60 @@ private fun personalityBlurb(personality: PetPersonality): String = when (person
     PetPersonality.PLAYFUL -> "Bouncy, cheerful, and quick with a beep."
     PetPersonality.CALM -> "Gentle, steady, and soothing on your home screen."
     PetPersonality.CURIOUS -> "Inquisitive about apps, models, and what you're up to."
+}
+
+@Composable
+private fun TermsStep(
+    accepted: Boolean,
+    onAcceptedChange: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Before you meet nibbli",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = "Please read and accept the following to continue:",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "• You agree not to use nibbliGO for anything illegal or harmful.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                text = "• On-device generative AI can be wrong, incomplete, or inappropriate. " +
+                    "Verify important information yourself.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                text = "• The nibbliGO team is not liable for model errors, actions you take " +
+                    "based on outputs, or device resource use.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Text(
+                text = "• Pixel Friend chat runs on your phone — not sent to a cloud LLM for inference. " +
+                    "You remain responsible for how you use the app.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onAcceptedChange(!accepted) }
+                .padding(top = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(
+                checked = accepted,
+                onCheckedChange = onAcceptedChange,
+            )
+            Text(
+                text = "I agree to the above",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+    }
 }

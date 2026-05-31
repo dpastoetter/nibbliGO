@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,6 +31,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
+import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.ui.LoadingState
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
@@ -103,6 +105,7 @@ fun PetHomeScreen(
     val talkEnabled = pet.isAlive && !isUserTalkGenerating &&
         !uiState.isVoiceListening && !uiState.isWarmingModel
     val micEnabled = talkEnabled && uiState.petModelInstalled
+    val keyboardVisible = isKeyboardVisible()
 
     Box(modifier = modifier.fillMaxSize()) {
         NibbliAmbientBackground()
@@ -113,6 +116,9 @@ fun PetHomeScreen(
                 petModelLabel = uiState.petModelLabel,
                 statusMessage = uiState.statusMessage,
                 isWarmingModel = uiState.isWarmingModel,
+                petModelInstalled = uiState.petModelInstalled,
+                isGeneratingDialogue = uiState.isGeneratingDialogue,
+                onRefreshModel = viewModel::refreshPetModel,
             )
 
             if (!uiState.petModelInstalled) {
@@ -173,36 +179,45 @@ fun PetHomeScreen(
                 )
             }
 
-            PetTalkInputBar(
-                enabled = talkEnabled,
-                micEnabled = micEnabled,
-                isPetAlive = pet.isAlive,
-                isUserTalkGenerating = isUserTalkGenerating,
-                isVoiceListening = uiState.isVoiceListening,
-                onTalkToMeClick = launchVoiceTalk,
-                isWarmingModel = uiState.isWarmingModel,
-                onSend = { viewModel.onTalkSend(it) },
-                onStopClick = { viewModel.stopGeneration() },
+            Column(
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+                    .fillMaxWidth()
+                    .imePadding(),
+            ) {
+                PetTalkInputBar(
+                    enabled = talkEnabled,
+                    micEnabled = micEnabled,
+                    isPetAlive = pet.isAlive,
+                    isUserTalkGenerating = isUserTalkGenerating,
+                    isVoiceListening = uiState.isVoiceListening,
+                    onTalkToMeClick = launchVoiceTalk,
+                    isWarmingModel = uiState.isWarmingModel,
+                    onSend = { viewModel.onTalkSend(it) },
+                    onStopClick = { viewModel.stopGeneration() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
 
-            PetQuickActionStrip(
-                playEnabled = pet.isAlive,
-                shareEnabled = pet.isAlive,
-                onPlay = { viewModel.openMinigame() },
-                onShare = {
-                    viewModel.shareTodayCard(context) { intent ->
-                        context.startActivity(
-                            Intent.createChooser(intent, "Share nibbli"),
-                        )
-                    }
-                },
-                onPostcard = { viewModel.openPostcardSheet() },
-                onDiary = {
-                    context.startActivity(Intent.createChooser(viewModel.exportDiary(), "Export diary"))
-                },
-            )
+                if (!keyboardVisible) {
+                    PetQuickActionStrip(
+                        playEnabled = pet.isAlive,
+                        shareEnabled = pet.isAlive,
+                        onPlay = { viewModel.openMinigame() },
+                        onShare = {
+                            viewModel.shareTodayCard(context) { intent ->
+                                context.startActivity(
+                                    Intent.createChooser(intent, "Share nibbli"),
+                                )
+                            }
+                        },
+                        onPostcard = { viewModel.openPostcardSheet() },
+                        onDiary = {
+                            context.startActivity(Intent.createChooser(viewModel.exportDiary(), "Export diary"))
+                        },
+                    )
+                }
+            }
         }
 
         SnackbarHost(

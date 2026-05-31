@@ -72,6 +72,15 @@ class LiteRtModelPreloader @Inject constructor(
         lastPreloadedModelId = null
     }
 
+    /** Drops cached engines and reloads the primary Pixel Friend model from disk. */
+    suspend fun reloadPrimaryModel() {
+        if (!modelAvailabilityGate.hasUsableModel()) return
+        val modelId = petModelResolver.resolve()
+        inferenceRuntime.unloadModel(modelId)
+        invalidate()
+        preloadPrimaryModel(force = true)
+    }
+
     companion object {
         private const val TAG = "LiteRtModelPreloader"
     }

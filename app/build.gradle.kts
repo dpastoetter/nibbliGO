@@ -30,8 +30,8 @@ android {
         applicationId = "com.nibbli.nibbligo"
         minSdk = 31
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.9"
+        versionCode = 10
+        versionName = "1.0.10"
         testInstrumentationRunner = "com.nibbli.nibbligo.HiltTestRunner"
         manifestPlaceholders["appAuthRedirectScheme"] = "nibbli"
         buildConfigField("String", "HF_OAUTH_CLIENT_ID", "\"$hfClientId\"")

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.nibbli.nibbligo.core.domain.repository.BenchmarkRepository
@@ -119,6 +120,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val onboardingAboutYou = stringPreferencesKey("pet_onboarding_about")
     val onboardingGoal = stringPreferencesKey("pet_onboarding_goal")
     val modelSetupPromptDismissed = booleanPreferencesKey("model_setup_prompt_dismissed")
+    val termsAccepted = booleanPreferencesKey("terms_accepted")
+    val termsAcceptedAt = longPreferencesKey("terms_accepted_at")
   }
 
   override val defaultModelId: Flow<String?> =
@@ -206,6 +209,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
   override val modelSetupPromptDismissed: Flow<Boolean> =
     context.dataStore.data.map { it[Keys.modelSetupPromptDismissed] ?: false }
+
+  override val termsAccepted: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.termsAccepted] ?: false }
+
+  override suspend fun setTermsAccepted(acceptedAtMillis: Long) {
+    context.dataStore.edit { prefs ->
+      prefs[Keys.termsAccepted] = true
+      prefs[Keys.termsAcceptedAt] = acceptedAtMillis
+    }
+  }
 
   override suspend fun setDefaultModelId(modelId: String?) {
     context.dataStore.edit { prefs ->

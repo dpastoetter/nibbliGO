@@ -24,7 +24,9 @@ import com.nibbli.nibbligo.feature.promptlab.ui.PromptLabScreen
 import com.nibbli.nibbligo.feature.image.ui.AskImageScreen
 import com.nibbli.nibbligo.feature.models.ui.ModelsScreen
 import com.nibbli.nibbligo.feature.pet.ui.PetHomeScreen
+import com.nibbli.nibbligo.feature.settings.ui.BasicAiKnowledgeScreen
 import com.nibbli.nibbligo.feature.settings.ui.CompanionScreen
+import com.nibbli.nibbligo.feature.settings.ui.NibbliFaqScreen
 import com.nibbli.nibbligo.feature.settings.ui.SettingsScreen
 import com.nibbli.nibbligo.presentation.MainViewModel
 import com.nibbli.nibbligo.ui.ManageHubScreen
@@ -72,6 +74,8 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
                                 Routes.BENCHMARK,
                                 Routes.PROMPT_LAB,
                                 Routes.AGENT,
+                                Routes.FAQ_NIBBLIGO,
+                                Routes.FAQ_AI_BASICS,
                             )
                             else -> false
                         }
@@ -112,6 +116,8 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
             composable(Routes.PROMPT_LAB) { PromptLabScreen() }
             composable(Routes.SETTINGS) { SettingsScreen() }
             composable(Routes.COMPANION) { CompanionScreen() }
+            composable(Routes.FAQ_NIBBLIGO) { NibbliFaqScreen() }
+            composable(Routes.FAQ_AI_BASICS) { BasicAiKnowledgeScreen() }
             composable(Routes.MANAGE) { ManageHubScreen(navController) }
         }
     }

@@ -84,6 +84,7 @@ class LiteRtModelPreloaderTest {
             override val petOnboardingProfile = flowOf(PetOnboardingProfile(completed = true))
             override val onboardingCompleted = flowOf(true)
             override val modelSetupPromptDismissed = flowOf(false)
+    override val termsAccepted = flowOf(false)
             override suspend fun setDefaultModelId(modelId: String?) = Unit
             override suspend fun setPetModelId(modelId: String?) = Unit
             override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -99,6 +100,7 @@ class LiteRtModelPreloaderTest {
             override suspend fun setShowDoTab(show: Boolean) = Unit
             override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) = Unit
             override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
+            override suspend fun setTermsAccepted(acceptedAtMillis: Long) = Unit
             override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
         }
         val resolver = PetModelResolver(runtime, prefs, gate)

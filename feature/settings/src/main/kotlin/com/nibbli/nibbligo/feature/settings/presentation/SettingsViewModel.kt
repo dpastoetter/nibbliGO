@@ -148,8 +148,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.setLitertAccelerator(preference)
             liteRtEnginePool.unloadAll()
-            liteRtModelPreloader.invalidate()
-            liteRtModelPreloader.preloadPrimaryModel(force = true)
+            liteRtModelPreloader.reloadPrimaryModel()
         }
     }
 

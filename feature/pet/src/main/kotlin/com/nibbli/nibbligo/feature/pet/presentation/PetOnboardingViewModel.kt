@@ -26,9 +26,10 @@ data class PetOnboardingUiState(
     val personality: PetPersonality = PetPersonality.PLAYFUL,
     val aboutYou: String = "",
     val companionGoal: String = "",
+    val termsAccepted: Boolean = false,
     val isSaving: Boolean = false,
 ) {
-    val stepCount: Int = 5
+    val stepCount: Int = 6
 
     val canContinue: Boolean
         get() = when (stepIndex) {
@@ -36,6 +37,7 @@ data class PetOnboardingUiState(
             1 -> petName.trim().isNotBlank()
             2 -> caretakerName.trim().isNotBlank()
             3, 4 -> true
+            5 -> termsAccepted
             else -> false
         }
 }
@@ -90,6 +92,10 @@ class PetOnboardingViewModel @Inject constructor(
         _uiState.update { it.copy(companionGoal = value) }
     }
 
+    fun updateTermsAccepted(accepted: Boolean) {
+        _uiState.update { it.copy(termsAccepted = accepted) }
+    }
+
     fun nextStep() {
         _uiState.update { state ->
             if (state.stepIndex >= state.stepCount - 1) state
@@ -106,7 +112,7 @@ class PetOnboardingViewModel @Inject constructor(
 
     fun complete(onFinished: () -> Unit) {
         val state = _uiState.value
-        if (state.isSaving) return
+        if (state.isSaving || !state.termsAccepted) return
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             try {
@@ -117,6 +123,7 @@ class PetOnboardingViewModel @Inject constructor(
                     completed = true,
                 )
                 userPreferencesRepository.setPetOnboardingProfile(profile)
+                userPreferencesRepository.setTermsAccepted(System.currentTimeMillis())
                 userPreferencesRepository.setPetPersonality(state.personality)
                 val pet = petRepository.getPetState()
                 val trimmedPetName = state.petName.trim().ifBlank { "nibbli" }
@@ -135,9 +142,5 @@ class PetOnboardingViewModel @Inject constructor(
                 _uiState.update { it.copy(isSaving = false) }
             }
         }
-    }
-
-    private companion object {
-        const val STEP_COUNT = 5
     }
 }

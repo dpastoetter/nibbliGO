@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,6 +31,9 @@ fun PetHomeHeader(
     petModelLabel: String,
     statusMessage: String?,
     isWarmingModel: Boolean = false,
+    petModelInstalled: Boolean = false,
+    isGeneratingDialogue: Boolean = false,
+    onRefreshModel: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val need = PetNeedRules.deriveNeed(pet).takeIf { it != PetNeed.NONE }
@@ -87,7 +94,34 @@ fun PetHomeHeader(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
             )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
             OnDeviceBadge(compact = true, label = petModelLabel)
+            if (petModelInstalled) {
+                IconButton(
+                    onClick = onRefreshModel,
+                    enabled = !isWarmingModel && !isGeneratingDialogue,
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    if (isWarmingModel) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = "Reload model",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            }
         }
         if (pet.isAlive && !PetEngagementRules.dailyQuestComplete(pet.engagement)) {
             val quest = buildList {

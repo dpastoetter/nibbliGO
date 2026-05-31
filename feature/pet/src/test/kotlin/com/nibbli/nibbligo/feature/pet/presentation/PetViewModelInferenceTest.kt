@@ -312,7 +312,9 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val petOnboardingProfile = flowOf(PetOnboardingProfile(completed = true))
     override val onboardingCompleted = flowOf(true)
     override val modelSetupPromptDismissed = flowOf(true)
+    override val termsAccepted = flowOf(true)
     override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
+    override suspend fun setTermsAccepted(acceptedAtMillis: Long) = Unit
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit

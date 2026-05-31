@@ -57,8 +57,26 @@ class PetOnboardingViewModelTest {
     }
 
     @Test
-    fun stepCount_isFive() {
-        assertEquals(5, PetOnboardingUiState().stepCount)
+    fun stepCount_isSix() {
+        assertEquals(6, PetOnboardingUiState().stepCount)
+    }
+
+    @Test
+    fun canContinue_step5_requiresTermsAccepted() {
+        assertFalse(PetOnboardingUiState(stepIndex = 5, termsAccepted = false).canContinue)
+        assertTrue(PetOnboardingUiState(stepIndex = 5, termsAccepted = true).canContinue)
+    }
+
+    @Test
+    fun complete_persistsTermsAcceptance() = runTest {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        val prefs = OnboardingFakePrefs(PetOnboardingProfile(), PetPersonality.PLAYFUL)
+        val viewModel = createViewModel(prefs = prefs)
+        advanceUntilIdle()
+        viewModel.updateTermsAccepted(true)
+        viewModel.complete(onFinished = {})
+        advanceUntilIdle()
+        assertTrue(prefs.termsAcceptedAt != null)
     }
 
     @Test
@@ -88,8 +106,9 @@ class PetOnboardingViewModelTest {
         profile: PetOnboardingProfile = PetOnboardingProfile(),
         personality: PetPersonality = PetPersonality.PLAYFUL,
         petState: PetState = PetState(name = "nibbli"),
+        prefs: OnboardingFakePrefs? = null,
     ): PetOnboardingViewModel {
-        val prefs = OnboardingFakePrefs(profile, personality)
+        val preferences = prefs ?: OnboardingFakePrefs(profile, personality)
         val petRepo = object : PetRepository {
             override fun observePetState(): Flow<PetState> = flowOf(petState)
             override suspend fun getPetState(): PetState = petState
@@ -126,9 +145,9 @@ class PetOnboardingViewModelTest {
             )
             override fun resetHomeTalkSession(modelId: String) = Unit
         }
-        val resolver = PetModelResolver(runtime, prefs, gate)
-        val preloader = LiteRtModelPreloader(gate, resolver, runtime, prefs, petRepo)
-        return PetOnboardingViewModel(prefs, petRepo, preloader, runtime, resolver, gate)
+        val resolver = PetModelResolver(runtime, preferences, gate)
+        val preloader = LiteRtModelPreloader(gate, resolver, runtime, preferences, petRepo)
+        return PetOnboardingViewModel(preferences, petRepo, preloader, runtime, resolver, gate)
     }
 }
 
@@ -136,6 +155,7 @@ private class OnboardingFakePrefs(
     private val profile: PetOnboardingProfile,
     private val personality: PetPersonality,
 ) : UserPreferencesRepository {
+    var termsAcceptedAt: Long? = null
     override val defaultModelId = flowOf("smollm2-360m-instruct")
     override val petModelId = flowOf<String?>(null)
     override val generationParams = flowOf(GenerationParams())
@@ -153,6 +173,7 @@ private class OnboardingFakePrefs(
     override val petOnboardingProfile = flowOf(profile)
     override val onboardingCompleted = flowOf(profile.completed)
     override val modelSetupPromptDismissed = flowOf(false)
+    override val termsAccepted = flowOf(false)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit
@@ -168,5 +189,8 @@ private class OnboardingFakePrefs(
     override suspend fun setShowDoTab(show: Boolean) = Unit
     override suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile) = Unit
     override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
+    override suspend fun setTermsAccepted(acceptedAtMillis: Long) {
+        termsAcceptedAt = acceptedAtMillis
+    }
     override suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference) = Unit
 }

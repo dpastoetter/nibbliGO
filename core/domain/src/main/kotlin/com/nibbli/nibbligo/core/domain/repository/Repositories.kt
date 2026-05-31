@@ -81,6 +81,7 @@ interface UserPreferencesRepository {
     val litertAccelerator: Flow<LiteRtAcceleratorPreference>
     val petOnboardingProfile: Flow<PetOnboardingProfile>
     val onboardingCompleted: Flow<Boolean>
+    val termsAccepted: Flow<Boolean>
     val modelSetupPromptDismissed: Flow<Boolean>
     suspend fun setDefaultModelId(modelId: String?)
     suspend fun setPetModelId(modelId: String?)
@@ -97,5 +98,6 @@ interface UserPreferencesRepository {
     suspend fun setShowDoTab(show: Boolean)
     suspend fun setLitertAccelerator(preference: LiteRtAcceleratorPreference)
     suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile)
+    suspend fun setTermsAccepted(acceptedAtMillis: Long)
     suspend fun setModelSetupPromptDismissed(dismissed: Boolean)
 }

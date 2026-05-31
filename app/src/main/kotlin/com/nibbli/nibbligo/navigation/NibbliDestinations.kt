@@ -40,4 +40,6 @@ object Routes {
     const val COMPANION = "companion"
     const val AGENT = "agent"
     const val PROMPT_LAB = "prompt_lab"
+    const val FAQ_NIBBLIGO = "faq_nibbliGO"
+    const val FAQ_AI_BASICS = "faq_ai_basics"
 }

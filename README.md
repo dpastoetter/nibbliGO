@@ -35,7 +35,8 @@ Regenerate after UI changes:
 - Diary export and home-screen **widget**.
 - Pet engine **warm-loads** when you open Home so the first chip reply is faster.
 - Post-onboarding **model setup** banner prompts download of the recommended Pixel Friend model (collapsible; tap **Later** to tuck it away).
-- Home header badge shows the active **Pixel Friend model** and, after warm load, the LiteRT backend in use (**GPU**, **CPU**, or **NPU**).
+- First launch **onboarding** ends with a required terms step (legal use, on-device GenAI limitations, no liability) before **Meet nibbli**.
+- Home header badge shows the active **Pixel Friend model** and, after warm load, the LiteRT backend in use (**GPU**, **CPU**, or **NPU**). Tap the **refresh** icon beside the badge to unload and reload the model (e.g. after changing accelerator in Settings).
 - **P1 LCD** uses a unified card shell in light/dark themes; LCD pixels (sprites, text, props, scenes) render in fixed dark ink on the green screen.
 
 ### Chat — Pixel Friend
@@ -55,6 +56,7 @@ Regenerate after UI changes:
 - **Models** — download LiteRT weights from Hugging Face (see [Model catalog](#model-catalog) below).
 - **Companion** — profile, memory, **Pixel Friend talk model**, personality, comment-on-chat, mood pulse.
 - **Learn edge AI** — Benchmark, Prompt Lab, and Agent shortcuts with short on-device AI literacy copy.
+- **Help & learning** — read-only FAQ for nibbliGO (privacy, models, Home vs Chat, arcade, visits) and **Basic AI Knowledge** (what LLMs are, hallucinations, on-device vs cloud).
 - **Settings** — appearance (theme + **accent color**), privacy, storage, HF token, default app model, LiteRT accelerator, delete chat history.
 
 **Appearance** (in Settings): Light, Dark, **Super dark** (OLED-friendly), or System; five accent palettes — **Teal**, **Lavender**, **Sage**, **Dusk**, **Sand**.
@@ -99,7 +101,7 @@ Bottom tabs: **Home**, **Chat**, **Manage** (tabs stay visible while typing). Ag
 adb shell am start -n com.nibbli.nibbligo/.MainActivity
 ```
 
-1. Complete **onboarding** (5 steps) on first launch.
+1. Complete **onboarding** (6 steps, including terms acceptance) on first launch.
 2. **Manage → Models** — download **Qwen 2.5 1.5B Instruct** for Home talk (or **SmolLM2 360M** on emulator).
 3. **Home** — wait a few seconds for warm load; check the model badge (e.g. `SmolLM2 360M Instruct · CPU` on emulator); tap **How are you?** or type in the chat bar.
 4. **Manage → Learn edge AI → Agent** — install **FunctionGemma 270M** for tool calls; ask e.g. “draft an email about lunch”, then confirm.
@@ -214,7 +216,7 @@ Unit tests cover `PetSimulationEngine`, `PetLcdItemCatalog`, `PetEngagementEngin
 Debug APKs are built automatically when a version tag is pushed (`v*` or `debug-*`). Download the latest from [GitHub Releases](https://github.com/dpastoetter/nibbliGO/releases).
 
 ```bash
-git tag v1.0.9 && git push origin v1.0.9   # triggers release-apk workflow
+git tag v1.0.10 && git push origin v1.0.10   # triggers release-apk workflow
 ```
 
 Local build:

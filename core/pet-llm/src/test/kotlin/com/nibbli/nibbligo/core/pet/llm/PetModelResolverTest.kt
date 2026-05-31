@@ -82,6 +82,7 @@ private class FakePrefs(
     override val petOnboardingProfile = flowOf(com.nibbli.nibbligo.core.model.PetOnboardingProfile(completed = true))
     override val onboardingCompleted = flowOf(true)
     override val modelSetupPromptDismissed = flowOf(false)
+    override val termsAccepted = flowOf(false)
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: com.nibbli.nibbligo.core.model.GenerationParams) = Unit
@@ -97,6 +98,7 @@ private class FakePrefs(
     override suspend fun setShowDoTab(show: Boolean) = Unit
     override suspend fun setPetOnboardingProfile(profile: com.nibbli.nibbligo.core.model.PetOnboardingProfile) = Unit
     override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
+    override suspend fun setTermsAccepted(acceptedAtMillis: Long) = Unit
     override suspend fun setLitertAccelerator(preference: com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference) = Unit
 }
 

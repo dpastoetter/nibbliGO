@@ -8,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SmartToy
@@ -135,6 +137,30 @@ fun ManageHubScreen(navController: NavController) {
                     "exact prompts for A/B tests. Agent handles email and calendar with confirm-before-run.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = "Help & learning",
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(top = 16.dp, start = 4.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            NibbliActionTile(
+                icon = Icons.Outlined.HelpOutline,
+                label = "FAQ",
+                onClick = { navController.navigate(Routes.FAQ_NIBBLIGO) },
+                modifier = Modifier.weight(1f),
+            )
+            NibbliActionTile(
+                icon = Icons.Outlined.MenuBook,
+                label = "AI basics",
+                onClick = { navController.navigate(Routes.FAQ_AI_BASICS) },
+                modifier = Modifier.weight(1f),
             )
         }
     }
