@@ -216,7 +216,7 @@ Unit tests cover `PetSimulationEngine`, `PetLcdItemCatalog`, `PetEngagementEngin
 Debug APKs are built automatically when a version tag is pushed (`v*` or `debug-*`). Download the latest from [GitHub Releases](https://github.com/dpastoetter/nibbliGO/releases).
 
 ```bash
-git tag v1.0.10 && git push origin v1.0.10   # triggers release-apk workflow
+git tag v1.0.11 && git push origin v1.0.11   # triggers release-apk workflow
 ```
 
 Local build:

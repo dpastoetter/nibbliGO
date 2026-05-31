@@ -308,10 +308,20 @@ class PetViewModel @Inject constructor(
             try {
                 liteRtModelPreloader.reloadPrimaryModel()
                 refreshPetModelLabel()
-                _uiState.update { it.copy(statusMessage = "Model reloaded") }
+                showTransientStatusMessage("Model reloaded")
             } catch (e: Exception) {
                 Log.w(TAG, "Model reload failed", e)
-                _uiState.update { it.copy(statusMessage = "Model reload failed") }
+                showTransientStatusMessage("Model reload failed")
+            }
+        }
+    }
+
+    private fun showTransientStatusMessage(message: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(statusMessage = message) }
+            delay(STATUS_MESSAGE_DISMISS_MS)
+            _uiState.update { current ->
+                if (current.statusMessage == message) current.copy(statusMessage = null) else current
             }
         }
     }
@@ -1080,6 +1090,7 @@ class PetViewModel @Inject constructor(
         private const val MOOD_PULSE_COOLDOWN_MS = 45_000L
         private const val ACTIVITY_REACTION_DEBOUNCE_MS = 8_000L
         private const val WARM_LOAD_WAIT_MS = 15_000L
+        private const val STATUS_MESSAGE_DISMISS_MS = 5_000L
         private const val STREAM_UI_MIN_INTERVAL_MS = 33L
         private const val LETS_PLAY_CHIP = "Let's play!"
     }
