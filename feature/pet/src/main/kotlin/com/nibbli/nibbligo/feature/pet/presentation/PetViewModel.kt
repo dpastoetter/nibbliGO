@@ -6,7 +6,6 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.nibbli.nibbligo.core.domain.assist.AssistNavigationBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
@@ -36,7 +35,6 @@ import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
 import com.nibbli.nibbligo.feature.pet.domain.PetPostcard
 import com.nibbli.nibbligo.feature.pet.domain.PetVisitQrCodec
 import com.nibbli.nibbligo.feature.pet.domain.PetVisitQrExporter
-import com.nibbli.nibbligo.feature.pet.domain.PetNoticedStore
 import com.nibbli.nibbligo.feature.pet.domain.applyBorrowedSouvenir
 import com.nibbli.nibbligo.feature.pet.domain.removeBorrowedSouvenir
 import com.nibbli.nibbligo.feature.pet.domain.PetPostcardStore
@@ -90,6 +88,7 @@ data class PetUiState(
     val petModelLabel: String = "No model",
     val petModelInstalled: Boolean = false,
     val showModelSetupSheet: Boolean = false,
+    val modelSetupPromptDismissed: Boolean = false,
     val isPetModelDownloading: Boolean = false,
     val petModelDownloadProgress: Int = 0,
     val petModelSetupMessage: String? = null,
@@ -100,8 +99,6 @@ data class PetUiState(
     val catchGhostScore: Int? = null,
     val lastCatchScore: Int? = null,
     val lastCatchCombo: Int? = null,
-    val noticedToday: List<String> = emptyList(),
-    val visitStreak: Long = 0L,
     val pendingMemoryProposal: String? = null,
 )
 
@@ -115,7 +112,6 @@ class PetViewModel @Inject constructor(
     private val petTalkChatRecorder: PetTalkChatRecorder,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val engine: PetSimulationEngine,
-    private val assistNavigationBus: AssistNavigationBus,
     private val liteRtModelPreloader: LiteRtModelPreloader,
     private val petDeepLinkBus: PetDeepLinkBus,
     private val modelAvailabilityGate: ModelAvailabilityGate,
@@ -125,7 +121,6 @@ class PetViewModel @Inject constructor(
     private val workManager by lazy { WorkManager.getInstance(context) }
 
     private val postcardStore = PetPostcardStore(context)
-    private val noticedStore = PetNoticedStore(context)
 
     private val _uiState = MutableStateFlow(PetUiState())
     val uiState: StateFlow<PetUiState> = _uiState.asStateFlow()
@@ -175,19 +170,8 @@ class PetViewModel @Inject constructor(
                     PetEvent.ActionCompleted -> "nibbli noticed you finished something!"
                     else -> null
                 }
-                noticeForEvent(event)?.let { noticedStore.record(it) }
                 _uiState.update { it.copy(agentToast = toast) }
                 scheduleActivityReaction(event)
-            }
-        }
-        viewModelScope.launch {
-            noticedStore.observeToday().collect { lines ->
-                _uiState.update { it.copy(noticedToday = lines) }
-            }
-        }
-        viewModelScope.launch {
-            noticedStore.observeVisitStreak().collect { streak ->
-                _uiState.update { it.copy(visitStreak = streak) }
             }
         }
         startMoodPulseLoop()
@@ -199,6 +183,7 @@ class PetViewModel @Inject constructor(
         viewModelScope.launch {
             liteRtModelPreloader.isWarmingUp.collect { warming ->
                 _uiState.update { it.copy(isWarmingModel = warming) }
+                if (!warming) refreshPetModelLabel()
             }
         }
         viewModelScope.launch {
@@ -248,6 +233,7 @@ class PetViewModel @Inject constructor(
                 ModelSetupSnapshot(
                     hasModel = hasModel,
                     showSheet = showSheet,
+                    promptDismissed = promptDismissed,
                     downloading = downloading,
                     progress = progress,
                 )
@@ -256,6 +242,7 @@ class PetViewModel @Inject constructor(
                     it.copy(
                         petModelInstalled = snapshot.hasModel,
                         showModelSetupSheet = snapshot.showSheet,
+                        modelSetupPromptDismissed = snapshot.promptDismissed,
                         isPetModelDownloading = snapshot.downloading,
                         petModelDownloadProgress = snapshot.progress,
                     )
@@ -297,13 +284,20 @@ class PetViewModel @Inject constructor(
     private data class ModelSetupSnapshot(
         val hasModel: Boolean,
         val showSheet: Boolean,
+        val promptDismissed: Boolean,
         val downloading: Boolean,
         val progress: Int,
     )
 
     private suspend fun refreshPetModelLabel() {
-        val label = petReactionPort.activeModelDisplayName()
+        val name = petReactionPort.activeModelDisplayName()
         val installed = modelAvailabilityGate.hasUsableModel()
+        val backend = petReactionPort.activeBackendLabel()
+        val label = when {
+            !installed || name == "No model" -> name
+            backend != null -> "$name · $backend"
+            else -> name
+        }
         _uiState.update { it.copy(petModelLabel = label, petModelInstalled = installed) }
     }
 
@@ -313,7 +307,11 @@ class PetViewModel @Inject constructor(
             warmLoadDeferred = viewModelScope.async(Dispatchers.Default) {
                 petReactionPort.warmLoad()
             }
-            viewModelScope.launch { refreshPetModelLabel() }
+            viewModelScope.launch {
+                refreshPetModelLabel()
+                warmLoadDeferred?.await()
+                refreshPetModelLabel()
+            }
         } else {
             warmLoadDeferred?.cancel()
             warmLoadDeferred = null
@@ -405,16 +403,6 @@ class PetViewModel @Inject constructor(
             !ui.showTalkSheet &&
             !ui.showMinigame &&
             !ui.talkLcdMode
-    }
-
-    private fun noticeForEvent(event: PetEvent): String? = when (event) {
-        PetEvent.AssistantSuccess -> "You had a helpful Chat with ${_uiState.value.petState.name}."
-        PetEvent.AgentStepCompleted -> "Agent helped with email or calendar on-device."
-        PetEvent.ActionCompleted -> "You completed an on-device action."
-        is PetEvent.NewModelTried -> "You tried ${event.modelId} locally."
-        PetEvent.PromptLabRun -> "You ran a Prompt Lab experiment."
-        is PetEvent.SkillInvoked -> "Agent used skill ${event.skillId}."
-        else -> null
     }
 
     private fun scheduleActivityReaction(event: PetEvent) {
@@ -691,7 +679,6 @@ class PetViewModel @Inject constructor(
         }
         postcardStore.save(postcard)
         viewModelScope.launch {
-            noticedStore.recordVisitCheckIn(postcard.senderName)
             val previous = _uiState.value.visitPostcard
             var state = _uiState.value.petState
             if (previous != null) {
@@ -780,15 +767,6 @@ class PetViewModel @Inject constructor(
 
     fun setVoiceListening(listening: Boolean) {
         _uiState.update { it.copy(isVoiceListening = listening) }
-    }
-
-    fun submitVoiceToAssist(transcript: String) {
-        val trimmed = transcript.trim()
-        if (trimmed.isEmpty()) return
-        assistNavigationBus.openAgentWithMessage(trimmed)
-        _uiState.update {
-            it.copy(statusMessage = "Opening Agent — confirm before nibbli acts…")
-        }
     }
 
     fun approveMemoryProposal() {
@@ -976,7 +954,11 @@ class PetViewModel @Inject constructor(
                     applyReaction(
                         state,
                         request,
-                        PetReaction(dialogue = streamed.take(PetTalkLimits.RUNAWAY_MAX_CHARS)),
+                        PetReactionParser.parseTalk(
+                            streamed,
+                            state.name,
+                            request.caretakerName,
+                        ),
                     )
                     return
                 }
@@ -1001,6 +983,8 @@ class PetViewModel @Inject constructor(
                 PetReactionParser.reconcileTalkStream(
                     reaction,
                     _uiState.value.petState.dialogueLine,
+                    state.name,
+                    request.caretakerName,
                 )
             } else {
                 reaction

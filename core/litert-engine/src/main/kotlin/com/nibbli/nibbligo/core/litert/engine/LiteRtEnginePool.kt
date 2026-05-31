@@ -147,24 +147,39 @@ class LiteRtEnginePool @Inject constructor(
             )
 
             var lastError: Exception? = null
+            val attempted = backends.map { it.name }
             for (backend in backends) {
                 try {
                     val ensureStart = System.nanoTime()
                     val session = createSession(path, modelId, backend, tools, systemInstruction, profile)
                     LiteRtPetTiming.log("ensureSession", (System.nanoTime() - ensureStart) / 1_000_000)
+                    val fallbackNote = if (backend.name != attempted.firstOrNull()) {
+                        " (after ${attempted.takeWhile { it != backend.name }.joinToString("→") { it }} failed)"
+                    } else {
+                        ""
+                    }
                     Log.i(
                         TAG,
-                        "Loaded $modelId on ${backend.name} backend " +
+                        "Loaded $modelId on ${backend.name} backend$fallbackNote " +
                             "(tools=${tools.isNotEmpty()}, profile=$profile, pref=${preference.name.lowercase()})",
                     )
                     sessions[key] = session
                     return@withLock session
                 } catch (e: Exception) {
-                    Log.w(TAG, "Backend ${backend.name} failed for $modelId", e)
+                    Log.w(
+                        TAG,
+                        "Backend ${backend.name} failed for $modelId: ${e.message ?: e.javaClass.simpleName}",
+                        e,
+                    )
                     lastError = e
                     sessions.remove(key)?.let { closeSession(it) }
                 }
             }
+            Log.e(
+                TAG,
+                "All LiteRT backends failed for $modelId (tried ${attempted.joinToString("→")}). " +
+                    "On API 31+ devices, GPU needs OpenCL vendor libs declared in AndroidManifest.",
+            )
             throw lastError ?: IllegalStateException("Failed to load LiteRT model $modelId")
         }
     }

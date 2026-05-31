@@ -370,6 +370,8 @@ class LiteRTInferenceRuntime @Inject constructor(
         )
     }
 
+    override fun activeBackendFor(modelId: String): String? = enginePool.activeBackendFor(modelId)
+
     private companion object {
         const val FUNCTION_GEMMA_MODEL_ID = "functiongemma-270m"
     }

@@ -2,7 +2,6 @@ package com.nibbli.nibbligo.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,12 +54,9 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
         }
     }
 
-    val keyboardVisible = isKeyboardVisible()
-
     Scaffold(
         bottomBar = {
-            if (!keyboardVisible) {
-                NibbliBottomNavigationBar(
+            NibbliBottomNavigationBar(
                 items = visibleDestinations.map { destination ->
                     val selected = currentRoute?.startsWith(destination.route) == true ||
                         when (destination) {
@@ -95,7 +91,6 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
                     )
                 },
             )
-            }
         },
     ) { padding ->
         NavHost(

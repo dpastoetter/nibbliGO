@@ -27,7 +27,7 @@ fun PetQuickActionStrip(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         NibbliActionTile(
@@ -35,6 +35,7 @@ fun PetQuickActionStrip(
             label = "Play",
             enabled = playEnabled,
             onClick = onPlay,
+            compact = true,
             modifier = Modifier.weight(1f),
         )
         NibbliActionTile(
@@ -42,18 +43,21 @@ fun PetQuickActionStrip(
             label = "Share",
             enabled = shareEnabled,
             onClick = onShare,
+            compact = true,
             modifier = Modifier.weight(1f),
         )
         NibbliActionTile(
             icon = Icons.Outlined.Mail,
             label = "Visit",
             onClick = onPostcard,
+            compact = true,
             modifier = Modifier.weight(1f),
         )
         NibbliActionTile(
             icon = Icons.Outlined.AutoStories,
             label = "Diary",
             onClick = onDiary,
+            compact = true,
             modifier = Modifier.weight(1f),
         )
     }

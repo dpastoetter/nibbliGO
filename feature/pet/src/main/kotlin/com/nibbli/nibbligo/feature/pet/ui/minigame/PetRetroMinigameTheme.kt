@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -72,8 +73,9 @@ fun RetroArcadeShell(
             .fillMaxWidth(0.92f)
             .fillMaxHeight(0.88f)
             .heightIn(min = 420.dp)
-            .background(palette.shellBody, RoundedCornerShape(P1Theme.ShellRadius))
-            .border(2.dp, palette.shellBorder, RoundedCornerShape(P1Theme.ShellRadius))
+            .clip(RoundedCornerShape(P1Theme.ShellRadius))
+            .background(palette.shellBody)
+            .border(1.dp, palette.shellBorder, RoundedCornerShape(P1Theme.ShellRadius))
             .padding(12.dp),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -93,8 +95,9 @@ fun RetroArcadeShell(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(palette.lcdWell, RoundedCornerShape(4.dp))
-                    .padding(4.dp),
+                    .clip(RoundedCornerShape(P1Theme.LcdWellRadius))
+                    .background(palette.lcdWell)
+                    .padding(P1Theme.LcdMargin),
             ) {
                 content()
             }

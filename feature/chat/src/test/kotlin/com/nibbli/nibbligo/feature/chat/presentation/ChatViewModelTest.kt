@@ -154,7 +154,6 @@ private fun createViewModel(
 ): ChatViewModel {
     val prefs = FakeUserPreferencesRepository(petModelId)
     val petRepo = FakePetRepository()
-    val context = RuntimeEnvironment.getApplication()
     val recorder = PetTalkChatRecorder(
         chatRepository = chatRepository,
         petModelResolver = PetModelResolver(
@@ -168,7 +167,6 @@ private fun createViewModel(
         userPreferencesRepository = prefs,
     )
     return ChatViewModel(
-        context = context,
         chatRepository = chatRepository,
         modelRepository = FakeModelRepository(petModelId),
         userPreferencesRepository = prefs,

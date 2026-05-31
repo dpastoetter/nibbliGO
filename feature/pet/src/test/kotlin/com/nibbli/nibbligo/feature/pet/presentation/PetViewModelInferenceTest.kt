@@ -1,8 +1,6 @@
 package com.nibbli.nibbligo.feature.pet.presentation
 
 import android.content.Context
-import com.nibbli.nibbligo.core.domain.assist.AssistNavigationBus
-import com.nibbli.nibbligo.core.domain.assist.AssistVoiceRequestBus
 import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
 import com.nibbli.nibbligo.core.domain.event.PetEventBus
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
@@ -130,7 +128,6 @@ class PetViewModelInferenceTest {
             petTalkChatRecorder = createPetTalkChatRecorder(),
             userPreferencesRepository = FakeUserPreferencesRepository(),
             engine = PetSimulationEngine(),
-            assistNavigationBus = AssistNavigationBus(AssistVoiceRequestBus()),
             liteRtModelPreloader = createIdlePreloader(),
             petDeepLinkBus = PetDeepLinkBus(),
             modelAvailabilityGate = object : ModelAvailabilityGate {

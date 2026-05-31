@@ -54,13 +54,22 @@ object PetReactionParser {
         return false
     }
 
-    fun reconcileTalkStream(parsed: PetReaction, streamedText: String): PetReaction {
-        val streamed = stripForStreaming(streamedText).take(PetTalkLimits.RUNAWAY_MAX_CHARS)
-        if (streamed.isBlank()) return parsed
-        return if (streamed.length > parsed.dialogue.length) {
-            parsed.copy(dialogue = streamed)
+    fun reconcileTalkStream(
+        parsed: PetReaction,
+        streamedText: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): PetReaction {
+        val streamedReaction = parseTalk(streamedText, petName, caretakerName)
+        if (streamedReaction.dialogue.isBlank()) return parsed
+        val mergedExpression = parsed.suggestedExpression ?: streamedReaction.suggestedExpression
+        return if (streamedReaction.dialogue.length > parsed.dialogue.length) {
+            parsed.copy(
+                dialogue = streamedReaction.dialogue,
+                suggestedExpression = mergedExpression,
+            )
         } else {
-            parsed
+            parsed.copy(suggestedExpression = mergedExpression)
         }
     }
 
@@ -191,15 +200,62 @@ object PetReactionParser {
         return text.trim()
     }
 
+    private val EXPRESSION_PATTERN =
+        PetExpression.entries.joinToString("|") { Regex.escape(it.name) }
+
+    private val PUNCT_THEN_EXPRESSION = Regex(
+        """(?i)[!?.]\s+[\[(]?($EXPRESSION_PATTERN)[\])]?[.!?]*$""",
+    )
+
+    private val TRAILING_WORD_EXPRESSION = Regex(
+        """(?i)\s+($EXPRESSION_PATTERN)[.!?]*$""",
+    )
+
     internal fun splitDialogueAndExpression(line: String): Pair<String, PetExpression?> {
-        val pipe = line.lastIndexOf('|')
-        if (pipe <= 0 || pipe >= line.length - 1) {
-            return line.trim() to null
+        val trimmed = line.trim()
+        val pipe = trimmed.lastIndexOf('|')
+        if (pipe > 0 && pipe < trimmed.length - 1) {
+            val text = trimmed.substring(0, pipe).trim()
+            val tag = trimmed.substring(pipe + 1).trim().uppercase().trimEnd('.', '!', '?')
+            parseExpressionTag(tag)?.let { return text to it }
+            if (tag.isNotEmpty() && tag.all { it.isLetter() }) return text to null
         }
-        val text = line.substring(0, pipe).trim()
-        val tag = line.substring(pipe + 1).trim().uppercase()
-        val expression = runCatching { PetExpression.valueOf(tag) }.getOrNull()
-        return text to expression
+        return stripTrailingExpressionToken(trimmed)
+    }
+
+    private fun parseExpressionTag(tag: String): PetExpression? =
+        runCatching { PetExpression.valueOf(tag.uppercase()) }.getOrNull()
+
+    private fun stripTrailingExpressionToken(text: String): Pair<String, PetExpression?> {
+        val lines = text.lines().map { it.trim() }.filter { it.isNotBlank() }
+        if (lines.size >= 2) {
+            val last = lines.last()
+                .trimEnd('.', '!', '?')
+                .removeSurrounding("(", ")")
+                .removeSurrounding("[", "]")
+            parseExpressionTag(last)?.let { expr ->
+                return lines.dropLast(1).joinToString(" ") to expr
+            }
+        }
+
+        PUNCT_THEN_EXPRESSION.find(text)?.let { match ->
+            parseExpressionTag(match.groupValues[1])?.let { expr ->
+                val dialogue = text.substring(0, match.range.first + 1).trimEnd()
+                return dialogue to expr
+            }
+        }
+
+        TRAILING_WORD_EXPRESSION.find(text)?.let { match ->
+            val tag = match.groupValues[1]
+            if (tag == tag.uppercase() && tag.length >= 4 && match.range.first >= 4) {
+                parseExpressionTag(tag)?.let { expr ->
+                    val dialogue = text.substring(0, match.range.first).trimEnd(',', ' ')
+                    return dialogue to expr
+                }
+            }
+        }
+
+        return text.trim() to null
     }
 
     fun stripForStreaming(
@@ -210,9 +266,10 @@ object PetReactionParser {
         val normalized = normalizeRaw(partial, petName, caretakerName)
         val pipe = normalized.indexOf('|')
         val body = if (pipe >= 0) normalized.substring(0, pipe) else normalized
-        return collapseCommaRepetition(
+        val joined = collapseCommaRepetition(
             normalizedLines(body, petName, caretakerName).joinToString(" ").trim(),
         )
+        return splitDialogueAndExpression(joined).first
     }
 
     internal fun collapseCommaRepetition(text: String): String {

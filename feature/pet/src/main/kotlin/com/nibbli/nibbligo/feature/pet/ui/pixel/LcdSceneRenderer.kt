@@ -2,7 +2,6 @@ package com.nibbli.nibbligo.feature.pet.ui.pixel
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import com.nibbli.nibbligo.core.model.PetLcdScene
 import com.nibbli.nibbligo.core.model.equippedScene
@@ -28,7 +27,7 @@ fun DrawScope.drawLcdScene(
 
 private fun DrawScope.drawCozyScene(lcdScaleX: Float, colors: P1Colors) {
     val px = lcdScaleX
-    val dot = colors.lcdGreenDark.copy(alpha = 0.12f)
+    val dot = colors.lcdPixel.copy(alpha = 0.12f)
     var x = px * 4f
     while (x < size.width) {
         var y = px * 4f
@@ -72,7 +71,7 @@ private fun DrawScope.drawCloudsScene(
     zoneTopPx: Float,
 ) {
     val px = lcdScaleX
-    val band = colors.lcdGreenDark.copy(alpha = 0.14f)
+    val band = colors.lcdPixel.copy(alpha = 0.14f)
     listOf(0.18f, 0.42f, 0.66f).forEach { yFactor ->
         val y = (zoneTopPx + P1DisplaySpec.PET_ZONE_HEIGHT_PX * yFactor) * lcdScaleY
         drawRect(color = band, topLeft = Offset(px * 2f, y), size = Size(size.width - px * 4f, px * 1.2f))
@@ -86,13 +85,13 @@ private fun DrawScope.drawNightScene(
     frameIndex: Int,
     zoneTopPx: Float,
 ) {
-    drawRect(color = colors.lcdGreenDark.copy(alpha = 0.35f), size = size)
+    drawRect(color = colors.lcdPixel.copy(alpha = 0.25f), size = size)
     drawStarsScene(lcdScaleX, lcdScaleY, colors, frameIndex, zoneTopPx, P1DisplaySpec.PET_ZONE_HEIGHT_PX.toFloat())
     val px = lcdScaleX
     val moonX = P1DisplaySpec.LCD_WIDTH_PX * 0.82f
     val moonY = zoneTopPx + 6f
     drawRect(
-        color = Color(0xFF2A3A28),
+        color = colors.lcdPixel.copy(alpha = 0.85f),
         topLeft = Offset(moonX * lcdScaleX - px * 1.5f, moonY * lcdScaleY - px * 1.5f),
         size = Size(px * 3f, px * 3f),
     )

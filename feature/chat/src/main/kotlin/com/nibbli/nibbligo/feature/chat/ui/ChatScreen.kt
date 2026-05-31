@@ -30,6 +30,7 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSecondaryButton
 import com.nibbli.nibbligo.core.model.MessageRole
+import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
 import com.nibbli.nibbligo.core.ui.EmptyState
 import com.nibbli.nibbligo.feature.chat.presentation.ChatViewModel
 
@@ -116,7 +117,7 @@ fun ChatScreen(
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(
                 items = uiState.messages,
@@ -133,7 +134,11 @@ fun ChatScreen(
                     else -> "System"
                 }
                 NibbliMessageBubble(
-                    text = msg.content,
+                    text = if (msg.role == MessageRole.ASSISTANT) {
+                        PetReactionParser.parseTalk(msg.content, uiState.petName).dialogue
+                    } else {
+                        msg.content
+                    },
                     role = role,
                     label = label,
                 )

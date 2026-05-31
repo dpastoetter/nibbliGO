@@ -139,6 +139,12 @@ class LiteRtPetReactionGenerator @Inject constructor(
         return ModelCatalog.find(modelId)?.displayName ?: modelId
     }
 
+    override suspend fun activeBackendLabel(): String? {
+        if (!modelAvailabilityGate.hasUsableModel()) return null
+        val modelId = petModelResolver.resolve()
+        return inferenceRuntime.activeBackendFor(modelId)
+    }
+
     private suspend fun generateUserTalk(request: PetReactionRequest, modelId: String): PetReaction {
         val onboardingContext = resolveOnboardingContext(request.state.name)
         val parts = PetPromptBuilder.buildHomeTalkParts(request, modelId, onboardingContext)

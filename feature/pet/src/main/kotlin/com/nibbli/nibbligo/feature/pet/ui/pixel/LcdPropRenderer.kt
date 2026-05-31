@@ -49,7 +49,7 @@ private fun DrawScope.drawBallProp(
         size = Size(px * 2.4f, px * 2.4f),
     )
     drawRect(
-        color = colors.lcdGreen.copy(alpha = 0.5f),
+        color = colors.lcdPixel.copy(alpha = 0.35f),
         topLeft = Offset(cx * lcdScaleX - px * 0.4f, cy * lcdScaleY - px * 0.8f),
         size = Size(px * 0.6f, px * 0.6f),
     )
@@ -67,7 +67,7 @@ private fun DrawScope.drawPlantProp(
     val baseX = zoneWidthPx * 0.1f
     val baseY = zoneTopPx + zoneHeightPx * 0.72f
     drawRect(
-        color = colors.lcdGreenDark.copy(alpha = 0.7f),
+        color = colors.lcdPixel.copy(alpha = 0.55f),
         topLeft = Offset(baseX * lcdScaleX, baseY * lcdScaleY),
         size = Size(px * 2.2f, px * 2f),
     )
@@ -96,7 +96,7 @@ private fun DrawScope.drawBlanketProp(
     val top = zoneTopPx + zoneHeightPx * 0.82f
     val width = zoneWidthPx * 0.44f
     drawRect(
-        color = colors.lcdGreenDark.copy(alpha = 0.28f),
+        color = colors.lcdPixel.copy(alpha = 0.28f),
         topLeft = Offset(left * lcdScaleX, top * lcdScaleY),
         size = Size(width * lcdScaleX, px * 1.4f),
     )

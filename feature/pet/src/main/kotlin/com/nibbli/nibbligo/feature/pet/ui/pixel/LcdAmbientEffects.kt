@@ -5,6 +5,7 @@ import android.graphics.Typeface
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import com.nibbli.nibbligo.core.model.PetAnimation
@@ -138,7 +139,7 @@ private fun DrawScope.drawSleepZzz(
     frameIndex: Int,
 ) {
     val paint = Paint().apply {
-        color = android.graphics.Color.parseColor("#1A1A1E")
+        color = P1Theme.LcdInk.toArgb()
         textSize = 5f * lcdScaleX
         typeface = Typeface.MONOSPACE
         isAntiAlias = false

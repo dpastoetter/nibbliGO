@@ -20,11 +20,8 @@ import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
-import com.nibbli.nibbligo.feature.pet.domain.PetNoticedStore
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import android.content.Context
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +49,6 @@ data class ChatUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    @ApplicationContext context: Context,
     private val chatRepository: ChatRepository,
     private val modelRepository: ModelRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
@@ -64,7 +60,6 @@ class ChatViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val engine = PetSimulationEngine()
-    private val noticedStore = PetNoticedStore(context)
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -226,7 +221,6 @@ class ChatViewModel @Inject constructor(
             )
             _uiState.update { it.copy(isStreaming = false, streamingText = null) }
             viewModelScope.launch {
-                noticedStore.record("You chatted with ${petState.name} in Chat.")
                 petEventBus.emit(PetEvent.AssistantSuccess)
             }
         }

@@ -156,7 +156,8 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 16.dp),
             )
             Text(
-                "Auto uses per-model defaults (GPU when available). Emulators usually run on CPU.",
+                "Auto tries GPU first (OpenCL), then CPU. On Pixel and other API 31+ phones, GPU needs " +
+                    "vendor OpenCL libraries — nibbliGO declares these like Edge Gallery. Emulators stay on CPU.",
                 modifier = Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

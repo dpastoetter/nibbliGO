@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -90,7 +91,7 @@ fun P1LcdCanvas(
 
         drawRect(color = lcdBg, size = size)
         drawRect(
-            color = colors.lcdGreenDark,
+            color = colors.lcdPixel.copy(alpha = 0.35f),
             topLeft = Offset(scaleX, scaleY),
             size = Size(size.width - 2 * scaleX, size.height - 2 * scaleY),
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = scaleX),
@@ -206,6 +207,7 @@ fun P1LcdCanvas(
                 topPx = P1DisplaySpec.MENU_BAND_TOP_PX.toFloat(),
                 lcdScaleX = scaleX,
                 lcdScaleY = scaleY,
+                colors = colors,
             )
         }
 
@@ -287,11 +289,17 @@ private fun DrawScope.drawLcdPetSprite(
     }
 }
 
-private fun DrawScope.drawMenuLabel(label: String, topPx: Float, lcdScaleX: Float, lcdScaleY: Float) {
+private fun DrawScope.drawMenuLabel(
+    label: String,
+    topPx: Float,
+    lcdScaleX: Float,
+    lcdScaleY: Float,
+    colors: P1Colors,
+) {
     val text = label.uppercase().take(8)
     val textSizePx = 6f * lcdScaleX
     val paint = Paint().apply {
-        color = android.graphics.Color.parseColor("#1A1A1E")
+        color = colors.lcdPixel.toArgb()
         this.textSize = textSizePx
         typeface = Typeface.MONOSPACE
         isAntiAlias = false

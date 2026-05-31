@@ -38,4 +38,7 @@ interface PetReactionPort {
     suspend fun warmLoad()
 
     suspend fun activeModelDisplayName(): String
+
+    /** Active accelerator for the pet model (e.g. GPU, CPU), or null if not loaded yet. */
+    suspend fun activeBackendLabel(): String? = null
 }

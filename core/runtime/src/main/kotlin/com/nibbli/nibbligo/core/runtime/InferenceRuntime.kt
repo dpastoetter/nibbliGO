@@ -84,4 +84,7 @@ interface InferenceRuntime {
     fun capabilitiesFor(modelId: String): ModelCapabilities
 
     suspend fun generateWithTools(request: AgentRequest): RuntimeResult<AgentTurn>
+
+    /** Active LiteRT backend for a loaded model session (e.g. GPU, CPU), or null if not loaded. */
+    fun activeBackendFor(modelId: String): String? = null
 }

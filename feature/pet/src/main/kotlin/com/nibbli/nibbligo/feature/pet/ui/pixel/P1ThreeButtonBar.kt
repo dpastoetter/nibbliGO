@@ -67,7 +67,7 @@ private fun P1RecessedButton(
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (enabled) colors.shellShadow else colors.shellShadow.copy(alpha = 0.4f),
+            color = if (enabled) colors.buttonIcon else colors.buttonIcon.copy(alpha = 0.4f),
         )
     }
 }

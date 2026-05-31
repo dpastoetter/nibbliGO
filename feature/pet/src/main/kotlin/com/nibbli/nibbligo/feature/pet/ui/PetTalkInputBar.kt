@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 private val PetTalkInputShape = RoundedCornerShape(20.dp)
+private val PetTalkTrailingActionWidth = 52.dp
 
 @Composable
 fun PetTalkInputBar(
@@ -108,33 +109,44 @@ fun PetTalkInputBar(
                     },
                 )
                 if (isUserTalkGenerating) {
-                    TextButton(
-                        onClick = onStopClick,
-                        modifier = Modifier.widthIn(min = 48.dp),
+                    Box(
+                        modifier = Modifier
+                            .width(PetTalkTrailingActionWidth)
+                            .height(PetTalkActionHeight),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text("Stop", style = MaterialTheme.typography.labelMedium)
+                        TextButton(onClick = onStopClick) {
+                            Text("Stop", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 } else {
-                    IconButton(
-                        onClick = {
-                            val message = text.trim()
-                            if (message.isEmpty() || !canSend) return@IconButton
-                            text = ""
-                            onSend(message)
-                        },
-                        enabled = canSend,
-                        modifier = Modifier.size(36.dp),
+                    Box(
+                        modifier = Modifier
+                            .width(PetTalkTrailingActionWidth)
+                            .height(PetTalkActionHeight),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            modifier = Modifier.size(18.dp),
-                            tint = if (canSend) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        IconButton(
+                            onClick = {
+                                val message = text.trim()
+                                if (message.isEmpty() || !canSend) return@IconButton
+                                text = ""
+                                onSend(message)
                             },
-                        )
+                            enabled = canSend,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (canSend) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                },
+                            )
+                        }
                     }
                 }
             }

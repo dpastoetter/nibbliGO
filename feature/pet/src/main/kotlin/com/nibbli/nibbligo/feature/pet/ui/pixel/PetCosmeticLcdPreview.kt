@@ -54,7 +54,7 @@ fun PetCosmeticLcdPreview(
             )
         }
         drawRect(
-            color = colors.lcdGreenDark,
+            color = colors.lcdPixel.copy(alpha = 0.35f),
             topLeft = Offset(lcdScaleX, lcdScaleY),
             size = Size(size.width - 2 * lcdScaleX, size.height - 2 * lcdScaleY),
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = lcdScaleX),

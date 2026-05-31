@@ -25,7 +25,12 @@ fun NibbliActionTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    compact: Boolean = false,
 ) {
+    val tileHeight = if (compact) 48.dp else 72.dp
+    val iconSize = if (compact) 18.dp else 22.dp
+    val verticalPadding = if (compact) 4.dp else 8.dp
+    val labelTopPadding = if (compact) 2.dp else 4.dp
     val iconTint = if (enabled) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -43,19 +48,19 @@ fun NibbliActionTile(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
-        modifier = modifier.height(72.dp),
+        modifier = modifier.height(tileHeight),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .padding(horizontal = 4.dp, vertical = verticalPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(iconSize),
                 tint = iconTint,
             )
             Text(
@@ -66,7 +71,7 @@ fun NibbliActionTile(
                 color = labelColor,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp),
+                    .padding(top = labelTopPadding),
             )
         }
     }

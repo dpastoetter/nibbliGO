@@ -1,12 +1,9 @@
 package com.nibbli.nibbligo.core.designsystem.component
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,7 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -27,6 +24,11 @@ enum class NibbliMessageRole {
     SYSTEM,
     TOOL,
 }
+
+private val BubbleMaxWidth = 300.dp
+private val BubblePadding = 14.dp
+private val BubbleCornerLarge = 20.dp
+private val BubbleCornerSmall = 8.dp
 
 @Composable
 fun NibbliMessageBubble(
@@ -38,90 +40,92 @@ fun NibbliMessageBubble(
     bubbleColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
 ) {
     val isUser = role == NibbliMessageRole.USER
-    val resolvedBubbleColor = if (isUser && bubbleColor == MaterialTheme.colorScheme.surfaceContainerHigh) {
-        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-    } else {
-        bubbleColor
+    val isSystem = role == NibbliMessageRole.SYSTEM || role == NibbliMessageRole.TOOL
+
+    val colors = when {
+        isUser -> BubbleColors(
+            container = MaterialTheme.colorScheme.primaryContainer,
+            content = MaterialTheme.colorScheme.onPrimaryContainer,
+            label = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.72f),
+            border = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+        )
+        isSystem -> BubbleColors(
+            container = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            content = MaterialTheme.colorScheme.onSurfaceVariant,
+            label = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            border = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+        )
+        bubbleColor != MaterialTheme.colorScheme.surfaceContainerHigh -> BubbleColors(
+            container = bubbleColor,
+            content = MaterialTheme.colorScheme.onSurface,
+            label = MaterialTheme.colorScheme.onSurfaceVariant,
+            border = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+        )
+        else -> BubbleColors(
+            container = MaterialTheme.colorScheme.surfaceContainerLow,
+            content = MaterialTheme.colorScheme.onSurface,
+            label = MaterialTheme.colorScheme.onSurfaceVariant,
+            border = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+        )
     }
-    val borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+
     val bubbleShape = if (isUser) {
         RoundedCornerShape(
-            topStart = 20.dp,
-            topEnd = 4.dp,
-            bottomEnd = 20.dp,
-            bottomStart = 20.dp,
+            topStart = BubbleCornerLarge,
+            topEnd = BubbleCornerLarge,
+            bottomEnd = BubbleCornerSmall,
+            bottomStart = BubbleCornerLarge,
         )
     } else {
         RoundedCornerShape(
-            topStart = 4.dp,
-            topEnd = 20.dp,
-            bottomEnd = 20.dp,
-            bottomStart = 20.dp,
+            topStart = BubbleCornerLarge,
+            topEnd = BubbleCornerLarge,
+            bottomEnd = BubbleCornerLarge,
+            bottomStart = BubbleCornerSmall,
         )
     }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        label?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            )
-        }
-        Column(
-            modifier = Modifier.widthIn(max = 320.dp),
-            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
+        Surface(
+            modifier = Modifier.widthIn(max = BubbleMaxWidth),
+            shape = bubbleShape,
+            color = colors.container,
+            border = BorderStroke(1.dp, colors.border),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
         ) {
-            Surface(
-                shape = bubbleShape,
-                color = resolvedBubbleColor,
-                border = BorderStroke(1.dp, borderColor),
+            Column(
+                modifier = Modifier.padding(BubblePadding),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                label?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.label,
+                    )
+                }
                 Text(
                     text = text,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
                     style = MaterialTheme.typography.bodyMedium,
+                    color = colors.content,
                     maxLines = maxLines,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (isUser) {
-                Canvas(
-                    modifier = Modifier
-                        .padding(end = 12.dp)
-                        .height(10.dp)
-                        .fillMaxWidth(0.4f)
-                        .align(Alignment.End),
-                ) {
-                    val path = Path().apply {
-                        moveTo(size.width, 0f)
-                        lineTo(size.width * 0.65f, 0f)
-                        lineTo(size.width * 0.85f, size.height)
-                        close()
-                    }
-                    drawPath(path, resolvedBubbleColor)
-                }
-            } else {
-                Canvas(
-                    modifier = Modifier
-                        .padding(start = 12.dp)
-                        .height(10.dp)
-                        .fillMaxWidth(0.4f),
-                ) {
-                    val path = Path().apply {
-                        moveTo(0f, 0f)
-                        lineTo(size.width * 0.35f, 0f)
-                        lineTo(size.width * 0.15f, size.height)
-                        close()
-                    }
-                    drawPath(path, resolvedBubbleColor)
-                }
-            }
         }
     }
 }
+
+private data class BubbleColors(
+    val container: Color,
+    val content: Color,
+    val label: Color,
+    val border: Color,
+)

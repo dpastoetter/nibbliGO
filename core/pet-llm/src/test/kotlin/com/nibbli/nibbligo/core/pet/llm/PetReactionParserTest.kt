@@ -48,6 +48,48 @@ class PetReactionParserTest {
     }
 
     @Test
+    fun parseTalk_strips_space_separated_expression_tag() {
+        val reaction = PetReactionParser.parseTalk("Doing great! HAPPY")
+        assertEquals("Doing great!", reaction.dialogue)
+        assertEquals(PetExpression.HAPPY, reaction.suggestedExpression)
+    }
+
+    @Test
+    fun parseTalk_strips_expression_on_own_line_without_pipe() {
+        val reaction = PetReactionParser.parseTalk("Doing great!\nHUNGRY")
+        assertEquals("Doing great!", reaction.dialogue)
+        assertEquals(PetExpression.HUNGRY, reaction.suggestedExpression)
+    }
+
+    @Test
+    fun stripForStreaming_strips_trailing_expression_without_pipe() {
+        assertEquals("So cozy!", PetReactionParser.stripForStreaming("So cozy! HAPPY"))
+    }
+
+    @Test
+    fun reconcileTalkStream_strips_expression_from_streamed_text() {
+        val parsed = PetReactionParser.parseTalk("Hi.")
+        val reconciled = PetReactionParser.reconcileTalkStream(
+            parsed,
+            "Hi there, doing well today! HAPPY",
+        )
+        assertEquals("Hi there, doing well today!", reconciled.dialogue)
+        assertEquals(PetExpression.HAPPY, reconciled.suggestedExpression)
+    }
+
+    @Test
+    fun parseTalk_preserves_short_reply_when_trailing_word_is_not_tag() {
+        val reaction = PetReactionParser.parseTalk("I'm okay\nHunger")
+        assertEquals("I'm okay Hunger", reaction.dialogue)
+    }
+
+    @Test
+    fun parseTalk_does_not_strip_lowercase_mood_word_at_end() {
+        val reaction = PetReactionParser.parseTalk("I'm curious about your day")
+        assertEquals("I'm curious about your day", reaction.dialogue)
+    }
+
+    @Test
     fun reconcileTalkStream_keeps_longer_streamed_text() {
         val parsed = PetReactionParser.parseTalk("Hi.")
         val reconciled = PetReactionParser.reconcileTalkStream(parsed, "Hi there, doing well today!")
