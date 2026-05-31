@@ -184,6 +184,8 @@ fun rememberLcdPetMotion(
     pet: PetState,
     frameIndex: Int,
     tapBoost: Boolean = false,
+    phaseOffset: Float = 0f,
+    motionKey: String = "default",
 ): LcdPetMotion {
     if (pet.condition == PetCondition.DEAD) {
         return LcdPetMotion()
@@ -191,42 +193,42 @@ fun rememberLcdPetMotion(
     val profile = lcdMotionProfile(selection, pet)
     val moodMultiplier = moodMotionMultiplier(pet)
     val actionMultiplier = actionMotionMultiplier(pet.animation)
-    val infinite = rememberInfiniteTransition(label = "lcd_motion")
+    val infinite = rememberInfiniteTransition(label = "lcd_motion_$motionKey")
     val bobFast by infinite.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
+        initialValue = phaseOffset,
+        targetValue = 1f + phaseOffset,
         animationSpec = infiniteRepeatable(
             animation = tween(profile.bobPeriodMs, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
-        label = "lcd_bob_fast",
+        label = "lcd_bob_fast_$motionKey",
     )
     val bobSlow by infinite.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
+        initialValue = phaseOffset * 0.7f,
+        targetValue = 1f + phaseOffset * 0.7f,
         animationSpec = infiniteRepeatable(
             animation = tween((profile.bobPeriodMs * 1.65f).toInt(), easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
-        label = "lcd_bob_slow",
+        label = "lcd_bob_slow_$motionKey",
     )
     val sway by infinite.animateFloat(
-        initialValue = -1f,
-        targetValue = 1f,
+        initialValue = -1f + phaseOffset,
+        targetValue = 1f + phaseOffset,
         animationSpec = infiniteRepeatable(
             animation = tween(profile.swayPeriodMs, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
         ),
-        label = "lcd_sway",
+        label = "lcd_sway_$motionKey",
     )
     val hop by infinite.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
+        initialValue = phaseOffset,
+        targetValue = 1f + phaseOffset,
         animationSpec = infiniteRepeatable(
             animation = tween((profile.bobPeriodMs * 0.75f).toInt().coerceAtLeast(280), easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart,
         ),
-        label = "lcd_hop",
+        label = "lcd_hop_$motionKey",
     )
     val dualBob = bobFast * 0.55f + bobSlow * 0.45f
     val hopPulse = if (profile.hopAmplitudePx > 0f) {

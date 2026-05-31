@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo.feature.pet.domain
 
 import com.nibbli.nibbligo.core.model.LifeStage
+import com.nibbli.nibbligo.core.model.PetAnimation
 import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetExpression
@@ -47,15 +48,17 @@ data class PetPostcard(
         val prop = equippedProp?.let { PetLcdProp.fromId(it) }
         val expression = when {
             mood >= 75 -> PetExpression.HAPPY
-            mood >= 50 -> PetExpression.NEUTRAL
+            mood >= 50 -> PetExpression.HAPPY
             mood >= 30 -> PetExpression.ATTENTION
             else -> PetExpression.SICK
         }
+        val visitAnimation = if (mood >= 50) PetAnimation.PLAY else PetAnimation.IDLE
         return PetState(
             name = senderName,
             stage = stage,
             condition = PetCondition.HEALTHY,
             expression = expression,
+            animation = visitAnimation,
             careScore = careScore,
             dialogueLine = dialogueLine,
             stats = PetStats(mood = mood),
@@ -111,4 +114,16 @@ object PetPostcardCodec {
     fun encode(state: PetState): String = PetPostcard.fromPet(state).toJson()
 
     fun decode(raw: String): PetPostcard? = PetPostcard.fromJson(raw.trim())
+}
+
+/** Bouncier idle while a friend is visiting on the LCD. */
+fun PetState.forVisitPlaydate(): PetState = when {
+    condition == PetCondition.DEAD ||
+        condition == PetCondition.SLEEPING ||
+        animation == PetAnimation.SLEEP ||
+        animation == PetAnimation.PLAY ||
+        animation == PetAnimation.HAPPY ||
+        animation == PetAnimation.EAT ||
+        animation == PetAnimation.EVOLVE -> this
+    else -> copy(animation = PetAnimation.PLAY)
 }

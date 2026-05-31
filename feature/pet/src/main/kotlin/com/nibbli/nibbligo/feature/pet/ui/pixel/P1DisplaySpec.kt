@@ -36,6 +36,11 @@ object P1DisplaySpec {
     const val TALK_STAT_ICONS_START_PX =
         TALK_PET_LEFT_PX + BOTTOM_STRIP_SLOT_PX + BOTTOM_STRIP_GAP_PX
 
+    /** Side-by-side visit playdate — local left, guest right. */
+    const val VISIT_LEFT_SLOT_X = 4
+    const val VISIT_RIGHT_SLOT_X = 70
+    const val VISIT_SLOT_WIDTH_PX = 54
+
     const val TALK_REPLY_TOP_PX = 4
     const val TALK_REPLY_BOTTOM_PX = ICON_STRIP_TOP_PX - 2
     const val TALK_REPLY_LEFT_PX = TALK_STAT_ICONS_START_PX

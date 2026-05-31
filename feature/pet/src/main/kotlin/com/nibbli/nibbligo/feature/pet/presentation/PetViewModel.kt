@@ -490,25 +490,47 @@ class PetViewModel @Inject constructor(
         }
     }
 
-    fun shareTodayCard(): Intent = PetShareExporter.shareTodayCard(context, _uiState.value.petState)
+    fun shareTodayCard(shareContext: Context, onReady: (Intent) -> Unit) {
+        val pet = _uiState.value.petState
+        viewModelScope.launch {
+            val intent = PetShareExporter.shareTodayCard(shareContext, pet)
+            onReady(intent)
+        }
+    }
 
-    fun shareCatchCard(): Intent {
+    fun shareCatchCard(shareContext: Context, onReady: (Intent) -> Unit) {
         val ui = _uiState.value
-        return PetShareExporter.shareCatchCard(
-            context,
-            ui.petState,
-            ui.lastCatchScore ?: ui.petState.engagement.catchHighScore,
-            ui.lastCatchCombo ?: ui.petState.engagement.catchBestCombo,
-        )
+        viewModelScope.launch {
+            val intent = PetShareExporter.shareCatchCard(
+                shareContext,
+                ui.petState,
+                ui.lastCatchScore ?: ui.petState.engagement.catchHighScore,
+                ui.lastCatchCombo ?: ui.petState.engagement.catchBestCombo,
+            )
+            onReady(intent)
+        }
     }
 
-    fun shareEvolutionCard(): Intent? {
-        val stage = _uiState.value.evolutionShareStage ?: return null
-        return PetShareExporter.shareEvolutionCard(context, _uiState.value.petState, stage)
+    fun shareEvolutionCard(shareContext: Context, onReady: (Intent?) -> Unit) {
+        val stage = _uiState.value.evolutionShareStage
+        if (stage == null) {
+            onReady(null)
+            return
+        }
+        val pet = _uiState.value.petState
+        viewModelScope.launch {
+            val intent = PetShareExporter.shareEvolutionCard(shareContext, pet, stage)
+            onReady(intent)
+        }
     }
 
-    fun shareQuoteCard(): Intent =
-        PetShareExporter.shareQuoteCard(context, _uiState.value.petState, _uiState.value.petState.dialogueLine)
+    fun shareQuoteCard(shareContext: Context, onReady: (Intent) -> Unit) {
+        val pet = _uiState.value.petState
+        viewModelScope.launch {
+            val intent = PetShareExporter.shareQuoteCard(shareContext, pet, pet.dialogueLine)
+            onReady(intent)
+        }
+    }
 
     fun dismissEvolutionSharePrompt() {
         _uiState.update { it.copy(evolutionShareStage = null) }

@@ -39,8 +39,10 @@ fun P1LcdCanvas(
     tapBoost: Boolean = false,
     dialogueVisible: Boolean = false,
     talkLcdMode: Boolean = false,
+    visitPet: PetState? = null,
 ) {
     val atlas = ImageBitmap.imageResource(R.drawable.nibbli_sprites)
+    val dualVisit = visitPet != null && !talkLcdMode
     val selection = pet.resolveSprite()
     val frame = selection.frameAtIndex(frameIndex)
     val motion = rememberLcdPetMotion(
@@ -48,7 +50,21 @@ fun P1LcdCanvas(
         pet = pet,
         frameIndex = frameIndex,
         tapBoost = tapBoost,
+        motionKey = "local",
     )
+    val visitFrameIndex = frameIndex + 3
+    val visitSelection = visitPet?.resolveSprite()
+    val visitFrame = visitSelection?.frameAtIndex(visitFrameIndex)
+    val visitMotion = visitPet?.let { guest ->
+        rememberLcdPetMotion(
+            selection = visitSelection!!,
+            pet = guest,
+            frameIndex = visitFrameIndex,
+            tapBoost = false,
+            phaseOffset = 0.5f,
+            motionKey = "visit",
+        )
+    }
 
     val colors = p1Colors()
     val lcdBg = if (flash) colors.lcdGreenDark else colors.lcdGreen
@@ -83,25 +99,13 @@ fun P1LcdCanvas(
         val petZoneHeight = when {
             talkLcdMode -> P1DisplaySpec.BOTTOM_STRIP_SLOT_PX.toFloat()
             dialogueVisible -> (P1DisplaySpec.DIALOGUE_ZONE_TOP_PX - P1DisplaySpec.PET_ZONE_TOP_PX).toFloat()
-            frame == NibbliSpriteAtlas.Frame.EGG -> P1DisplaySpec.PET_ZONE_HEIGHT_PX * 0.65f
+            frame == NibbliSpriteAtlas.Frame.EGG && !dualVisit -> P1DisplaySpec.PET_ZONE_HEIGHT_PX * 0.65f
             else -> P1DisplaySpec.PET_ZONE_HEIGHT_PX.toFloat()
         }
-        val propOffset = if (talkLcdMode) 0f else petPropVerticalOffset(pet.equippedProp)
-        val zoneTopPx = if (talkLcdMode) {
-            P1DisplaySpec.BOTTOM_STRIP_TOP_PX.toFloat()
-        } else {
-            P1DisplaySpec.PET_ZONE_TOP_PX + motion.bobOffsetPx + propOffset
-        }
-        val zoneLeftPx = if (talkLcdMode) {
-            P1DisplaySpec.TALK_PET_LEFT_PX.toFloat()
-        } else {
-            0f
-        }
-        val zoneWidthPx = if (talkLcdMode) {
-            P1DisplaySpec.BOTTOM_STRIP_SLOT_PX.toFloat()
-        } else {
-            P1DisplaySpec.LCD_WIDTH_PX.toFloat()
-        }
+        val propOffset = if (talkLcdMode || dualVisit) 0f else petPropVerticalOffset(pet.equippedProp)
+        val sceneZoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX.toFloat()
+        val fullZoneWidthPx = P1DisplaySpec.LCD_WIDTH_PX.toFloat()
+
         if (!talkLcdMode) {
             drawLcdScene(
                 pet = pet,
@@ -109,74 +113,96 @@ fun P1LcdCanvas(
                 lcdScaleY = scaleY,
                 colors = colors,
                 frameIndex = frameIndex,
-                zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX.toFloat(),
+                zoneTopPx = sceneZoneTopPx,
                 zoneHeightPx = petZoneHeight,
             )
-            drawLcdProp(
-                pet = pet,
-                lcdScaleX = scaleX,
-                lcdScaleY = scaleY,
-                colors = colors,
-                frameIndex = frameIndex,
-                zoneTopPx = P1DisplaySpec.PET_ZONE_TOP_PX.toFloat(),
-                zoneHeightPx = petZoneHeight,
-                zoneWidthPx = zoneWidthPx,
-            )
+            if (!dualVisit) {
+                drawLcdProp(
+                    pet = pet,
+                    lcdScaleX = scaleX,
+                    lcdScaleY = scaleY,
+                    colors = colors,
+                    frameIndex = frameIndex,
+                    zoneTopPx = sceneZoneTopPx,
+                    zoneHeightPx = petZoneHeight,
+                    zoneWidthPx = fullZoneWidthPx,
+                )
+            }
         }
-        val talkSpriteScale = if (talkLcdMode) 1f else motion.scale
-        drawAtlasFrameInZone(
-            atlas = atlas,
-            frame = frame,
-            zoneLeftPx = zoneLeftPx,
-            zoneTopPx = zoneTopPx,
-            zoneWidthPx = zoneWidthPx,
-            zoneHeightPx = petZoneHeight,
-            lcdScaleX = scaleX,
-            lcdScaleY = scaleY,
-            swayOffsetPx = if (talkLcdMode) 0f else motion.swayOffsetPx,
-            spriteScale = talkSpriteScale,
-            spriteScaleY = if (talkLcdMode) 1f else motion.scaleY,
-            align = if (talkLcdMode) SpriteZoneAlign.BottomStart else SpriteZoneAlign.Center,
-        )
-        if (!talkLcdMode) {
-            drawLcdAmbientEffects(
+
+        if (dualVisit) {
+            val guest = visitPet!!
+            val guestSelection = visitSelection!!
+            val guestFrame = visitFrame!!
+            val guestMotion = visitMotion!!
+            val slotWidth = P1DisplaySpec.VISIT_SLOT_WIDTH_PX.toFloat()
+            drawLcdPetSprite(
+                atlas = atlas,
                 pet = pet,
                 frame = frame,
-                zoneTopPx = zoneTopPx,
+                frameIndex = frameIndex,
+                motion = motion,
+                zoneLeftPx = P1DisplaySpec.VISIT_LEFT_SLOT_X.toFloat(),
+                zoneTopPx = sceneZoneTopPx + motion.bobOffsetPx + propOffset,
+                zoneWidthPx = slotWidth,
                 zoneHeightPx = petZoneHeight,
                 lcdScaleX = scaleX,
                 lcdScaleY = scaleY,
                 colors = colors,
-                frameIndex = frameIndex,
+                drawAmbient = true,
             )
-        }
-        if (pet.showsCosmeticOverlay() && !talkLcdMode) {
-            val cosmetic = pet.equippedCosmetic!!
-            val overlayAlpha = when {
-                cosmetic == PetCosmetic.AURORA_AURA && frameIndex % 2 == 1 -> 0.65f
-                cosmetic == PetCosmetic.SPARKLE_COLLAR && frameIndex % 3 == 0 -> 0.85f
-                else -> 1f
-            }
-            drawCosmeticOverlayInZone(
+            drawLcdPetSprite(
                 atlas = atlas,
-                overlay = cosmetic.toOverlay(),
-                zoneLeftPx = 0f,
+                pet = guest,
+                frame = guestFrame,
+                frameIndex = visitFrameIndex,
+                motion = guestMotion,
+                zoneLeftPx = P1DisplaySpec.VISIT_RIGHT_SLOT_X.toFloat(),
+                zoneTopPx = sceneZoneTopPx + guestMotion.bobOffsetPx,
+                zoneWidthPx = slotWidth,
+                zoneHeightPx = petZoneHeight,
+                lcdScaleX = scaleX,
+                lcdScaleY = scaleY,
+                colors = colors,
+                drawAmbient = false,
+            )
+        } else {
+            val zoneTopPx = if (talkLcdMode) {
+                P1DisplaySpec.BOTTOM_STRIP_TOP_PX.toFloat()
+            } else {
+                sceneZoneTopPx + motion.bobOffsetPx + propOffset
+            }
+            val zoneLeftPx = if (talkLcdMode) {
+                P1DisplaySpec.TALK_PET_LEFT_PX.toFloat()
+            } else {
+                0f
+            }
+            val zoneWidthPx = if (talkLcdMode) {
+                P1DisplaySpec.BOTTOM_STRIP_SLOT_PX.toFloat()
+            } else {
+                fullZoneWidthPx
+            }
+            drawLcdPetSprite(
+                atlas = atlas,
+                pet = pet,
+                frame = frame,
+                frameIndex = frameIndex,
+                motion = motion,
+                zoneLeftPx = zoneLeftPx,
                 zoneTopPx = zoneTopPx,
                 zoneWidthPx = zoneWidthPx,
                 zoneHeightPx = petZoneHeight,
                 lcdScaleX = scaleX,
                 lcdScaleY = scaleY,
-                alpha = overlayAlpha,
-                swayOffsetPx = motion.swayOffsetPx,
-                spriteScale = motion.scale,
-                spriteScaleY = motion.scaleY,
+                colors = colors,
+                drawAmbient = !talkLcdMode,
+                talkLcdMode = talkLcdMode,
             )
         }
 
         if (!dialogueVisible && !talkLcdMode) {
-            val labelText = menuLabel
             drawMenuLabel(
-                label = labelText,
+                label = menuLabel,
                 topPx = P1DisplaySpec.MENU_BAND_TOP_PX.toFloat(),
                 lcdScaleX = scaleX,
                 lcdScaleY = scaleY,
@@ -190,6 +216,73 @@ fun P1LcdCanvas(
             lcdScaleY = scaleY,
             pulsePhase = statPulse,
             talkLcdMode = talkLcdMode,
+        )
+    }
+}
+
+private fun DrawScope.drawLcdPetSprite(
+    atlas: ImageBitmap,
+    pet: PetState,
+    frame: NibbliSpriteAtlas.Frame,
+    frameIndex: Int,
+    motion: LcdPetMotion,
+    zoneLeftPx: Float,
+    zoneTopPx: Float,
+    zoneWidthPx: Float,
+    zoneHeightPx: Float,
+    lcdScaleX: Float,
+    lcdScaleY: Float,
+    colors: P1Colors,
+    drawAmbient: Boolean,
+    talkLcdMode: Boolean = false,
+) {
+    val talkSpriteScale = if (talkLcdMode) 1f else motion.scale
+    drawAtlasFrameInZone(
+        atlas = atlas,
+        frame = frame,
+        zoneLeftPx = zoneLeftPx,
+        zoneTopPx = zoneTopPx,
+        zoneWidthPx = zoneWidthPx,
+        zoneHeightPx = zoneHeightPx,
+        lcdScaleX = lcdScaleX,
+        lcdScaleY = lcdScaleY,
+        swayOffsetPx = if (talkLcdMode) 0f else motion.swayOffsetPx,
+        spriteScale = talkSpriteScale,
+        spriteScaleY = if (talkLcdMode) 1f else motion.scaleY,
+        align = if (talkLcdMode) SpriteZoneAlign.BottomStart else SpriteZoneAlign.Center,
+    )
+    if (drawAmbient) {
+        drawLcdAmbientEffects(
+            pet = pet,
+            frame = frame,
+            zoneTopPx = zoneTopPx,
+            zoneHeightPx = zoneHeightPx,
+            lcdScaleX = lcdScaleX,
+            lcdScaleY = lcdScaleY,
+            colors = colors,
+            frameIndex = frameIndex,
+        )
+    }
+    if (pet.showsCosmeticOverlay() && !talkLcdMode) {
+        val cosmetic = pet.equippedCosmetic!!
+        val overlayAlpha = when {
+            cosmetic == PetCosmetic.AURORA_AURA && frameIndex % 2 == 1 -> 0.65f
+            cosmetic == PetCosmetic.SPARKLE_COLLAR && frameIndex % 3 == 0 -> 0.85f
+            else -> 1f
+        }
+        drawCosmeticOverlayInZone(
+            atlas = atlas,
+            overlay = cosmetic.toOverlay(),
+            zoneLeftPx = zoneLeftPx,
+            zoneTopPx = zoneTopPx,
+            zoneWidthPx = zoneWidthPx,
+            zoneHeightPx = zoneHeightPx,
+            lcdScaleX = lcdScaleX,
+            lcdScaleY = lcdScaleY,
+            alpha = overlayAlpha,
+            swayOffsetPx = motion.swayOffsetPx,
+            spriteScale = motion.scale,
+            spriteScaleY = motion.scaleY,
         )
     }
 }

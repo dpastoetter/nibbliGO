@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetState
+import com.nibbli.nibbligo.feature.pet.domain.forVisitPlaydate
 import kotlinx.coroutines.delay
 
 private enum class P1ShellMode {
@@ -45,6 +46,7 @@ fun P1DeviceShell(
     talkLcdMode: Boolean = false,
     onDismissTalkLcd: () -> Unit = {},
     visitLabel: String? = null,
+    visitPet: PetState? = null,
     carePet: PetState = pet,
     modifier: Modifier = Modifier,
 ) {
@@ -64,17 +66,20 @@ fun P1DeviceShell(
     var flash by remember { mutableStateOf(false) }
     var motionBoost by remember { mutableStateOf(false) }
     var frameIndex by remember { mutableIntStateOf(0) }
-    val displayPet = if (shellMode == P1ShellMode.ITEMS && currentPicker != null) {
-        carePet.withPickerPreview(currentPicker)
-    } else {
-        pet
+    val inItemMode = shellMode == P1ShellMode.ITEMS
+    val showDualVisit = visitPet != null && !talkLcdMode && !inItemMode
+    val lcdPet = when {
+        inItemMode && currentPicker != null -> carePet.withPickerPreview(currentPicker)
+        showDualVisit -> carePet.forVisitPlaydate()
+        else -> pet
     }
-    val selection = displayPet.resolveSprite()
+    val lcdVisitPet = if (showDualVisit) visitPet else null
+    val selection = lcdPet.resolveSprite()
     val spriteSequence = selection.toSequence()
 
-    LaunchedEffect(pet.isAlive, selection.primary, selection.alternate, pet.animation) {
+    LaunchedEffect(lcdPet.isAlive, selection.primary, selection.alternate, lcdPet.animation) {
         frameIndex = 0
-        if (!pet.isAlive) {
+        if (!lcdPet.isAlive) {
             return@LaunchedEffect
         }
         while (true) {
@@ -101,7 +106,6 @@ fun P1DeviceShell(
         motionBoost = true
     }
 
-    val inItemMode = shellMode == P1ShellMode.ITEMS
     val canCycle = carePet.isAlive && !inItemMode
     val canConfirm = if (inItemMode) {
         currentPicker != null && !currentPicker.isLocked
@@ -140,7 +144,8 @@ fun P1DeviceShell(
                 ),
         ) {
             P1LcdCanvas(
-                pet = displayPet,
+                pet = lcdPet,
+                visitPet = lcdVisitPet,
                 menuLabel = lcdMenuLabel,
                 frameIndex = frameIndex,
                 flash = flash,

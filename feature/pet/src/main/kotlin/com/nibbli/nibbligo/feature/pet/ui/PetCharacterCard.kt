@@ -28,6 +28,7 @@ fun PetCharacterCard(
     talkLcdMode: Boolean = false,
     onDismissTalkLcd: () -> Unit = {},
     visitLabel: String? = null,
+    visitPet: PetState? = null,
     carePet: PetState = pet,
     modifier: Modifier = Modifier,
 ) {
@@ -60,6 +61,7 @@ fun PetCharacterCard(
                     talkLcdMode = talkLcdMode,
                     onDismissTalkLcd = onDismissTalkLcd,
                     visitLabel = visitLabel,
+                    visitPet = visitPet,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

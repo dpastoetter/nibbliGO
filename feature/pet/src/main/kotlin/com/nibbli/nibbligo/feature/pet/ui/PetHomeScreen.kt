@@ -97,7 +97,7 @@ fun PetHomeScreen(
 
     val pet = uiState.petState
     val visitPostcard = uiState.visitPostcard
-    val displayPet = visitPostcard?.toVisitDisplayState() ?: pet
+    val visitPet = visitPostcard?.toVisitDisplayState()
     val displayDialogue = visitPostcard?.dialogueLine ?: pet.dialogueLine
     val isUserTalkGenerating = uiState.talkLcdMode && uiState.isGeneratingDialogue
     val talkEnabled = pet.isAlive && !isUserTalkGenerating &&
@@ -141,7 +141,8 @@ fun PetHomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         PetCharacterCard(
-                            pet = displayPet,
+                            pet = pet,
+                            visitPet = visitPet,
                             carePet = pet,
                             visitLabel = visitPostcard?.senderName,
                             onPetTap = { viewModel.onPetTapped() },
@@ -185,9 +186,11 @@ fun PetHomeScreen(
                 shareEnabled = pet.isAlive,
                 onPlay = { viewModel.openMinigame() },
                 onShare = {
-                    context.startActivity(
-                        Intent.createChooser(viewModel.shareTodayCard(), "Share nibbli"),
-                    )
+                    viewModel.shareTodayCard(context) { intent ->
+                        context.startActivity(
+                            Intent.createChooser(intent, "Share nibbli"),
+                        )
+                    }
                 },
                 onPostcard = { viewModel.openPostcardSheet() },
                 onDiary = {
@@ -223,10 +226,12 @@ fun PetHomeScreen(
             text = { Text("Show your friends your new ${stage.name.lowercase()}!") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.shareEvolutionCard()?.let { intent ->
-                        context.startActivity(Intent.createChooser(intent, "Share evolution"))
+                    viewModel.shareEvolutionCard(context) { intent ->
+                        intent?.let {
+                            context.startActivity(Intent.createChooser(it, "Share evolution"))
+                        }
+                        viewModel.dismissEvolutionSharePrompt()
                     }
-                    viewModel.dismissEvolutionSharePrompt()
                 }) {
                     Text("Share")
                 }
