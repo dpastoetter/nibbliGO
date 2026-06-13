@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":core:storage"))
     implementation(project(":core:runtime"))
     implementation(project(":core:agent"))
+    implementation(project(":core:pet-llm"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)

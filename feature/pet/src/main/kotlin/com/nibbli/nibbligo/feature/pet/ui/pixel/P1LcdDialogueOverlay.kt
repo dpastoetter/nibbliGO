@@ -2,7 +2,9 @@ package com.nibbli.nibbligo.feature.pet.ui.pixel
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -63,21 +65,26 @@ fun P1LcdDialogueOverlay(
                     start = maxWidth * startFraction,
                     end = maxWidth * endFraction,
                 ),
-            contentAlignment = Alignment.Center,
         ) {
             if (displayText.isNotBlank()) {
-                Text(
-                    text = displayText,
+                Column(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter)
                         .verticalScroll(scrollState),
-                    color = colors.lcdPixel,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = fontSize,
-                    lineHeight = lineHeight,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
-                )
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = displayText,
+                        modifier = Modifier.fillMaxWidth(),
+                        color = colors.lcdPixel,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = fontSize,
+                        lineHeight = lineHeight,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }

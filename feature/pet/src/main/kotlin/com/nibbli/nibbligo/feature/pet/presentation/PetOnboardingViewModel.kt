@@ -188,6 +188,11 @@ class PetOnboardingViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             try {
+                val trimmedPetName = state.petName.trim().ifBlank { "nibbli" }
+                val pet = petRepository.getPetState()
+                if (pet.name != trimmedPetName) {
+                    petRepository.savePetState(pet.copy(name = trimmedPetName))
+                }
                 val profile = PetOnboardingProfile(
                     caretakerName = state.caretakerName.trim(),
                     aboutYou = state.aboutYou.trim(),
@@ -197,11 +202,6 @@ class PetOnboardingViewModel @Inject constructor(
                 userPreferencesRepository.setPetOnboardingProfile(profile)
                 userPreferencesRepository.setTermsAccepted(System.currentTimeMillis())
                 userPreferencesRepository.setPetPersonality(state.personality)
-                val pet = petRepository.getPetState()
-                val trimmedPetName = state.petName.trim().ifBlank { "nibbli" }
-                if (pet.name != trimmedPetName) {
-                    petRepository.savePetState(pet.copy(name = trimmedPetName))
-                }
                 liteRtModelPreloader.invalidate()
                 runCatching {
                     if (modelAvailabilityGate.hasUsableModel()) {

@@ -21,14 +21,22 @@ import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetState
+import com.nibbli.nibbligo.core.runtime.InferenceRuntime
+import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
+import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
 import com.nibbli.nibbligo.core.pet.llm.PetReaction
 import com.nibbli.nibbligo.core.pet.llm.PetMemoryWriter
+import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
+import com.nibbli.nibbligo.core.model.CompanionMemoryFactSource
 import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
 import com.nibbli.nibbligo.core.pet.llm.PetReactionPort
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
 import com.nibbli.nibbligo.core.pet.llm.PetTalkLimits
+import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnCoordinator
+import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnState
+import com.nibbli.nibbligo.core.pet.llm.LastTalkTurn
 import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.feature.pet.domain.PetDiaryExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
@@ -123,6 +131,12 @@ class PetViewModel @Inject constructor(
     private val petEventBus: PetEventBus,
     private val petReactionPort: PetReactionPort,
     private val petTalkChatRecorder: PetTalkChatRecorder,
+    private val petTalkTurnCoordinator: PetTalkTurnCoordinator,
+    private val petTalkTurnState: PetTalkTurnState,
+    private val companionMemoryStore: CompanionMemoryStore,
+    private val companionTurnLog: CompanionTurnLog,
+    private val inferenceRuntime: InferenceRuntime,
+    private val petModelResolver: PetModelResolver,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val engine: PetSimulationEngine,
     private val liteRtModelPreloader: LiteRtModelPreloader,
@@ -137,6 +151,7 @@ class PetViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(PetUiState())
     val uiState: StateFlow<PetUiState> = _uiState.asStateFlow()
+    val lastTalkTurn: StateFlow<LastTalkTurn?> = petTalkTurnState.lastTurn
     private val homeActive = MutableStateFlow(false)
     private var lastReactionAtMillis = 0L
     private val pendingActivityHints = mutableListOf<String>()
@@ -183,6 +198,17 @@ class PetViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false) }
                 refreshPetModelLabel()
             }
+        }
+        viewModelScope.launch {
+            petRepository.observePetState()
+                .map { it.name }
+                .distinctUntilChanged()
+                .collect { name ->
+                    _uiState.update { ui ->
+                        if (ui.isLoading || ui.petState.name == name) ui
+                        else ui.copy(petState = ui.petState.copy(name = name))
+                    }
+                }
         }
         viewModelScope.launch {
             petEventBus.events.collect { event ->
@@ -859,15 +885,24 @@ class PetViewModel @Inject constructor(
 
     fun hatchNewEgg() {
         viewModelScope.launch {
-            val egg = engine.hatchNewEgg(_uiState.value.petState)
+            companionMemoryStore.carryOnHatch()
+            companionTurnLog.clearThread()
+            runCatching {
+                if (modelAvailabilityGate.hasUsableModel()) {
+                    inferenceRuntime.resetHomeTalkSession(petModelResolver.resolve())
+                }
+            }
+            val egg = engine.hatchNewEgg(petRepository.getPetState())
             persist(egg)
             _uiState.update {
                 it.copy(
                     statusMessage = "A new egg appeared!",
                     talkLcdMode = false,
                     talkHistory = emptyList(),
+                    pendingMemoryProposal = null,
                 )
             }
+            petTalkTurnCoordinator.clearTurn()
         }
     }
 
@@ -895,15 +930,13 @@ class PetViewModel @Inject constructor(
     fun approveMemoryProposal() {
         val proposal = _uiState.value.pendingMemoryProposal ?: return
         viewModelScope.launch {
-            val updated = _uiState.value.petState.copy(
-                memorySummary = PetMemoryWriter.appendFact(
-                    _uiState.value.petState.memorySummary,
-                    proposal,
-                ),
-            )
-            persist(updated)
+            companionMemoryStore.addFact(proposal, CompanionMemoryFactSource.USER_APPROVED)
             _uiState.update { it.copy(pendingMemoryProposal = null) }
         }
+    }
+
+    fun updateMemoryProposal(value: String) {
+        _uiState.update { it.copy(pendingMemoryProposal = value) }
     }
 
     fun dismissMemoryProposal() {
@@ -978,12 +1011,20 @@ class PetViewModel @Inject constructor(
         }
         val ui = _uiState.value
         val recentLines = talkHistoryToRecentLines(ui.talkHistory)
+        companionMemoryStore.ensureMigrated()
+        val syncedState = petRepository.getPetState()
+        val recentTurns = if (userMessage != null) {
+            companionTurnLog.recentTurns(excludeCurrentUserMessage = userMessage)
+        } else {
+            emptyList()
+        }
 
         val request = PetReactionRequest(
-            state = state,
+            state = syncedState,
             lastAction = lastAction,
             userMessage = userMessage,
             moodPulse = moodPulse,
+            recentTurns = recentTurns,
             recentLines = recentLines,
             activityHint = activityHint,
         )
@@ -1103,12 +1144,23 @@ class PetViewModel @Inject constructor(
         petStateMutex.withLock {
             lastReactionAtMillis = System.currentTimeMillis()
             val resolved = if (request.userMessage != null) {
-                PetReactionParser.reconcileTalkStream(
+                val userMsg = request.userMessage
+                var merged = PetReactionParser.reconcileTalkStream(
                     reaction,
                     _uiState.value.petState.dialogueLine,
                     state.name,
                     request.caretakerName,
                 )
+                if (merged.replySuggestions.isEmpty()) {
+                    merged = merged.copy(
+                        replySuggestions = petReactionPort.generateReplySuggestions(
+                            userMessage = userMsg!!,
+                            petDialogue = merged.dialogue,
+                            request = request,
+                        ),
+                    )
+                }
+                merged
             } else {
                 reaction
             }
@@ -1124,8 +1176,6 @@ class PetViewModel @Inject constructor(
                 if (proposal != null) {
                     _uiState.update { it.copy(pendingMemoryProposal = proposal) }
                 }
-            } else {
-                updated = PetMemoryWriter.withNewFact(updated, request, resolved.dialogue)
             }
             if (userMessage != null) {
                 _uiState.update {
@@ -1146,6 +1196,11 @@ class PetViewModel @Inject constructor(
                     request = request.copy(state = current),
                     assistantText = resolved.dialogue,
                     modelId = modelId,
+                )
+                petTalkTurnCoordinator.publishTurn(
+                    userMessage = userMessage!!,
+                    petDialogue = resolved.dialogue,
+                    replySuggestions = resolved.replySuggestions,
                 )
             }
         }

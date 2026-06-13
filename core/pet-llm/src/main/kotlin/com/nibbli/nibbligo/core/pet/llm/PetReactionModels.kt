@@ -5,6 +5,11 @@ import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.core.model.PetState
 import kotlinx.coroutines.flow.Flow
 
+data class TalkTurnPair(
+    val userMessage: String,
+    val petDialogue: String,
+)
+
 data class PetReactionRequest(
     val state: PetState,
     val lastAction: String? = null,
@@ -12,6 +17,8 @@ data class PetReactionRequest(
     val personality: PetPersonality = PetPersonality.PLAYFUL,
     /** Spontaneous ambient line while the user watches the pet home screen. */
     val moodPulse: Boolean = false,
+    /** Recent caretaker/pet turns from the shared Pixel Friend thread. */
+    val recentTurns: List<TalkTurnPair> = emptyList(),
     /** Recent lines the pet already said (for continuity). */
     val recentLines: List<String> = emptyList(),
     /** Context when reacting to app activity (agent, models, etc.). */
@@ -23,6 +30,7 @@ data class PetReactionRequest(
 data class PetReaction(
     val dialogue: String,
     val suggestedExpression: PetExpression? = null,
+    val replySuggestions: List<String> = emptyList(),
 )
 
 sealed interface PetReactionStreamEvent {
@@ -34,6 +42,12 @@ interface PetReactionPort {
     suspend fun generate(request: PetReactionRequest): PetReaction
 
     fun generateStream(request: PetReactionRequest): Flow<PetReactionStreamEvent>
+
+    suspend fun generateReplySuggestions(
+        userMessage: String,
+        petDialogue: String,
+        request: PetReactionRequest,
+    ): List<String>
 
     suspend fun warmLoad()
 

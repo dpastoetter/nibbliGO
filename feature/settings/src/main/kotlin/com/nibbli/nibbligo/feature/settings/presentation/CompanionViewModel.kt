@@ -6,10 +6,13 @@ import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.model.CompanionMemoryFact
+import com.nibbli.nibbligo.core.model.CompanionMemoryFactSource
 import com.nibbli.nibbligo.core.model.InstalledModel
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetOnboardingProfile
 import com.nibbli.nibbligo.core.model.PetPersonality
+import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
 import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
@@ -33,8 +36,8 @@ data class CompanionUiState(
     val caretakerName: String = "",
     val aboutYou: String = "",
     val companionGoal: String = "",
-    val memorySummary: String = "",
-    val memoryDraft: String = "",
+    val memoryFacts: List<CompanionMemoryFact> = emptyList(),
+    val newFactDraft: String = "",
     val companionSaveMessage: String? = null,
     val memorySaveMessage: String? = null,
 )
@@ -44,6 +47,7 @@ class CompanionViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val modelRepository: ModelRepository,
     private val petRepository: PetRepository,
+    private val companionMemoryStore: CompanionMemoryStore,
     private val liteRtModelPreloader: LiteRtModelPreloader,
     private val inferenceRuntime: InferenceRuntime,
     private val petModelResolver: PetModelResolver,
@@ -54,6 +58,7 @@ class CompanionViewModel @Inject constructor(
     val uiState: StateFlow<CompanionUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch { companionMemoryStore.ensureMigrated() }
         viewModelScope.launch {
             combine(
                 modelRepository.observeInstalled(),
@@ -64,6 +69,7 @@ class CompanionViewModel @Inject constructor(
                 userPreferencesRepository.petSoundHapticsEnabled,
                 userPreferencesRepository.petOnboardingProfile,
                 petRepository.observePetState(),
+                companionMemoryStore.observeFacts(),
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val installed = values[0] as List<InstalledModel>
@@ -74,6 +80,7 @@ class CompanionViewModel @Inject constructor(
                 val soundHaptics = values[5] as Boolean
                 val profile = values[6] as PetOnboardingProfile
                 val pet = values[7] as com.nibbli.nibbligo.core.model.PetState
+                val facts = values[8] as List<CompanionMemoryFact>
                 CompanionUiState(
                     installedModelIds = installed.map { it.modelId },
                     petModelId = petModelId,
@@ -85,16 +92,12 @@ class CompanionViewModel @Inject constructor(
                     caretakerName = profile.caretakerName,
                     aboutYou = profile.aboutYou,
                     companionGoal = profile.companionGoal,
-                    memorySummary = pet.memorySummary,
+                    memoryFacts = facts,
                 )
             }.collect { state ->
                 _uiState.update { current ->
                     state.copy(
-                        memoryDraft = if (current.memoryDraft.isEmpty() && state.memorySummary.isNotBlank()) {
-                            state.memorySummary
-                        } else {
-                            current.memoryDraft
-                        },
+                        newFactDraft = current.newFactDraft,
                         companionSaveMessage = current.companionSaveMessage,
                         memorySaveMessage = current.memorySaveMessage,
                     )
@@ -119,8 +122,29 @@ class CompanionViewModel @Inject constructor(
         _uiState.update { it.copy(companionGoal = value) }
     }
 
-    fun onMemoryDraftChange(value: String) {
-        _uiState.update { it.copy(memoryDraft = value) }
+    fun onNewFactDraftChange(value: String) {
+        _uiState.update { it.copy(newFactDraft = value) }
+    }
+
+    fun addMemoryFact() {
+        val draft = _uiState.value.newFactDraft.trim()
+        if (draft.isBlank()) return
+        viewModelScope.launch {
+            companionMemoryStore.addFact(draft, CompanionMemoryFactSource.MANUAL)
+            _uiState.update {
+                it.copy(
+                    newFactDraft = "",
+                    memorySaveMessage = "Memory saved",
+                )
+            }
+        }
+    }
+
+    fun removeMemoryFact(id: String) {
+        viewModelScope.launch {
+            companionMemoryStore.removeFact(id)
+            _uiState.update { it.copy(memorySaveMessage = "Memory updated") }
+        }
     }
 
     fun saveCompanionProfile() {
@@ -149,26 +173,15 @@ class CompanionViewModel @Inject constructor(
         }
     }
 
-    fun saveMemory() {
-        val draft = _uiState.value.memoryDraft.trim()
+    fun clearAllMemory() {
         viewModelScope.launch {
-            val pet = petRepository.getPetState()
-            petRepository.savePetState(pet.copy(memorySummary = draft))
+            companionMemoryStore.clearAll()
             _uiState.update {
                 it.copy(
-                    memorySummary = draft,
-                    memorySaveMessage = if (draft.isBlank()) "Memory cleared" else "Memory saved",
+                    newFactDraft = "",
+                    memorySaveMessage = "Memory cleared",
                 )
             }
-        }
-    }
-
-    fun clearMemory() {
-        _uiState.update { it.copy(memoryDraft = "", memorySummary = "") }
-        viewModelScope.launch {
-            val pet = petRepository.getPetState()
-            petRepository.savePetState(pet.copy(memorySummary = ""))
-            _uiState.update { it.copy(memorySaveMessage = "Memory cleared") }
         }
     }
 

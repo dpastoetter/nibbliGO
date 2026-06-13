@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetState
@@ -320,23 +319,12 @@ private fun DrawScope.drawStatIconStrip(
     pulsePhase: Float,
     talkLcdMode: Boolean = false,
 ) {
-    val icons = buildList {
-        add(P1StatIcon.HUNGER to (pet.stats.hunger < 45))
-        add(P1StatIcon.HAPPY to (pet.stats.happiness < 45))
-        add(P1StatIcon.ENERGY to (pet.stats.energy < 30))
-        if (pet.hasMess) add(P1StatIcon.MESS to true)
-        if (pet.condition == PetCondition.SICK || pet.stats.health < 35) {
-            add(P1StatIcon.SICK to true)
-        }
-    }.take(4)
+    val icons = buildP1StatIcons(pet)
+    if (icons.isEmpty()) return
 
-    val iconPx = P1DisplaySpec.ICON_SIZE_PX * P1DisplaySpec.ICON_SCALE
-    val totalWidth = icons.size * iconPx + (icons.size - 1).coerceAtLeast(0) * P1DisplaySpec.BOTTOM_STRIP_GAP_PX
-    var x = if (talkLcdMode) {
-        P1DisplaySpec.TALK_STAT_ICONS_START_PX.toFloat()
-    } else {
-        (P1DisplaySpec.LCD_WIDTH_PX - totalWidth) / 2f
-    }
+    val layout = computeP1StatIconLayout(icons.size, talkLcdMode)
+    val iconPx = P1DisplaySpec.ICON_SIZE_PX * layout.iconScale
+    var x = layout.startXPx
     val y = P1DisplaySpec.ICON_STRIP_TOP_PX.toFloat()
 
     icons.forEach { (icon, alert) ->
@@ -347,7 +335,7 @@ private fun DrawScope.drawStatIconStrip(
         drawP1Icon(
             icon = icon,
             topLeft = Offset(x * lcdScaleX, y * lcdScaleY),
-            scale = P1DisplaySpec.ICON_SCALE * lcdScaleX,
+            scale = layout.iconScale * lcdScaleX,
             color = colors.lcdPixel.copy(alpha = alpha),
         )
         x += iconPx + P1DisplaySpec.BOTTOM_STRIP_GAP_PX

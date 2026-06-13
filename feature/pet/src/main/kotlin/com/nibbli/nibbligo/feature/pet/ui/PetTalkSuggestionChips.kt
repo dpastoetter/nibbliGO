@@ -10,20 +10,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
-
-private val DEFAULT_CHIPS = listOf(
-    "How are you?",
-    "Good morning",
-    "Let's play!",
-)
+import com.nibbli.nibbligo.core.pet.llm.PetTalkSuggestions
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PetTalkSuggestionChips(
+    chips: List<String>,
     enabled: Boolean,
     onChipClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (chips.isEmpty()) return
     FlowRow(
         modifier = modifier
             .fillMaxWidth()
@@ -31,7 +28,7 @@ fun PetTalkSuggestionChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
     ) {
-        DEFAULT_CHIPS.forEach { chip ->
+        chips.forEach { chip ->
             NibbliSuggestionChip(
                 label = chip,
                 selected = false,
@@ -40,4 +37,18 @@ fun PetTalkSuggestionChips(
             )
         }
     }
+}
+
+@Composable
+fun PetTalkSuggestionChips(
+    enabled: Boolean,
+    onChipClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    PetTalkSuggestionChips(
+        chips = PetTalkSuggestions.starterChips,
+        enabled = enabled,
+        onChipClick = onChipClick,
+        modifier = modifier,
+    )
 }

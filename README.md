@@ -231,7 +231,7 @@ Fresh onboarding test: `adb shell pm clear com.nibbli.nibbligo` then relaunch.
 | Game help (Talk) | Ask about care, evolution, LCD Items, arcade, visits — pet answers in character using an on-device FAQ knowledge base |
 | Home + Chat history | One **Pixel Friend (Home)** thread — user and assistant lines only |
 | Pet events | Chat, Agent, and actions emit [`PetEvent`](core/model) → mood/trust bumps and optional LCD reactions |
-| Memory | User-approved facts from talk; Agent gets profile + memory as local context |
+| Memory | Structured facts in Companion settings; injected into Home + Chat talk and Agent context |
 | Widget | Glance widget reads [`PetWidgetSnapshot`](feature/pet/src/main/kotlin/com/nibbli/nibbligo/feature/pet/widget/PetWidgetSnapshot.kt) — glyph, mood, streak, need, quest progress |
 
 Care works without a model; **Talk**, voice, and LLM mood lines need a downloaded `.litertlm` file.

@@ -107,14 +107,37 @@ class PetOnboardingViewModelTest {
         assertEquals(PetPersonality.CALM, state.personality)
     }
 
+    @Test
+    fun complete_persistsPetName() = runTest {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        var savedPet: PetState? = null
+        val petRepo = object : PetRepository {
+            override fun observePetState(): Flow<PetState> = flowOf(PetState(name = "nibbli"))
+            override suspend fun getPetState(): PetState = savedPet ?: PetState(name = "nibbli")
+            override suspend fun savePetState(state: PetState) {
+                savedPet = state
+            }
+        }
+        val prefs = OnboardingFakePrefs(PetOnboardingProfile(), PetPersonality.PLAYFUL)
+        val viewModel = createViewModel(prefs = prefs, petRepo = petRepo)
+        advanceUntilIdle()
+        viewModel.updatePetName("Buddy")
+        viewModel.updateCaretakerName("Alex")
+        viewModel.updateTermsAccepted(true)
+        viewModel.complete(onFinished = {})
+        advanceUntilIdle()
+        assertEquals("Buddy", savedPet?.name)
+    }
+
     private fun createViewModel(
         profile: PetOnboardingProfile = PetOnboardingProfile(),
         personality: PetPersonality = PetPersonality.PLAYFUL,
         petState: PetState = PetState(name = "nibbli"),
         prefs: OnboardingFakePrefs? = null,
+        petRepo: PetRepository? = null,
     ): PetOnboardingViewModel {
         val preferences = prefs ?: OnboardingFakePrefs(profile, personality)
-        val petRepo = object : PetRepository {
+        val repository = petRepo ?: object : PetRepository {
             override fun observePetState(): Flow<PetState> = flowOf(petState)
             override suspend fun getPetState(): PetState = petState
             override suspend fun savePetState(state: PetState) = Unit
@@ -151,7 +174,7 @@ class PetOnboardingViewModelTest {
             override fun resetHomeTalkSession(modelId: String) = Unit
         }
         val resolver = PetModelResolver(runtime, preferences, gate)
-        val preloader = LiteRtModelPreloader(gate, resolver, runtime, preferences, petRepo)
+        val preloader = LiteRtModelPreloader(gate, resolver, runtime, preferences, repository)
         val modelRepo = object : ModelRepository {
             override fun observeCatalog(): Flow<List<ModelInfo>> = flowOf(emptyList())
             override fun observeInstalled(): Flow<List<InstalledModel>> = flowOf(emptyList())
@@ -166,7 +189,7 @@ class PetOnboardingViewModelTest {
         return PetOnboardingViewModel(
             context,
             preferences,
-            petRepo,
+            repository,
             modelRepo,
             preloader,
             runtime,

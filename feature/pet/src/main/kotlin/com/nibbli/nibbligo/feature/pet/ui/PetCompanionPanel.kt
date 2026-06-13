@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -28,21 +26,16 @@ fun PetCompanionPanel(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .alpha(if (dimmed) 0.45f else 1f),
+            .alpha(if (dimmed) 0.55f else 1f),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (dimmed) {
-                Text(
-                    text = "Mood ${stats.mood} · Trust ${stats.trust} · Energy ${stats.energy}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                PetStatStrip(stats = stats)
+        Column(verticalArrangement = Arrangement.spacedBy(if (dimmed) 8.dp else 12.dp)) {
+            PetStatStrip(stats = stats, compact = dimmed)
+            if (talkHistory.isNotEmpty()) {
                 PetTalkHistory(
                     talkHistory = talkHistory,
                     streamingDialogue = streamingDialogue,
                     isGeneratingDialogue = isGeneratingDialogue,
+                    maxContentHeight = if (dimmed) 140.dp else 220.dp,
                 )
             }
         }

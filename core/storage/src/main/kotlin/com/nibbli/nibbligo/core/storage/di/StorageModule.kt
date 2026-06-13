@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.core.storage.di
 import android.content.Context
 import androidx.room.Room
 import com.nibbli.nibbligo.core.domain.repository.BenchmarkRepository
+import com.nibbli.nibbligo.core.domain.repository.CompanionMemoryRepository
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
@@ -15,6 +16,7 @@ import com.nibbli.nibbligo.core.storage.repository.ActionHistoryRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.SkillPackageRepositoryImpl
 import com.nibbli.nibbligo.core.storage.local.NibbliDatabase
 import com.nibbli.nibbligo.core.storage.repository.BenchmarkRepositoryImpl
+import com.nibbli.nibbligo.core.storage.repository.CompanionMemoryRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.ChatRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.ModelRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.PetRepositoryImpl
@@ -44,6 +46,7 @@ object DatabaseModule {
       .build()
 
   @Provides fun providePetStateDao(db: NibbliDatabase) = db.petStateDao()
+  @Provides fun provideCompanionMemoryFactDao(db: NibbliDatabase) = db.companionMemoryFactDao()
   @Provides fun provideModelInstallDao(db: NibbliDatabase) = db.modelInstallDao()
   @Provides fun provideConversationDao(db: NibbliDatabase) = db.conversationDao()
   @Provides fun provideMessageDao(db: NibbliDatabase) = db.messageDao()
@@ -59,6 +62,9 @@ object DatabaseModule {
 abstract class RepositoryModule {
   @Binds @Singleton abstract fun bindModelRepository(impl: ModelRepositoryImpl): ModelRepository
   @Binds @Singleton abstract fun bindPetRepository(impl: PetRepositoryImpl): PetRepository
+  @Binds @Singleton abstract fun bindCompanionMemoryRepository(
+    impl: CompanionMemoryRepositoryImpl,
+  ): CompanionMemoryRepository
   @Binds @Singleton abstract fun bindChatRepository(impl: ChatRepositoryImpl): ChatRepository
   @Binds @Singleton abstract fun bindPromptRepository(impl: PromptRepositoryImpl): PromptRepository
   @Binds @Singleton abstract fun bindBenchmarkRepository(impl: BenchmarkRepositoryImpl): BenchmarkRepository

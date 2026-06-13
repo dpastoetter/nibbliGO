@@ -52,6 +52,18 @@ class ChatRepositoryImpl @Inject constructor(
     return createConversation(modelId, title)
   }
 
+  override suspend fun getRecentMessagesForTitle(
+    title: String,
+    modelId: String,
+    limit: Int,
+  ): List<ChatMessage> {
+    val conversation = conversationDao.findByTitle(title) ?: return emptyList()
+    if (limit <= 0) return emptyList()
+    return messageDao.getRecent(conversation.id, limit)
+      .asReversed()
+      .map { it.toDomain() }
+  }
+
   override suspend fun saveMessage(message: ChatMessage) {
     messageDao.insert(message.toEntity())
   }

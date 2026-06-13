@@ -19,6 +19,7 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSecondaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
 import com.nibbli.nibbligo.core.designsystem.component.NibbliTextField
+import com.nibbli.nibbligo.core.model.CompanionMemoryFact
 import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetPersonality
@@ -119,33 +120,59 @@ internal fun CompanionProfileCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PetMemoryCard(
     petName: String,
-    memoryDraft: String,
+    memoryFacts: List<CompanionMemoryFact>,
+    newFactDraft: String,
     saveMessage: String?,
-    onMemoryChange: (String) -> Unit,
-    onSave: () -> Unit,
-    onClear: () -> Unit,
+    onNewFactChange: (String) -> Unit,
+    onAddFact: () -> Unit,
+    onRemoveFact: (String) -> Unit,
+    onClearAll: () -> Unit,
     onClearMessage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NibbliCard(modifier = modifier.padding(top = 12.dp)) {
         Text("What $petName remembers", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Short facts nibbli keeps for talk context. Stored on your phone only.",
+            "Short facts used in Home and Chat talk. Stored on your phone only.",
             modifier = Modifier.padding(top = 8.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (memoryFacts.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                memoryFacts.forEach { fact ->
+                    NibbliSuggestionChip(
+                        label = fact.text,
+                        selected = false,
+                        onClick = { onRemoveFact(fact.id) },
+                    )
+                }
+            }
+            Text(
+                "Tap a chip to remove it.",
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         NibbliTextField(
-            value = memoryDraft,
-            onValueChange = onMemoryChange,
+            value = newFactDraft,
+            onValueChange = onNewFactChange,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 12.dp),
-            placeholder = { Text("Likes snacks • Said hi after arcade win…") },
-            minLines = 3,
+            placeholder = { Text("Add a fact (e.g. Likes morning chats)") },
+            singleLine = true,
         )
         Row(
             modifier = Modifier
@@ -154,18 +181,18 @@ internal fun PetMemoryCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             NibbliPrimaryButton(
-                text = "Save memory",
+                text = "Add fact",
                 onClick = {
                     onClearMessage()
-                    onSave()
+                    onAddFact()
                 },
                 modifier = Modifier.weight(1f),
             )
             NibbliSecondaryButton(
-                text = "Clear",
+                text = "Clear all",
                 onClick = {
                     onClearMessage()
-                    onClear()
+                    onClearAll()
                 },
                 modifier = Modifier.weight(1f),
             )

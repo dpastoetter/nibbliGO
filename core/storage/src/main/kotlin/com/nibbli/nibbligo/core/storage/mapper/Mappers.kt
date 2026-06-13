@@ -1,5 +1,7 @@
 package com.nibbli.nibbligo.core.storage.mapper
 
+import com.nibbli.nibbligo.core.model.CompanionMemoryFact
+import com.nibbli.nibbligo.core.model.CompanionMemoryFactSource
 import com.nibbli.nibbligo.core.model.AudioRecording
 import com.nibbli.nibbligo.core.model.BenchmarkMetrics
 import com.nibbli.nibbligo.core.model.BenchmarkRun
@@ -20,6 +22,7 @@ import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.PetStats
 import com.nibbli.nibbligo.core.model.PromptPreset
 import com.nibbli.nibbligo.core.model.SavedPrompt
+import com.nibbli.nibbligo.core.storage.local.entity.CompanionMemoryFactEntity
 import com.nibbli.nibbligo.core.storage.local.entity.BenchmarkRunEntity
 import com.nibbli.nibbligo.core.storage.local.entity.ConversationEntity
 import com.nibbli.nibbligo.core.storage.local.entity.MessageEntity
@@ -196,6 +199,21 @@ fun BenchmarkRun.toEntity() = BenchmarkRunEntity(
     estimatedMemoryMb = metrics.estimatedMemoryMb,
     thermalNote = metrics.thermalNote,
     timestampMillis = timestampMillis,
+)
+
+fun CompanionMemoryFactEntity.toDomain() = CompanionMemoryFact(
+    id = id,
+    text = text,
+    source = runCatching { CompanionMemoryFactSource.valueOf(source) }
+        .getOrDefault(CompanionMemoryFactSource.MANUAL),
+    createdAtMillis = createdAtMillis,
+)
+
+fun CompanionMemoryFact.toEntity() = CompanionMemoryFactEntity(
+    id = id,
+    text = text,
+    source = source.name,
+    createdAtMillis = createdAtMillis,
 )
 
 fun RecordingEntity.toDomain() = AudioRecording(id, uri, durationMs, transcript, summary, createdAtMillis)

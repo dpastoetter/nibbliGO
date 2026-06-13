@@ -12,6 +12,9 @@ import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PetTurnRequest
 import com.nibbli.nibbligo.core.model.RuntimeResult
+import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
+import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
+import com.nibbli.nibbligo.core.pet.llm.LastTalkTurn
 import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
 import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
 import com.nibbli.nibbligo.core.pet.llm.PetOnboardingPrompt
@@ -19,6 +22,8 @@ import com.nibbli.nibbligo.core.pet.llm.PetPromptBuilder
 import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
+import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnCoordinator
+import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnState
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,6 +35,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,12 +63,17 @@ class ChatViewModel @Inject constructor(
     private val petEventBus: PetEventBus,
     private val petTalkChatRecorder: PetTalkChatRecorder,
     private val petModelResolver: PetModelResolver,
+    private val petTalkTurnCoordinator: PetTalkTurnCoordinator,
+    private val petTalkTurnState: PetTalkTurnState,
+    private val companionMemoryStore: CompanionMemoryStore,
+    private val companionTurnLog: CompanionTurnLog,
 ) : ViewModel() {
 
     private val engine = PetSimulationEngine()
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+    val lastTalkTurn: StateFlow<LastTalkTurn?> = petTalkTurnState.lastTurn
 
     private val conversationIdFlow = MutableStateFlow<Long?>(null)
 
@@ -85,6 +96,16 @@ class ChatViewModel @Inject constructor(
                 )
                 setActiveConversation(conversationId)
             }
+        }
+        viewModelScope.launch {
+            petRepository.observePetState()
+                .map { it.name }
+                .distinctUntilChanged()
+                .collect { name ->
+                    _uiState.update { ui ->
+                        if (ui.petName == name) ui else ui.copy(petName = name)
+                    }
+                }
         }
         viewModelScope.launch {
             conversationIdFlow
@@ -111,6 +132,11 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val conversationId = _uiState.value.conversationId ?: return@launch
             chatRepository.deleteMessagesForConversation(conversationId)
+            petTalkTurnCoordinator.clearTurn()
+            runCatching {
+                val modelId = petModelResolver.resolve()
+                inferenceRuntime.resetHomeTalkSession(modelId)
+            }
             _uiState.update { it.copy(streamingText = null, input = "", error = null) }
         }
     }
@@ -143,6 +169,8 @@ class ChatViewModel @Inject constructor(
 
             var petState = petRepository.getPetState()
             petState = engine.tick(petState, now).state
+            companionMemoryStore.ensureMigrated()
+            petState = petRepository.getPetState()
             val personality = userPreferencesRepository.petPersonality.first()
             val profile = userPreferencesRepository.petOnboardingProfile.first()
             val onboarding = PetOnboardingPrompt.formatForSystemInstruction(profile, petState.name)
@@ -168,11 +196,13 @@ class ChatViewModel @Inject constructor(
                 else -> Unit
             }
 
+            val recentTurns = companionTurnLog.recentTurns(excludeCurrentUserMessage = trimmed)
             val request = PetReactionRequest(
                 state = petState,
                 userMessage = trimmed,
                 personality = personality,
                 caretakerName = profile.caretakerName.trim().takeIf { it.isNotBlank() },
+                recentTurns = recentTurns,
             )
             val parts = PetPromptBuilder.buildHomeTalkParts(request, modelId, onboarding)
 
@@ -199,11 +229,12 @@ class ChatViewModel @Inject constructor(
             }
 
             val raw = rawBuilder.toString().trim()
-            val parsed = if (raw.isNotBlank()) {
-                PetReactionParser.parseTalk(raw, petState.name, request.caretakerName).dialogue
+            val reaction = if (raw.isNotBlank()) {
+                petTalkTurnCoordinator.resolveUserTalkReaction(raw, request)
             } else {
-                PetReactionParser.fallback(request).dialogue
+                PetReactionParser.fallback(request)
             }
+            val parsed = reaction.dialogue
 
             if (parsed.isBlank()) {
                 _uiState.update {
@@ -219,6 +250,13 @@ class ChatViewModel @Inject constructor(
                 assistant = parsed,
                 timestampMillis = now,
             )
+            petTalkTurnCoordinator.publishTurn(
+                userMessage = trimmed,
+                petDialogue = parsed,
+                replySuggestions = reaction.replySuggestions,
+                timestampMillis = now,
+            )
+            inferenceRuntime.resetHomeTalkSession(modelId)
             _uiState.update { it.copy(isStreaming = false, streamingText = null) }
             viewModelScope.launch {
                 petEventBus.emit(PetEvent.AssistantSuccess)

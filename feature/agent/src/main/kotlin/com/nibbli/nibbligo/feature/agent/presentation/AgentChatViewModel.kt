@@ -16,6 +16,7 @@ import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
 import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
+import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,7 @@ class AgentChatViewModel @Inject constructor(
     private val inferenceRuntime: InferenceRuntime,
     private val assistVoiceRequestBus: AssistVoiceRequestBus,
     private val petRepository: PetRepository,
+    private val companionMemoryStore: CompanionMemoryStore,
     private val userPreferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
 
@@ -161,13 +163,14 @@ class AgentChatViewModel @Inject constructor(
     }
 
     private suspend fun buildCompanionContext(): String? {
+        companionMemoryStore.ensureMigrated()
         val pet = petRepository.getPetState()
         val profile = userPreferencesRepository.petOnboardingProfile.first()
         val parts = mutableListOf<String>()
         profile.caretakerName.trim().takeIf { it.isNotBlank() }?.let { parts.add("User name: $it") }
         profile.aboutYou.trim().takeIf { it.isNotBlank() }?.let { parts.add("About user: $it") }
         profile.companionGoal.trim().takeIf { it.isNotBlank() }?.let { parts.add("Goal: $it") }
-        pet.memorySummary.trim().takeIf { it.isNotBlank() }?.let { parts.add("Memory: $it") }
+        companionMemoryStore.renderSummary().takeIf { it.isNotBlank() }?.let { parts.add("Memory: $it") }
         return parts.joinToString("\n").takeIf { it.isNotBlank() }
     }
 

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,12 +31,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
+import com.nibbli.nibbligo.core.designsystem.component.NibbliTextField
 import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
 import com.nibbli.nibbligo.core.model.PetCondition
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
+import com.nibbli.nibbligo.core.pet.llm.PetTalkChipResolver
 import com.nibbli.nibbligo.feature.pet.ui.visit.PetVisitSheet
 import com.nibbli.nibbligo.feature.pet.ui.feedback.PetFeedbackKind
 import com.nibbli.nibbligo.feature.pet.ui.feedback.rememberPetFeedbackController
@@ -47,6 +50,7 @@ fun PetHomeScreen(
     viewModel: PetViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lastTalkTurn by viewModel.lastTalkTurn.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -230,13 +234,24 @@ fun PetHomeScreen(
                 )
             }
 
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding(),
+            ) {
                 if (!keyboardVisible && !isUserTalkGenerating && talkEnabled) {
-                    PetTalkSuggestionChips(
-                        enabled = micEnabled,
-                        onChipClick = viewModel::onQuickChip,
-                        modifier = Modifier.padding(bottom = 4.dp),
+                    val suggestionChips = PetTalkChipResolver.resolve(
+                        lastTurn = lastTalkTurn,
+                        isGenerating = isUserTalkGenerating,
                     )
+                    if (suggestionChips.isNotEmpty()) {
+                        PetTalkSuggestionChips(
+                            chips = suggestionChips,
+                            enabled = micEnabled,
+                            onChipClick = viewModel::onQuickChip,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
                 }
                 PetTalkInputBar(
                     enabled = talkEnabled,
@@ -289,8 +304,20 @@ fun PetHomeScreen(
     uiState.pendingMemoryProposal?.let { proposal ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissMemoryProposal() },
-            title = { Text("Remember this?") },
-            text = { Text("${pet.name} wants to remember: \"$proposal\"") },
+            title = { Text("Remember this about you?") },
+            text = {
+                Column {
+                    Text("${pet.name} can remember this for future chats.")
+                    NibbliTextField(
+                        value = proposal,
+                        onValueChange = viewModel::updateMemoryProposal,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        singleLine = true,
+                    )
+                }
+            },
             confirmButton = {
                 TextButton(onClick = { viewModel.approveMemoryProposal() }) {
                     Text("Save")

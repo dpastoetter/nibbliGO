@@ -1,6 +1,9 @@
 package com.nibbli.nibbligo.feature.chat.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +27,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.nibbli.nibbligo.core.designsystem.component.NibbliComposerStrip
 import com.nibbli.nibbligo.core.designsystem.component.NibbliInlineChatInputBar
+import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
+import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
+import com.nibbli.nibbligo.core.pet.llm.PetTalkChipResolver
+import com.nibbli.nibbligo.feature.pet.ui.PetTalkSuggestionChips
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageBubble
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageRole
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
@@ -41,6 +48,7 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val lastTalkTurn by viewModel.lastTalkTurn.collectAsStateWithLifecycle()
     var showClearConfirm by remember { mutableStateOf(false) }
 
     if (!uiState.hasPetModel) {
@@ -81,96 +89,126 @@ fun ChatScreen(
         )
     }
 
-    NibbliScreen(modifier = modifier) {
-        NibbliScreenHeader(
-            title = "Chat with ${uiState.petName}",
-            subtitle = "Same conversation as Home — on-device Pixel Friend.",
-            showOnDeviceBadge = true,
-        )
-
-        NibbliSecondaryButton(
-            text = "Clear chat",
-            onClick = { showClearConfirm = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-        )
-
-        navController?.let {
-            NibbliSecondaryButton(
-                text = "Agent — email & calendar",
-                onClick = { it.navigate("agent") },
+    Box(modifier = modifier.fillMaxSize()) {
+        NibbliAmbientBackground()
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-            )
-        }
-
-        val listState = rememberLazyListState()
-        val messageCount = uiState.messages.size + if (uiState.streamingText != null) 1 else 0
-        LaunchedEffect(messageCount, uiState.streamingText) {
-            if (messageCount > 0) {
-                listState.animateScrollToItem(messageCount - 1)
-            }
-        }
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(
-                items = uiState.messages,
-                key = { msg -> "${msg.id}_${msg.timestampMillis}_${msg.role}" },
-            ) { msg ->
-                val role = when (msg.role) {
-                    MessageRole.USER -> NibbliMessageRole.USER
-                    MessageRole.ASSISTANT -> NibbliMessageRole.ASSISTANT
-                    else -> NibbliMessageRole.SYSTEM
-                }
-                val label = when (msg.role) {
-                    MessageRole.USER -> "You"
-                    MessageRole.ASSISTANT -> uiState.petName
-                    else -> "System"
-                }
-                NibbliMessageBubble(
-                    text = if (msg.role == MessageRole.ASSISTANT) {
-                        PetReactionParser.parseTalk(msg.content, uiState.petName).dialogue
-                    } else {
-                        msg.content
-                    },
-                    role = role,
-                    label = label,
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                NibbliScreenHeader(
+                    title = "Chat with ${uiState.petName}",
+                    subtitle = "Same conversation as Home — on-device Pixel Friend.",
+                    showOnDeviceBadge = true,
                 )
-            }
-            uiState.streamingText?.let { streaming ->
-                item {
-                    NibbliMessageBubble(
-                        text = streaming,
-                        role = NibbliMessageRole.ASSISTANT,
-                        label = uiState.petName,
-                        modifier = Modifier.testTag("streaming_text"),
+
+                NibbliSecondaryButton(
+                    text = "Clear chat",
+                    onClick = { showClearConfirm = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                )
+
+                navController?.let {
+                    NibbliSecondaryButton(
+                        text = "Agent — email & calendar",
+                        onClick = { it.navigate("agent") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
                     )
                 }
-            }
-        }
 
-        NibbliComposerStrip {
-            NibbliInlineChatInputBar(
-                value = uiState.input,
-                onValueChange = viewModel::updateInput,
-                onSend = viewModel::sendMessage,
-                enabled = !uiState.isStreaming,
-                placeholder = if (uiState.isStreaming) "${uiState.petName} is thinking…" else "Message ${uiState.petName}…",
-                isGenerating = uiState.isStreaming,
-                inputTestTag = "chat_input",
-                sendTestTag = "send_message",
-            )
-            uiState.error?.let {
-                Text(
-                    it,
-                    color = MaterialTheme.colorScheme.error,
+                val listState = rememberLazyListState()
+                val messageCount = uiState.messages.size + if (uiState.streamingText != null) 1 else 0
+                LaunchedEffect(messageCount, uiState.streamingText) {
+                    if (messageCount > 0) {
+                        listState.animateScrollToItem(messageCount - 1)
+                    }
+                }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(
+                        items = uiState.messages,
+                        key = { msg -> "${msg.id}_${msg.timestampMillis}_${msg.role}" },
+                    ) { msg ->
+                        val role = when (msg.role) {
+                            MessageRole.USER -> NibbliMessageRole.USER
+                            MessageRole.ASSISTANT -> NibbliMessageRole.ASSISTANT
+                            else -> NibbliMessageRole.SYSTEM
+                        }
+                        val label = when (msg.role) {
+                            MessageRole.USER -> "You"
+                            MessageRole.ASSISTANT -> uiState.petName
+                            else -> "System"
+                        }
+                        NibbliMessageBubble(
+                            text = if (msg.role == MessageRole.ASSISTANT) {
+                                PetReactionParser.parseTalk(msg.content, uiState.petName).dialogue
+                            } else {
+                                msg.content
+                            },
+                            role = role,
+                            label = label,
+                        )
+                    }
+                    uiState.streamingText?.let { streaming ->
+                        item {
+                            NibbliMessageBubble(
+                                text = streaming,
+                                role = NibbliMessageRole.ASSISTANT,
+                                label = uiState.petName,
+                                modifier = Modifier.testTag("streaming_text"),
+                            )
+                        }
+                    }
+                }
+            }
+
+            NibbliComposerStrip {
+                val keyboardVisible = isKeyboardVisible()
+                val awaitingReply = uiState.isStreaming || uiState.streamingText != null
+                if (!keyboardVisible && !awaitingReply) {
+                    val suggestionChips = PetTalkChipResolver.resolve(
+                        lastTurn = lastTalkTurn,
+                        isGenerating = awaitingReply,
+                    )
+                    if (suggestionChips.isNotEmpty()) {
+                        PetTalkSuggestionChips(
+                            chips = suggestionChips,
+                            enabled = true,
+                            onChipClick = viewModel::sendMessage,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                }
+                NibbliInlineChatInputBar(
+                    value = uiState.input,
+                    onValueChange = viewModel::updateInput,
+                    onSend = viewModel::sendMessage,
+                    enabled = !uiState.isStreaming,
+                    placeholder = if (uiState.isStreaming) {
+                        "${uiState.petName} is thinking…"
+                    } else {
+                        "Message ${uiState.petName}…"
+                    },
+                    isGenerating = uiState.isStreaming,
+                    inputTestTag = "chat_input",
+                    sendTestTag = "send_message",
                 )
+                uiState.error?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }

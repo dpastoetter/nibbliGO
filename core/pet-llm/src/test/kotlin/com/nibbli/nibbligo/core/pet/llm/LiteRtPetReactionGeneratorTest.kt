@@ -45,7 +45,9 @@ class LiteRtPetReactionGeneratorTest {
             homeTalkLoadResult = RuntimeResult.Success(Unit),
             homeTalkCompleteResults = listOf(
                 RuntimeResult.Success(""),
-                RuntimeResult.Success("Compact reply!|HAPPY"),
+                RuntimeResult.Success(
+                    "Compact reply!|HAPPY\n---\nREPLIES: Hi again|Tell me more",
+                ),
             ),
         )
         val generator = createGenerator(runtime)
@@ -103,7 +105,11 @@ class LiteRtPetReactionGeneratorTest {
         val runtime = RecordingInferenceRuntime(
             homeTalkLoadResult = RuntimeResult.Success(Unit),
             homeTalkStreamChunks = listOf(InferenceChunk("", isComplete = true)),
-            homeTalkCompleteResults = listOf(RuntimeResult.Success("Retried!|NEUTRAL")),
+            homeTalkCompleteResults = listOf(
+                RuntimeResult.Success(
+                    "Retried!|NEUTRAL\n---\nREPLIES: Hi again|Tell me more",
+                ),
+            ),
         )
         val generator = createGenerator(runtime)
 
@@ -122,6 +128,46 @@ class LiteRtPetReactionGeneratorTest {
         assertTrue(generator.isInferenceFailureText("__LITERT_ERROR__:oops"))
         assertTrue(generator.isInferenceFailureText("LiteRT error: oops"))
         assertTrue(generator.isInferenceFailureText("Install a LiteRT model under Manage"))
+    }
+
+    @Test
+    fun generateReplySuggestions_returnsParsedReplies() = kotlinx.coroutines.test.runTest {
+        val runtime = RecordingInferenceRuntime(
+            homeTalkLoadResult = RuntimeResult.Success(Unit),
+            homeTalkCompleteResults = listOf(
+                RuntimeResult.Success("REPLIES: Sure!|Maybe later|Thanks"),
+            ),
+        )
+        val generator = createGenerator(runtime)
+
+        val suggestions = generator.generateReplySuggestions(
+            userMessage = "Hello!",
+            petDialogue = "Hi there!",
+            request = PetReactionRequest(state = PetState(), userMessage = "Hello!"),
+        )
+
+        assertEquals(listOf("Sure!", "Maybe later", "Thanks"), suggestions)
+        assertEquals(1, runtime.homeTalkCompleteCalls.size)
+    }
+
+    @Test
+    fun generate_missingReplies_usesFallbackMicroPass() = kotlinx.coroutines.test.runTest {
+        val runtime = RecordingInferenceRuntime(
+            homeTalkLoadResult = RuntimeResult.Success(Unit),
+            homeTalkCompleteResults = listOf(
+                RuntimeResult.Success("Hello back!|HAPPY"),
+                RuntimeResult.Success("REPLIES: Hi again|Tell me more"),
+            ),
+        )
+        val generator = createGenerator(runtime)
+
+        val reaction = generator.generate(
+            PetReactionRequest(state = PetState(), userMessage = "Hello!"),
+        )
+
+        assertEquals("Hello back!", reaction.dialogue)
+        assertEquals(listOf("Hi again", "Tell me more"), reaction.replySuggestions)
+        assertEquals(2, runtime.homeTalkCompleteCalls.size)
     }
 
     private fun createGenerator(runtime: RecordingInferenceRuntime): LiteRtPetReactionGenerator {

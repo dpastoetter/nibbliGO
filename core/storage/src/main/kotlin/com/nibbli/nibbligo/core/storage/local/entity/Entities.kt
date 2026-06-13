@@ -5,6 +5,14 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+@Entity(tableName = "companion_memory_fact")
+data class CompanionMemoryFactEntity(
+    @PrimaryKey val id: String,
+    val text: String,
+    val source: String,
+    val createdAtMillis: Long,
+)
+
 @Entity(tableName = "pet_state")
 data class PetStateEntity(
     @PrimaryKey val id: Int = 1,

@@ -387,9 +387,7 @@ class PetSimulationEngine {
     }
 
     fun hatchNewEgg(previous: PetState?): PetState {
-        val memory = previous?.memorySummary?.takeIf { it.isNotBlank() }
-            ?: previous?.let { "Remembers you cared for ${it.name}." }
-            ?: ""
+        val memory = previous?.memorySummary?.takeIf { it.isNotBlank() }.orEmpty()
         return PetState(
             name = "nibbli",
             stage = LifeStage.EGG,

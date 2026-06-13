@@ -12,6 +12,9 @@ import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
 import com.nibbli.nibbligo.core.model.BenchmarkMetrics
 import com.nibbli.nibbligo.core.model.ChatInferenceRequest
+import com.nibbli.nibbligo.core.domain.repository.CompanionMemoryRepository
+import com.nibbli.nibbligo.core.model.CompanionMemoryFact
+import com.nibbli.nibbligo.core.model.CompanionMemoryFactSource
 import com.nibbli.nibbligo.core.model.ChatMessage
 import com.nibbli.nibbligo.core.model.ChatPromptMode
 import com.nibbli.nibbligo.core.model.CompletionRequest
@@ -32,8 +35,12 @@ import com.nibbli.nibbligo.core.model.RuntimeKind
 import com.nibbli.nibbligo.core.model.RuntimeResult
 import com.nibbli.nibbligo.core.model.TranscriptionRequest
 import com.nibbli.nibbligo.core.model.VisionRequest
+import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
+import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
 import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
+import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnCoordinator
+import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnState
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import org.robolectric.RuntimeEnvironment
 import kotlinx.coroutines.Dispatchers
@@ -166,6 +173,34 @@ private fun createViewModel(
         ),
         userPreferencesRepository = prefs,
     )
+    val turnState = PetTalkTurnState()
+    val reactionPort = object : com.nibbli.nibbligo.core.pet.llm.PetReactionPort {
+        override suspend fun generate(request: com.nibbli.nibbligo.core.pet.llm.PetReactionRequest) =
+            com.nibbli.nibbligo.core.pet.llm.PetReaction(dialogue = "unused")
+        override fun generateStream(request: com.nibbli.nibbligo.core.pet.llm.PetReactionRequest) =
+            flowOf(
+                com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent.Done(
+                    com.nibbli.nibbligo.core.pet.llm.PetReaction(dialogue = "unused"),
+                ),
+            )
+        override suspend fun generateReplySuggestions(
+            userMessage: String,
+            petDialogue: String,
+            request: com.nibbli.nibbligo.core.pet.llm.PetReactionRequest,
+        ): List<String> = emptyList()
+        override suspend fun warmLoad() = Unit
+        override suspend fun activeModelDisplayName(): String = "Test"
+    }
+    val coordinator = PetTalkTurnCoordinator(reactionPort, turnState)
+    val memoryStore = CompanionMemoryStore(FakeCompanionMemoryRepository(), petRepo)
+    val turnLog = CompanionTurnLog(chatRepository, PetModelResolver(
+        inferenceRuntime,
+        prefs,
+        object : com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate {
+            override suspend fun hasUsableModel() = true
+            override suspend fun firstUsableModelId() = petModelId
+        },
+    ))
     return ChatViewModel(
         chatRepository = chatRepository,
         modelRepository = FakeModelRepository(petModelId),
@@ -182,6 +217,10 @@ private fun createViewModel(
                 override suspend fun firstUsableModelId() = petModelId
             },
         ),
+        petTalkTurnCoordinator = coordinator,
+        petTalkTurnState = turnState,
+        companionMemoryStore = memoryStore,
+        companionTurnLog = turnLog,
     )
 }
 
@@ -223,6 +262,15 @@ private class FakeChatRepository : ChatRepository {
         val existing = conversationsByTitle[title]
         if (existing != null) return existing.id
         return createConversation(modelId, title)
+    }
+
+    override suspend fun getRecentMessagesForTitle(
+        title: String,
+        modelId: String,
+        limit: Int,
+    ): List<ChatMessage> {
+        val conversation = findConversationByTitle(title) ?: return emptyList()
+        return messagesByConversation[conversation.id]?.value.orEmpty().takeLast(limit)
     }
 
     override suspend fun saveMessage(message: ChatMessage) {
@@ -355,4 +403,38 @@ private class FakeInferenceRuntime(
 
     override suspend fun generateWithTools(request: AgentRequest) =
         RuntimeResult.Success(AgentTurn.FinalText("ok"))
+}
+
+private class FakeCompanionMemoryRepository : CompanionMemoryRepository {
+    private val facts = mutableListOf<CompanionMemoryFact>()
+
+    override fun observeFacts(): Flow<List<CompanionMemoryFact>> = flowOf(facts.toList())
+
+    override suspend fun getFacts(): List<CompanionMemoryFact> = facts.toList()
+
+    override suspend fun addFact(text: String, source: CompanionMemoryFactSource): CompanionMemoryFact {
+        val fact = CompanionMemoryFact(
+            id = facts.size.toString(),
+            text = text,
+            source = source,
+            createdAtMillis = System.currentTimeMillis(),
+        )
+        facts.add(fact)
+        return fact
+    }
+
+    override suspend fun updateFact(id: String, text: String) = Unit
+
+    override suspend fun removeFact(id: String) {
+        facts.removeAll { it.id == id }
+    }
+
+    override suspend fun clearAll() {
+        facts.clear()
+    }
+
+    override suspend fun replaceAll(facts: List<CompanionMemoryFact>) {
+        this.facts.clear()
+        this.facts.addAll(facts)
+    }
 }

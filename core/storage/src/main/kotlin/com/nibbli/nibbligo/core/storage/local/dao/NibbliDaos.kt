@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.nibbli.nibbligo.core.storage.local.entity.ActionHistoryEntity
 import com.nibbli.nibbligo.core.storage.local.entity.BenchmarkRunEntity
+import com.nibbli.nibbligo.core.storage.local.entity.CompanionMemoryFactEntity
 import com.nibbli.nibbligo.core.storage.local.entity.ConversationEntity
 import com.nibbli.nibbligo.core.storage.local.entity.MessageEntity
 import com.nibbli.nibbligo.core.storage.local.entity.ModelInstallEntity
@@ -15,6 +16,24 @@ import com.nibbli.nibbligo.core.storage.local.entity.RecordingEntity
 import com.nibbli.nibbligo.core.storage.local.entity.SavedPromptEntity
 import com.nibbli.nibbligo.core.storage.local.entity.SkillInstallEntity
 import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface CompanionMemoryFactDao {
+    @Query("SELECT * FROM companion_memory_fact ORDER BY createdAtMillis ASC")
+    fun observeAll(): Flow<List<CompanionMemoryFactEntity>>
+
+    @Query("SELECT * FROM companion_memory_fact ORDER BY createdAtMillis ASC")
+    suspend fun getAll(): List<CompanionMemoryFactEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: CompanionMemoryFactEntity)
+
+    @Query("DELETE FROM companion_memory_fact WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM companion_memory_fact")
+    suspend fun deleteAll()
+}
 
 @Dao
 interface PetStateDao {
@@ -71,6 +90,9 @@ interface MessageDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: MessageEntity): Long
+
+    @Query("SELECT * FROM message WHERE conversationId = :conversationId ORDER BY timestampMillis DESC LIMIT :limit")
+    suspend fun getRecent(conversationId: Long, limit: Int): List<MessageEntity>
 
     @Query("DELETE FROM message WHERE conversationId = :conversationId")
     suspend fun deleteForConversation(conversationId: Long)

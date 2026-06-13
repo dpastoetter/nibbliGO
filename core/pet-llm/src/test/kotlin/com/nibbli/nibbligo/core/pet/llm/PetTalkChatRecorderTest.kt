@@ -96,6 +96,15 @@ private class FakeChatRepository : ChatRepository {
         return createConversation(modelId, title)
     }
 
+    override suspend fun getRecentMessagesForTitle(
+        title: String,
+        modelId: String,
+        limit: Int,
+    ): List<ChatMessage> {
+        val conversation = findConversationByTitle(title) ?: return emptyList()
+        return messages.filter { it.conversationId == conversation.id }.takeLast(limit)
+    }
+
     override suspend fun saveMessage(message: ChatMessage) {
         messages.add(message.copy(id = messages.size.toLong() + 1))
     }

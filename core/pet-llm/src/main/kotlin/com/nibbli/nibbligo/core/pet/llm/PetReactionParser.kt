@@ -263,6 +263,15 @@ object PetReactionParser {
         petName: String? = null,
         caretakerName: String? = null,
     ): String {
+        val withoutSuggestions = PetReplySuggestionParser.stripRepliesSuffix(partial)
+        return stripDialogueForStreaming(withoutSuggestions, petName, caretakerName)
+    }
+
+    private fun stripDialogueForStreaming(
+        partial: String,
+        petName: String? = null,
+        caretakerName: String? = null,
+    ): String {
         val normalized = normalizeRaw(partial, petName, caretakerName)
         val pipe = normalized.indexOf('|')
         val body = if (pipe >= 0) normalized.substring(0, pipe) else normalized

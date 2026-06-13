@@ -2,48 +2,22 @@ package com.nibbli.nibbligo.core.pet.llm
 
 import com.nibbli.nibbligo.core.model.PetState
 
-/** Appends short facts to [PetState.memorySummary] after successful LLM reactions. */
+/** User-approved and manual facts for companion talk context. */
 object PetMemoryWriter {
-    private const val MAX_MEMORY_CHARS = 400
-    private const val MAX_FACT_CHARS = 120
-    private const val SEPARATOR = " • "
+    private const val MAX_MEMORY_CHARS = CompanionMemoryRenderer.MAX_RENDER_CHARS
+    private const val MAX_FACT_CHARS = CompanionMemoryRenderer.MAX_FACT_CHARS
 
     fun appendFact(current: String, fact: String): String {
         val trimmedFact = fact.trim().take(MAX_FACT_CHARS)
         if (trimmedFact.isBlank()) return current
-
-        val facts = if (current.isBlank()) {
-            mutableListOf()
-        } else {
-            current.split(SEPARATOR).filter { it.isNotBlank() }.toMutableList()
+        val facts = CompanionMemoryRenderer.parseFacts(current).toMutableList()
+        if (facts.none { it.equals(trimmedFact, ignoreCase = true) }) {
+            facts.add(trimmedFact)
         }
-        facts.add(trimmedFact)
-        while (facts.joinToString(SEPARATOR).length > MAX_MEMORY_CHARS && facts.size > 1) {
+        while (CompanionMemoryRenderer.joinFacts(facts).length > MAX_MEMORY_CHARS && facts.size > 1) {
             facts.removeAt(0)
         }
-        return facts.joinToString(SEPARATOR).take(MAX_MEMORY_CHARS)
-    }
-
-    /** Builds a one-line memory fact from a reaction, or null if not worth remembering. */
-    fun factFromReaction(request: PetReactionRequest, dialogue: String): String? {
-        if (request.moodPulse) return null
-        val line = dialogue.trim().take(80)
-        if (line.isBlank()) return null
-
-        return when {
-            request.userMessage != null ->
-                "User said \"${request.userMessage.take(40)}\"; I replied \"${line.take(50)}\""
-            request.activityHint != null ->
-                "After ${request.activityHint.take(60)}, I said \"${line.take(50)}\""
-            request.lastAction != null ->
-                "When ${request.lastAction.take(40)}, I said \"${line.take(50)}\""
-            else -> null
-        }
-    }
-
-    fun withNewFact(state: PetState, request: PetReactionRequest, dialogue: String): PetState {
-        val fact = factFromReaction(request, dialogue) ?: return state
-        return state.copy(memorySummary = appendFact(state.memorySummary, fact))
+        return CompanionMemoryRenderer.joinFacts(facts)
     }
 
     /** Suggests a user-approved memory line after Home talk (never auto-saved). */
@@ -66,4 +40,7 @@ object PetMemoryWriter {
         if (triggers.none { lower.contains(it) }) return null
         return trimmed.take(MAX_FACT_CHARS)
     }
+
+    @Deprecated("Ambient reactions no longer auto-write memory")
+    fun withNewFact(state: PetState, request: PetReactionRequest, dialogue: String): PetState = state
 }

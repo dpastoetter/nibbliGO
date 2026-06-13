@@ -47,11 +47,13 @@ fun CompanionScreen(
         )
         PetMemoryCard(
             petName = uiState.petName,
-            memoryDraft = uiState.memoryDraft,
+            memoryFacts = uiState.memoryFacts,
+            newFactDraft = uiState.newFactDraft,
             saveMessage = uiState.memorySaveMessage,
-            onMemoryChange = viewModel::onMemoryDraftChange,
-            onSave = viewModel::saveMemory,
-            onClear = viewModel::clearMemory,
+            onNewFactChange = viewModel::onNewFactDraftChange,
+            onAddFact = viewModel::addMemoryFact,
+            onRemoveFact = viewModel::removeMemoryFact,
+            onClearAll = viewModel::clearAllMemory,
             onClearMessage = viewModel::clearMemorySaveMessage,
         )
         CompanionTalkModelCard(

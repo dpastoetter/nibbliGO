@@ -1,6 +1,7 @@
 package com.nibbli.nibbligo
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -19,8 +20,12 @@ fun NibbliAppWithTheme(viewModel: MainViewModel = hiltViewModel()) {
     val showOnboarding by viewModel.showOnboarding.collectAsStateWithLifecycle()
     var onboardingDismissed by rememberSaveable { mutableStateOf(false) }
 
+    LaunchedEffect(showOnboarding) {
+        if (!showOnboarding) onboardingDismissed = true
+    }
+
     NibbliTheme(themeMode = themeMode, accentPalette = accentPalette) {
-        if (showOnboarding && !onboardingDismissed) {
+        if (!onboardingDismissed) {
             PetOnboardingScreen(onFinished = { onboardingDismissed = true })
         } else {
             NibbliApp()

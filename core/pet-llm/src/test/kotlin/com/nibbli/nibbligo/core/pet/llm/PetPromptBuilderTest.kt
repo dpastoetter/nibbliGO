@@ -132,13 +132,13 @@ class PetPromptBuilderTest {
     }
 
     @Test
-    fun buildChatTalkParts_omitsFewShotExamples() {
+    fun buildChatTalkParts_includesReplyChipExamples() {
         val parts = PetPromptBuilder.buildChatTalkParts(
             PetReactionRequest(state = PetState(), userMessage = "Tell me a joke"),
             "smollm2-360m-instruct",
         )
-        assertTrue(!parts.systemInstruction.contains("Examples:"))
-        assertTrue(!parts.systemInstruction.contains("I'm cheerful!"))
+        assertTrue(parts.systemInstruction.contains("Examples:"))
+        assertTrue(parts.systemInstruction.contains("REPLIES:"))
         assertTrue(parts.userMessage.contains("Caretaker: Tell me a joke"))
         assertTrue(!parts.userMessage.contains("User: Tell me a joke"))
         assertTrue(!parts.userMessage.contains("Status: hunger"))
@@ -173,6 +173,31 @@ class PetPromptBuilderTest {
     }
 
     @Test
+    fun buildHomeTalkParts_includesKnownAboutCaretaker() {
+        val state = PetState(memorySummary = "Likes snacks")
+        val parts = PetPromptBuilder.buildHomeTalkParts(
+            PetReactionRequest(state = state, userMessage = "Hi there"),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.userMessage.contains("Known about caretaker:"))
+        assertTrue(parts.userMessage.contains("Likes snacks"))
+    }
+
+    @Test
+    fun buildHomeTalkParts_includesRecentTurns() {
+        val parts = PetPromptBuilder.buildHomeTalkParts(
+            PetReactionRequest(
+                state = PetState(),
+                userMessage = "What did I say?",
+                recentTurns = listOf(TalkTurnPair("Hello", "Hi back!")),
+            ),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.userMessage.contains("Recent:"))
+        assertTrue(parts.userMessage.contains("Caretaker: Hello"))
+    }
+
+    @Test
     fun buildHomeTalkParts_gameTier_includesFaqBlock() {
         val parts = PetPromptBuilder.buildHomeTalkParts(
             PetReactionRequest(state = PetState(), userMessage = "How do I evolve?"),
@@ -184,12 +209,13 @@ class PetPromptBuilderTest {
     }
 
     @Test
-    fun homeTalkSystemInstruction_isCompact() {
+    fun homeTalkSystemInstruction_includesReplyFormat() {
         val rules = PetPromptBuilder.homeTalkSystemInstruction()
-        assertTrue(rules.length in 120..280)
+        assertTrue(rules.length in 120..900)
         assertTrue(rules.contains("HAPPY, SLEEPY, HUNGRY, CURIOUS, or NEUTRAL"))
+        assertTrue(rules.contains("REPLIES:"))
         assertTrue(rules.contains("naturally in character"))
-        assertTrue(!rules.contains("Examples:"))
+        assertTrue(rules.contains("Examples:"))
         assertTrue(!rules.contains("Max 320"))
         assertTrue(!rules.contains("2 short sentences"))
     }

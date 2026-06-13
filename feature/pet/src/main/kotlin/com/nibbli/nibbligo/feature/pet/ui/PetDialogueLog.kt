@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.feature.pet.presentation.TalkHistoryEntry
 import com.nibbli.nibbligo.feature.pet.presentation.TalkHistoryRole
@@ -39,6 +40,7 @@ fun PetTalkHistory(
     streamingDialogue: String,
     isGeneratingDialogue: Boolean,
     modifier: Modifier = Modifier,
+    maxContentHeight: Dp = 220.dp,
 ) {
     if (talkHistory.isEmpty()) return
 
@@ -87,6 +89,7 @@ fun PetTalkHistory(
                 talkHistory = talkHistory,
                 streamingDialogue = streamingDialogue,
                 isGeneratingDialogue = isGeneratingDialogue,
+                maxContentHeight = maxContentHeight,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }
@@ -98,6 +101,7 @@ private fun PetTalkHistoryContent(
     talkHistory: List<TalkHistoryEntry>,
     streamingDialogue: String,
     isGeneratingDialogue: Boolean,
+    maxContentHeight: Dp,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -107,7 +111,7 @@ private fun PetTalkHistoryContent(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(max = 220.dp)
+            .heightIn(max = maxContentHeight)
             .verticalScroll(scrollState),
     ) {
         talkHistory.forEach { entry ->

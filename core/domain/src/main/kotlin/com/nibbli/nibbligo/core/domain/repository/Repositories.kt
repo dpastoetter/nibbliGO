@@ -35,12 +35,23 @@ interface PetRepository {
     suspend fun savePetState(state: PetState)
 }
 
+interface CompanionMemoryRepository {
+    fun observeFacts(): Flow<List<com.nibbli.nibbligo.core.model.CompanionMemoryFact>>
+    suspend fun getFacts(): List<com.nibbli.nibbligo.core.model.CompanionMemoryFact>
+    suspend fun addFact(text: String, source: com.nibbli.nibbligo.core.model.CompanionMemoryFactSource): com.nibbli.nibbligo.core.model.CompanionMemoryFact
+    suspend fun updateFact(id: String, text: String)
+    suspend fun removeFact(id: String)
+    suspend fun clearAll()
+    suspend fun replaceAll(facts: List<com.nibbli.nibbligo.core.model.CompanionMemoryFact>)
+}
+
 interface ChatRepository {
     fun observeConversations(): Flow<List<Conversation>>
     fun observeMessages(conversationId: Long): Flow<List<ChatMessage>>
     suspend fun createConversation(modelId: String, title: String): Long
     suspend fun findConversationByTitle(title: String): Conversation?
     suspend fun getOrCreateConversation(title: String, modelId: String): Long
+    suspend fun getRecentMessagesForTitle(title: String, modelId: String, limit: Int): List<ChatMessage>
     suspend fun saveMessage(message: ChatMessage)
     suspend fun deleteMessagesForConversation(conversationId: Long)
     suspend fun updateConversation(conversation: Conversation)

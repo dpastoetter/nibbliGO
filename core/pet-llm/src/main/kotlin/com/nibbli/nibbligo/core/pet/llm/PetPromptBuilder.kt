@@ -245,8 +245,59 @@ object PetPromptBuilder {
                 appendLine()
                 appendLine(onboardingContext.trim())
             }
-            append("Format: dialogue|HAPPY, SLEEPY, HUNGRY, CURIOUS, or NEUTRAL.")
+            appendLine()
+            appendLine("Format:")
+            appendLine("dialogue|HAPPY, SLEEPY, HUNGRY, CURIOUS, or NEUTRAL")
+            appendLine("---")
+            appendLine("REPLIES: short tap reply|short tap reply|short tap reply|short tap reply")
+            appendLine(
+                "REPLIES rules: 2-4 options the Caretaker could tap next; each max 28 chars; " +
+                    "react to your reply (answer a question, accept/decline, or ask a follow-up).",
+            )
+            appendLine()
+            append(homeTalkReplyExamples())
         }.trim()
+
+    fun buildReplySuggestionParts(
+        userMessage: String,
+        petDialogue: String,
+        petName: String,
+        caretakerName: String? = null,
+    ): PetPromptParts {
+        val userTurn = buildString {
+            appendLine("Pet name: $petName")
+            caretakerName?.trim()?.takeIf { it.isNotBlank() }?.let {
+                appendLine("Caretaker name: $it")
+            }
+            appendLine("Caretaker said: ${userMessage.trim()}")
+            appendLine("Pet replied: ${petDialogue.trim()}")
+            append(
+                "Write 2-4 short tap replies the Caretaker could send next. " +
+                    "Output ONLY: REPLIES: opt1|opt2|opt3|opt4 (each max 28 chars).",
+            )
+        }.trim()
+        return PetPromptParts(
+            systemInstruction = """
+                Output ONLY a REPLIES line for quick-reply chips. No dialogue. No markdown.
+                Format: REPLIES: option1|option2|option3|option4
+                Each option max 28 characters. Options must fit what the pet just said.
+            """.trimIndent(),
+            userMessage = userTurn,
+        )
+    }
+
+    private fun homeTalkReplyExamples(): String = """
+        Examples:
+        Caretaker: How are you?
+        You: I'm cheerful and cozy on your home screen!|HAPPY
+        ---
+        REPLIES: I'm good|Pretty good!|Bit tired|Let's play!
+
+        Caretaker: Want to play?
+        You: Yes! A mini-game sounds fun right now.|HAPPY
+        ---
+        REPLIES: Let's play!|Maybe later|Tell me more|How are you?
+    """.trimIndent()
 
     private fun buildHomeTalkUserTurn(
         request: PetReactionRequest,
@@ -265,6 +316,7 @@ object PetPromptBuilder {
         buildString {
             appendLine("Pet name: ${request.state.name}")
             appendLine("Personality: ${personalityHint(request.personality)}")
+            appendHomeTalkMemoryBlocks(request, HomeTalkPromptTier.FAST)
             appendLine("Keep it brief (1-2 sentences).")
             append("Caretaker: ${request.userMessage.orEmpty()}")
         }.trim()
@@ -275,6 +327,7 @@ object PetPromptBuilder {
         return buildString {
             appendLine("Pet name: ${s.name}")
             appendLine("Personality: ${personalityHint(request.personality)}")
+            appendHomeTalkMemoryBlocks(request, HomeTalkPromptTier.STATUS)
             appendLine(statsOnlyStatus(s))
             appendLine(
                 "The caretaker asks about your wellbeing. Answer in your own words using the stats; " +
@@ -290,12 +343,26 @@ object PetPromptBuilder {
         val caretakerMessage = request.userMessage.orEmpty()
         return buildString {
             appendLine("Pet name: ${request.state.name}")
+            appendHomeTalkMemoryBlocks(request, HomeTalkPromptTier.GAME_HELP)
             appendLine(
                 "Game help facts (answer accurately, stay in character):",
             )
             appendLine(PetGameFaqMatcher.formatForPrompt(caretakerMessage, profile.toFaqProfile()))
             append("Caretaker: $caretakerMessage")
         }.trim()
+    }
+
+    private fun StringBuilder.appendHomeTalkMemoryBlocks(
+        request: PetReactionRequest,
+        tier: HomeTalkPromptTier,
+    ) {
+        CompanionMemoryRenderer.renderKnownAboutCaretaker(request.state.memorySummary)?.let {
+            appendLine(it)
+        }
+        val includeRecent = tier != HomeTalkPromptTier.GAME_HELP
+        CompanionMemoryRenderer.renderRecentTurns(request.recentTurns, includeRecent)?.let {
+            appendLine(it)
+        }
     }
 
     private fun firstPersonVoiceRule(petName: String? = null): String {
