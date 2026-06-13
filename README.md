@@ -2,7 +2,7 @@
 
 A local-first Android companion: an evolving **Pixel Friend** on Home, plus on-device **Assist** (chat, agent tools, prompt lab). Inference runs on your phone with LiteRT — no cloud model calls.
 
-**Privacy:** LiteRT inference on device. Network is used only for Hugging Face model downloads (and optional OAuth), not for sending your chats to a cloud LLM.
+**Privacy:** Pixel Friend talk and Chat run on-device with LiteRT — not on a nibbliGO cloud LLM. See [Privacy at a glance](#privacy-at-a-glance) below.
 
 ## Screenshots
 
@@ -15,6 +15,59 @@ Regenerate after UI changes:
 ```bash
 ./scripts/capture-readme-screenshots.sh   # requires adb + running emulator/device
 ```
+
+## Privacy at a glance
+
+nibbliGO has **no nibbliGO account**, **no cloud sync**, and **no analytics or crash-reporting SDK** in the app. There is no backend that collects your chats, pet saves, or companion memory. GitHub release builds compile the open-source project only — they do not receive your personal app data.
+
+### Stays on your phone
+
+| Data | Storage |
+|------|---------|
+| Pet state, stats, unlocks, streaks, daily quest | Local DB / app files |
+| Home + Chat messages | Room (`nibbli.db`) |
+| Companion profile, approved memory, settings | DataStore |
+| Onboarding names and “about you” | DataStore |
+| Visit postcards (after QR scan) | Local storage |
+| Benchmark runs, saved prompts | Room |
+
+Pixel Friend and Chat **inference** runs locally with LiteRT after you download a model. Approved memory facts and companion profile are injected into on-device prompts only — not uploaded for inference elsewhere.
+
+### Network use (limited)
+
+| When | What goes out |
+|------|----------------|
+| **Manage → Models** install | Hugging Face (or CDN) — model weight files only |
+| **Settings** HF OAuth or pasted token | `huggingface.co` — token stored locally; sent as `Authorization: Bearer …` for gated downloads only |
+| **Optional MCP URL** (Agent / Do flows) | Whatever server **you** configure for tool calls |
+
+Public models (e.g. Qwen 2.5 1.5B, SmolLM2 360M) download without sign-in.
+
+### When data can leave your device (you control it)
+
+| Action | What happens |
+|--------|----------------|
+| **Share** (today card, evolution, visit QR, diary) | Android share sheet — you pick the destination app |
+| **Agent** email / calendar / maps | System app intents after you confirm; email is not sent automatically |
+| **Visit QR** | Encoded on-device; a friend scans it on their phone — no nibbliGO server |
+| **Talk to me** (mic) | Android speech recognition (FUTO Voice Input, Google, etc.) — may use that app’s on-device or network STT policy, not nibbliGO servers |
+| **MCP tools** | Only if you point Agent at an external StreamableHTTP server |
+
+### What nibbliGO does not do
+
+- Upload chats, memories, or pet progress to a nibbliGO cloud
+- Run hidden cloud LLM inference for Home or Chat
+- Ship Firebase, Sentry, Mixpanel, or similar telemetry
+- Sync data across devices (not in this build)
+
+### Permissions (why they exist)
+
+- **INTERNET** — model downloads; optional HF OAuth; MCP servers you configure
+- **RECORD_AUDIO** — voice input when you tap the mic
+- **CAMERA** — visit QR scanner (frames stay on-device for decoding)
+- **POST_NOTIFICATIONS** — local pet reminders (needs, streak, daily quest)
+
+**Practical tip:** For maximum privacy, use text talk, install models without HF sign-in when possible, and do not configure external MCP URLs. More detail in **Manage → Help → FAQ** under “Privacy & on-device AI”.
 
 ## Features
 
