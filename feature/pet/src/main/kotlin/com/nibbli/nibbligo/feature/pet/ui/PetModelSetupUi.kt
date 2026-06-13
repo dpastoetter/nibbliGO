@@ -35,6 +35,12 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSecondaryButton
 import com.nibbli.nibbligo.core.model.ModelCatalog
 
+private fun modelDownloadStatusLabel(progress: Int, isResuming: Boolean): String = when {
+    progress > 0 -> "Downloading… $progress%"
+    isResuming -> "Resuming download…"
+    else -> "Starting download…"
+}
+
 @Composable
 fun PetModelSetupSheet(
     visible: Boolean,
@@ -44,9 +50,10 @@ fun PetModelSetupSheet(
     onDownload: () -> Unit,
     onDismiss: () -> Unit,
     onClearMessage: () -> Unit,
+    modelId: String = ModelCatalog.RECOMMENDED_PET_MODEL_ID,
+    isResumingDownload: Boolean = false,
 ) {
     if (!visible) return
-    val modelId = ModelCatalog.RECOMMENDED_PET_MODEL_ID
     val modelName = ModelCatalog.displayName(modelId)
     val sizeLabel = ModelCatalog.approximateSizeLabel(modelId)
     AlertDialog(
@@ -72,11 +79,7 @@ fun PetModelSetupSheet(
                         trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     )
                     Text(
-                        text = if (downloadProgress > 0) {
-                            "Downloading… $downloadProgress%"
-                        } else {
-                            "Starting download…"
-                        },
+                        text = modelDownloadStatusLabel(downloadProgress, isResumingDownload),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -122,10 +125,11 @@ fun PetModelSetupBanner(
     downloadProgress: Int,
     onDownload: () -> Unit,
     startCollapsed: Boolean = false,
+    modelId: String = ModelCatalog.RECOMMENDED_PET_MODEL_ID,
+    isResumingDownload: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     if (!visible) return
-    val modelId = ModelCatalog.RECOMMENDED_PET_MODEL_ID
     val modelName = ModelCatalog.displayName(modelId)
     val sizeLabel = ModelCatalog.approximateSizeLabel(modelId)
 
@@ -140,7 +144,7 @@ fun PetModelSetupBanner(
     val toggleDescription = if (expanded) "Collapse install model card" else "Expand install model card"
     val subtitle = when {
         isDownloading && downloadProgress > 0 -> "Downloading… $downloadProgress%"
-        isDownloading -> "Starting download…"
+        isDownloading -> modelDownloadStatusLabel(downloadProgress, isResumingDownload)
         else -> "Tap to download ($sizeLabel)"
     }
 
@@ -215,7 +219,7 @@ fun PetModelSetupBanner(
                             trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         )
                         Text(
-                            text = if (downloadProgress > 0) "Downloading… $downloadProgress%" else "Starting…",
+                            text = modelDownloadStatusLabel(downloadProgress, isResumingDownload),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

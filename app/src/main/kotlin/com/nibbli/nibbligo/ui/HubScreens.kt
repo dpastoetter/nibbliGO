@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.HelpOutline
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.nibbli.nibbligo.core.designsystem.component.NibbliActionTile
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
+import com.nibbli.nibbligo.core.designsystem.component.NibbliComingSoonCard
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.navigation.Routes
@@ -40,6 +42,11 @@ fun SenseHubScreen(navController: NavController) {
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
+        NibbliComingSoonCard(
+            title = "Sense hub",
+            body = "Ask Image (camera/gallery picker) and Audio Scribe are in development. " +
+                "They will run on-device when multimodal models are ready.",
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -95,12 +102,31 @@ fun ManageHubScreen(navController: NavController) {
                 modifier = Modifier.weight(1f),
             )
             NibbliActionTile(
+                icon = Icons.Outlined.Collections,
+                label = "Collection",
+                onClick = { navController.navigate(Routes.PET_COLLECTION) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            NibbliActionTile(
                 icon = Icons.Outlined.Settings,
                 label = "Settings",
                 onClick = { navController.navigate(Routes.SETTINGS) },
                 modifier = Modifier.weight(1f),
             )
         }
+        NibbliComingSoonCard(
+            title = "Do hub & MCP actions",
+            body = "Phone tool actions and MCP servers are available from Agent Chat today. " +
+                "A dedicated Do tab returns when the hub is product-ready.",
+            modifier = Modifier.padding(top = 12.dp),
+        )
         Text(
             text = "Learn edge AI",
             style = MaterialTheme.typography.titleSmall,

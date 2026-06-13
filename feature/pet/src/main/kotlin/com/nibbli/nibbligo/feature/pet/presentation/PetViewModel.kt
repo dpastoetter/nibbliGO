@@ -40,6 +40,10 @@ import com.nibbli.nibbligo.feature.pet.domain.removeBorrowedSouvenir
 import com.nibbli.nibbligo.feature.pet.domain.PetPostcardStore
 import com.nibbli.nibbligo.feature.pet.domain.PetShareExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
+import com.nibbli.nibbligo.feature.pet.ui.PetCelebrationDetector
+import com.nibbli.nibbligo.feature.pet.ui.PetCelebrationEvent
+import com.nibbli.nibbligo.feature.pet.ui.feedback.PetFeedbackKind
+import com.nibbli.nibbligo.feature.pet.ui.feedback.recommendedDeviceRamMb
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetActions
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
@@ -100,7 +104,16 @@ data class PetUiState(
     val lastCatchScore: Int? = null,
     val lastCatchCombo: Int? = null,
     val pendingMemoryProposal: String? = null,
-)
+    val celebrationQueue: List<PetCelebrationEvent> = emptyList(),
+    val openLcdItemsMode: Boolean = false,
+    val showCoachMarks: Boolean = false,
+    val showStreakWelcomeBack: Boolean = false,
+    val petSoundHapticsEnabled: Boolean = true,
+    val petModelDownloadResuming: Boolean = false,
+    val recommendedPetModelId: String = ModelCatalog.RECOMMENDED_PET_MODEL_ID,
+) {
+    val currentCelebration: PetCelebrationEvent? get() = celebrationQueue.firstOrNull()
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -132,8 +145,12 @@ class PetViewModel @Inject constructor(
     private var warmLoadDeferred: Deferred<Unit>? = null
     private var userStoppedGeneration = false
     private val petStateMutex = Mutex()
+    private var hadPetModelInstalled = false
 
     init {
+        _uiState.update {
+            it.copy(recommendedPetModelId = ModelCatalog.recommendedPetModelId(recommendedDeviceRamMb(context)))
+        }
         viewModelScope.launch {
             try {
                 var state = petRepository.getPetState()
@@ -144,7 +161,14 @@ class PetViewModel @Inject constructor(
                 tick.templateDialogue?.let { line -> state = state.copy(dialogueLine = line) }
                 petRepository.savePetState(state)
                 val visit = postcardStore.load()
-                _uiState.update { it.copy(petState = state, visitPostcard = visit) }
+                val streakAtRisk = PetEngagementEngine.isStreakAtRisk(state, now)
+                _uiState.update {
+                    it.copy(
+                        petState = state,
+                        visitPostcard = visit,
+                        showStreakWelcomeBack = streakAtRisk,
+                    )
+                }
                 if (tick.evolved) {
                     _uiState.update { it.copy(evolutionShareStage = state.stage) }
                     launchBackgroundReaction {
@@ -205,7 +229,56 @@ class PetViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            userPreferencesRepository.lcdCoachMarksDismissed.collect { dismissed ->
+                _uiState.update { it.copy(showCoachMarks = !dismissed) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.petSoundHapticsEnabled.collect { enabled ->
+                _uiState.update { it.copy(petSoundHapticsEnabled = enabled) }
+            }
+        }
         observeModelSetupState()
+    }
+
+    private fun recommendedPetModelId(): String = _uiState.value.recommendedPetModelId
+
+    fun dismissCelebration() {
+        _uiState.update { it.copy(celebrationQueue = it.celebrationQueue.drop(1)) }
+    }
+
+    fun equipFromCelebration() {
+        _uiState.update {
+            it.copy(
+                celebrationQueue = it.celebrationQueue.drop(1),
+                openLcdItemsMode = true,
+            )
+        }
+    }
+
+    fun clearOpenLcdItemsMode() {
+        _uiState.update { it.copy(openLcdItemsMode = false) }
+    }
+
+    fun dismissCoachMarks() {
+        viewModelScope.launch {
+            userPreferencesRepository.setLcdCoachMarksDismissed(true)
+            _uiState.update { it.copy(showCoachMarks = false) }
+        }
+    }
+
+    fun dismissStreakWelcomeBack() {
+        _uiState.update { it.copy(showStreakWelcomeBack = false) }
+    }
+
+    fun onQuestHint(message: String) {
+        showTransientStatusMessage(message)
+    }
+
+    fun feedbackKindForCelebration(event: PetCelebrationEvent): PetFeedbackKind? = when (event) {
+        PetCelebrationEvent.DailyQuestComplete -> PetFeedbackKind.QUEST_COMPLETE
+        is PetCelebrationEvent.ItemUnlocked -> PetFeedbackKind.QUEST_COMPLETE
     }
 
     private fun observeModelSetupState() {
@@ -219,16 +292,20 @@ class PetViewModel @Inject constructor(
                 modelRepository.observeInstalled(),
                 downloadFlow,
             ) { onboardingDone, promptDismissed, installed, workInfos ->
-                val petModelId = ModelCatalog.RECOMMENDED_PET_MODEL_ID
+                val petModelId = recommendedPetModelId()
                 val hasModel = installed.isNotEmpty()
                 val activeWorks = workInfos.filter {
                     it.state in ACTIVE_DOWNLOAD_STATES &&
                         it.tags.any { tag -> tag == "hf_download_$petModelId" }
                 }
                 val downloading = activeWorks.isNotEmpty()
-                val progress = activeWorks.firstOrNull()
+                val activeWork = activeWorks.firstOrNull()
+                val progress = activeWork
                     ?.progress
                     ?.getInt(ModelDownloadWorker.KEY_PROGRESS, 0) ?: 0
+                val resuming = activeWork
+                    ?.progress
+                    ?.getBoolean(ModelDownloadWorker.KEY_IS_RESUMING, false) ?: false
                 val showSheet = onboardingDone && !hasModel && !promptDismissed
                 ModelSetupSnapshot(
                     hasModel = hasModel,
@@ -236,8 +313,11 @@ class PetViewModel @Inject constructor(
                     promptDismissed = promptDismissed,
                     downloading = downloading,
                     progress = progress,
+                    resuming = resuming,
                 )
             }.collect { snapshot ->
+                val modelJustInstalled = snapshot.hasModel && !hadPetModelInstalled
+                hadPetModelInstalled = snapshot.hasModel
                 _uiState.update {
                     it.copy(
                         petModelInstalled = snapshot.hasModel,
@@ -245,18 +325,32 @@ class PetViewModel @Inject constructor(
                         modelSetupPromptDismissed = snapshot.promptDismissed,
                         isPetModelDownloading = snapshot.downloading,
                         petModelDownloadProgress = snapshot.progress,
+                        petModelDownloadResuming = snapshot.resuming,
                     )
                 }
                 if (snapshot.hasModel) {
                     launch { refreshPetModelLabel() }
                 }
+                if (modelJustInstalled) {
+                    launch { maybeTriggerFirstTalkGreeting() }
+                }
             }
         }
     }
 
+    private suspend fun maybeTriggerFirstTalkGreeting() {
+        if (userPreferencesRepository.firstTalkGreetingSent.first()) return
+        userPreferencesRepository.setFirstTalkGreetingSent(true)
+        val profile = userPreferencesRepository.petOnboardingProfile.first()
+        val caretaker = profile.caretakerName.ifBlank { "friend" }
+        val petName = _uiState.value.petState.name.ifBlank { "nibbli" }
+        onTalkSend("Hi $petName! I'm $caretaker — nice to meet you!")
+    }
+
     fun downloadRecommendedPetModel() {
         viewModelScope.launch {
-            modelRepository.install(ModelCatalog.RECOMMENDED_PET_MODEL_ID)
+            val modelId = recommendedPetModelId()
+            modelRepository.install(modelId)
                 .onSuccess {
                     _uiState.update {
                         it.copy(petModelSetupMessage = "Downloading Pixel Friend model…")
@@ -287,6 +381,7 @@ class PetViewModel @Inject constructor(
         val promptDismissed: Boolean,
         val downloading: Boolean,
         val progress: Int,
+        val resuming: Boolean,
     )
 
     private suspend fun refreshPetModelLabel() {
@@ -485,6 +580,9 @@ class PetViewModel @Inject constructor(
             }
             return
         }
+        if (_uiState.value.showCoachMarks) {
+            dismissCoachMarks()
+        }
         if (petInferenceJob?.isActive == true && _uiState.value.talkLcdMode) {
             return
         }
@@ -497,7 +595,7 @@ class PetViewModel @Inject constructor(
                 val result = engine.interact(ticked, interaction, now)
                 val updated = PetEngagementEngine.recordCareInteraction(result.state, interaction, now)
                     .copy(dialogueLine = result.templateDialogue)
-                persistUnlocked(updated)
+                persistWithCelebrations(updated)
                 updated
             }
             launchBackgroundReaction {
@@ -619,7 +717,7 @@ class PetViewModel @Inject constructor(
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             val updated = engine.applyMinigameWin(_uiState.value.petState, now)
-            persist(updated)
+            persistWithCelebrations(updated)
             launchBackgroundReaction {
                 generateReaction(updated, lastAction = "winning a mini-game")
             }
@@ -636,7 +734,7 @@ class PetViewModel @Inject constructor(
                 won,
                 now,
             )
-            persist(updated)
+            persistWithCelebrations(updated)
             _uiState.update {
                 it.copy(lastCatchScore = score, lastCatchCombo = bestCombo)
             }
@@ -1055,6 +1153,19 @@ class PetViewModel @Inject constructor(
 
     fun dismissTalkLcdMode() {
         _uiState.update { it.copy(talkLcdMode = false) }
+    }
+
+    private suspend fun persistWithCelebrations(state: PetState) {
+        val before = _uiState.value.petState
+        persistUnlocked(state)
+        emitCelebrations(before, _uiState.value.petState)
+    }
+
+    private fun emitCelebrations(before: PetState, after: PetState) {
+        val events = PetCelebrationDetector.detect(before, after)
+        if (events.isNotEmpty()) {
+            _uiState.update { it.copy(celebrationQueue = it.celebrationQueue + events) }
+        }
     }
 
     private suspend fun persist(state: PetState) {

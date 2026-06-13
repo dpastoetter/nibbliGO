@@ -313,6 +313,15 @@ private class FakeUserPreferencesRepository : UserPreferencesRepository {
     override val onboardingCompleted = flowOf(true)
     override val modelSetupPromptDismissed = flowOf(true)
     override val termsAccepted = flowOf(true)
+    override val petSoundHapticsEnabled = flowOf(true)
+    override val petNotificationsEnabled = flowOf(true)
+    override val lcdCoachMarksDismissed = flowOf(false)
+    override val firstTalkGreetingSent = flowOf(true)
+    override suspend fun getPetNotificationsEnabled(): Boolean = true
+    override suspend fun setPetSoundHapticsEnabled(enabled: Boolean) = Unit
+    override suspend fun setPetNotificationsEnabled(enabled: Boolean) = Unit
+    override suspend fun setLcdCoachMarksDismissed(dismissed: Boolean) = Unit
+    override suspend fun setFirstTalkGreetingSent(sent: Boolean) = Unit
     override suspend fun setModelSetupPromptDismissed(dismissed: Boolean) = Unit
     override suspend fun setTermsAccepted(acceptedAtMillis: Long) = Unit
     override suspend fun setDefaultModelId(modelId: String?) = Unit

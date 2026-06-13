@@ -34,6 +34,7 @@ fun PetHomeHeader(
     petModelInstalled: Boolean = false,
     isGeneratingDialogue: Boolean = false,
     onRefreshModel: () -> Unit = {},
+    onQuestHint: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val need = PetNeedRules.deriveNeed(pet).takeIf { it != PetNeed.NONE }
@@ -124,16 +125,9 @@ fun PetHomeHeader(
             }
         }
         if (pet.isAlive && !PetEngagementRules.dailyQuestComplete(pet.engagement)) {
-            val quest = buildList {
-                if (!pet.engagement.dailyQuestFeed) add("feed")
-                if (!pet.engagement.dailyQuestPlay) add("play")
-                if (!pet.engagement.dailyQuestTalk) add("talk")
-            }.joinToString(" · ")
-            Text(
-                text = "Daily quest: $quest",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                maxLines = 1,
+            PetDailyQuestRow(
+                engagement = pet.engagement,
+                onQuestHint = onQuestHint,
             )
         }
         if (isWarmingModel) {
@@ -147,10 +141,18 @@ fun PetHomeHeader(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = "Warming up model…",
+                    text = buildString {
+                        append("Warming up model…")
+                        val backendHint = petModelLabel.substringAfter(" · ", "")
+                        if (backendHint.isNotEmpty() && backendHint != petModelLabel) {
+                            append(" ($backendHint)")
+                        } else {
+                            append(" (~few seconds)")
+                        }
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                    maxLines = 1,
+                    maxLines = 2,
                 )
             }
         }

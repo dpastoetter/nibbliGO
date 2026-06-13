@@ -158,5 +158,12 @@ private fun PetWidgetContent(
                 style = TextStyle(fontSize = 10.sp, color = muted),
             )
         }
+        if (snapshot.questStepsDone in 0..2) {
+            Text(
+                text = "Quest ${snapshot.questStepsDone}/3",
+                modifier = GlanceModifier.padding(top = 2.dp),
+                style = TextStyle(fontSize = 10.sp, color = muted),
+            )
+        }
     }
 }

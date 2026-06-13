@@ -28,6 +28,7 @@ data class CompanionUiState(
     val petPersonality: PetPersonality = PetPersonality.PLAYFUL,
     val petCommentOnAgentWork: Boolean = true,
     val petMoodPulseMode: PetMoodPulseMode = PetMoodPulseMode.NORMAL,
+    val petSoundHapticsEnabled: Boolean = true,
     val petName: String = "nibbli",
     val caretakerName: String = "",
     val aboutYou: String = "",
@@ -60,6 +61,7 @@ class CompanionViewModel @Inject constructor(
                 userPreferencesRepository.petPersonality,
                 userPreferencesRepository.petCommentOnAgentWork,
                 userPreferencesRepository.petMoodPulseMode,
+                userPreferencesRepository.petSoundHapticsEnabled,
                 userPreferencesRepository.petOnboardingProfile,
                 petRepository.observePetState(),
             ) { values ->
@@ -69,14 +71,16 @@ class CompanionViewModel @Inject constructor(
                 val personality = values[2] as PetPersonality
                 val commentOnAgent = values[3] as Boolean
                 val moodPulse = values[4] as PetMoodPulseMode
-                val profile = values[5] as PetOnboardingProfile
-                val pet = values[6] as com.nibbli.nibbligo.core.model.PetState
+                val soundHaptics = values[5] as Boolean
+                val profile = values[6] as PetOnboardingProfile
+                val pet = values[7] as com.nibbli.nibbligo.core.model.PetState
                 CompanionUiState(
                     installedModelIds = installed.map { it.modelId },
                     petModelId = petModelId,
                     petPersonality = personality,
                     petCommentOnAgentWork = commentOnAgent,
                     petMoodPulseMode = moodPulse,
+                    petSoundHapticsEnabled = soundHaptics,
                     petName = pet.name.ifBlank { "nibbli" },
                     caretakerName = profile.caretakerName,
                     aboutYou = profile.aboutYou,
@@ -190,5 +194,9 @@ class CompanionViewModel @Inject constructor(
 
     fun setPetMoodPulseMode(mode: PetMoodPulseMode) {
         viewModelScope.launch { userPreferencesRepository.setPetMoodPulseMode(mode) }
+    }
+
+    fun setPetSoundHapticsEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setPetSoundHapticsEnabled(enabled) }
     }
 }

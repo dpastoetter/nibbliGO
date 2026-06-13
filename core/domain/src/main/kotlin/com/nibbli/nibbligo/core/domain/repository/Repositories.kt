@@ -83,6 +83,10 @@ interface UserPreferencesRepository {
     val onboardingCompleted: Flow<Boolean>
     val termsAccepted: Flow<Boolean>
     val modelSetupPromptDismissed: Flow<Boolean>
+    val petSoundHapticsEnabled: Flow<Boolean>
+    val petNotificationsEnabled: Flow<Boolean>
+    val lcdCoachMarksDismissed: Flow<Boolean>
+    val firstTalkGreetingSent: Flow<Boolean>
     suspend fun setDefaultModelId(modelId: String?)
     suspend fun setPetModelId(modelId: String?)
     suspend fun setGenerationParams(params: GenerationParams)
@@ -100,4 +104,9 @@ interface UserPreferencesRepository {
     suspend fun setPetOnboardingProfile(profile: PetOnboardingProfile)
     suspend fun setTermsAccepted(acceptedAtMillis: Long)
     suspend fun setModelSetupPromptDismissed(dismissed: Boolean)
+    suspend fun setPetSoundHapticsEnabled(enabled: Boolean)
+    suspend fun setPetNotificationsEnabled(enabled: Boolean)
+    suspend fun setLcdCoachMarksDismissed(dismissed: Boolean)
+    suspend fun setFirstTalkGreetingSent(sent: Boolean)
+    suspend fun getPetNotificationsEnabled(): Boolean
 }

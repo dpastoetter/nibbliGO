@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
+import com.nibbli.nibbligo.core.designsystem.component.NibbliComingSoonCard
 import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
@@ -40,15 +41,25 @@ fun AskImageScreen(
     NibbliScreen(modifier = modifier, scrollable = true) {
         NibbliScreenHeader(
             title = "Ask Image",
-            subtitle = "Pick a photo from gallery or enter a URI. Requires a vision-capable model.",
+            subtitle = "Pick a photo and ask questions on-device.",
             showOnDeviceBadge = true,
+        )
+        NibbliComingSoonCard(
+            title = "Gallery & camera picker",
+            body = "Ask Image will use a vision-capable LiteRT model with a native gallery and camera flow. " +
+                "This build shows the layout only.",
+            modifier = Modifier.padding(bottom = 12.dp),
         )
         OutlinedTextField(
             value = uiState.imageUri,
             onValueChange = viewModel::setImageUri,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Image URI (gallery/camera hook)") },
+            enabled = false,
+            label = { Text("Image URI") },
             placeholder = { Text("content://…") },
+            supportingText = {
+                Text("Gallery picker ships in a future update.")
+            },
         )
         OutlinedTextField(
             value = uiState.question,
@@ -56,11 +67,16 @@ fun AskImageScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),
+            enabled = false,
             label = { Text("Question") },
+            supportingText = {
+                Text("Available when Ask Image launches.")
+            },
         )
         NibbliPrimaryButton(
             text = "Analyze on-device",
             onClick = { viewModel.analyze() },
+            enabled = false,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),

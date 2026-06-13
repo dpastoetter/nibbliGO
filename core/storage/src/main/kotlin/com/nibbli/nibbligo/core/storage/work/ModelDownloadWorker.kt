@@ -45,8 +45,11 @@ class ModelDownloadWorker @AssistedInject constructor(
         val url = info.resolveDownloadUrl()
             ?: return@withContext failure("No download URL for $modelId")
 
+        val tempFile = File(modelFile.parentFile, "${modelFile.name}.download")
+        val isResuming = tempFile.isFile && tempFile.length() > 0L
+
         setForeground(createForegroundInfo(modelId, 0))
-        setProgress(workDataOf(KEY_PROGRESS to 0))
+        setProgress(workDataOf(KEY_PROGRESS to 0, KEY_IS_RESUMING to isResuming))
 
         try {
             val token = huggingFaceAuthRepository.getAccessToken()
@@ -189,6 +192,7 @@ class ModelDownloadWorker @AssistedInject constructor(
         const val KEY_MODEL_ID = "model_id"
         const val KEY_ERROR = "error"
         const val KEY_PROGRESS = "progress"
+        const val KEY_IS_RESUMING = "is_resuming"
         const val WORK_TAG = "hf_litert_download"
 
         private const val CHANNEL_ID = "model_download"

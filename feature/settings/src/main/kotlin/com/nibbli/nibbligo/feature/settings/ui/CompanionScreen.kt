@@ -1,10 +1,19 @@
 package com.nibbli.nibbligo.feature.settings.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nibbli.nibbligo.core.designsystem.component.NibbliActionTile
+import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.feature.settings.presentation.CompanionViewModel
@@ -12,6 +21,7 @@ import com.nibbli.nibbligo.feature.settings.presentation.CompanionViewModel
 @Composable
 fun CompanionScreen(
     modifier: Modifier = Modifier,
+    onOpenCollection: (() -> Unit)? = null,
     viewModel: CompanionViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -53,9 +63,30 @@ fun CompanionScreen(
             petPersonality = uiState.petPersonality,
             petCommentOnAgentWork = uiState.petCommentOnAgentWork,
             petMoodPulseMode = uiState.petMoodPulseMode,
+            petSoundHapticsEnabled = uiState.petSoundHapticsEnabled,
             onPersonalityChange = viewModel::setPetPersonality,
             onCommentOnAgentWorkChange = viewModel::setPetCommentOnAgentWork,
             onMoodPulseModeChange = viewModel::setPetMoodPulseMode,
+            onPetSoundHapticsChange = viewModel::setPetSoundHapticsEnabled,
         )
+        onOpenCollection?.let { openCollection ->
+            NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
+                Text("LCD collection", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "See locked and unlocked wearables, scenes, and floor props.",
+                    modifier = Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                NibbliActionTile(
+                    icon = Icons.Outlined.Collections,
+                    label = "View collection",
+                    onClick = openCollection,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
+            }
+        }
     }
 }

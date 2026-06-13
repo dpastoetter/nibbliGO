@@ -114,4 +114,10 @@ object ModelCatalog {
         val mb = (find(modelId)?.sizeBytes ?: 0L) / 1_000_000
         return if (mb >= 1000) "~${mb / 1000}.${(mb % 1000) / 100} GB" else "~$mb MB"
     }
+
+    const val LIGHTWEIGHT_PET_MODEL_ID = "smollm2-360m-instruct"
+    private const val LOW_RAM_THRESHOLD_MB = 3072L
+
+    fun recommendedPetModelId(totalRamMb: Long): String =
+        if (totalRamMb < LOW_RAM_THRESHOLD_MB) LIGHTWEIGHT_PET_MODEL_ID else RECOMMENDED_PET_MODEL_ID
 }

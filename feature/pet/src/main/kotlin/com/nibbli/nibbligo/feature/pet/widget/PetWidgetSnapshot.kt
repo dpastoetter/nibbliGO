@@ -18,6 +18,14 @@ object PetWidgetSnapshot {
             .putString(KEY_COSMETIC, state.equippedCosmetic?.name ?: "")
             .putInt(KEY_STREAK, state.engagement.careStreakDays)
             .putInt(KEY_MOOD, state.stats.mood)
+            .putInt(
+                KEY_QUEST_DONE,
+                listOf(
+                    state.engagement.dailyQuestFeed,
+                    state.engagement.dailyQuestPlay,
+                    state.engagement.dailyQuestTalk,
+                ).count { it },
+            )
             .apply()
     }
 
@@ -31,6 +39,7 @@ object PetWidgetSnapshot {
             cosmetic = prefs.getString(KEY_COSMETIC, "") ?: "",
             streakDays = prefs.getInt(KEY_STREAK, 0),
             mood = prefs.getInt(KEY_MOOD, 0),
+            questStepsDone = prefs.getInt(KEY_QUEST_DONE, 0),
         )
     }
 
@@ -42,6 +51,7 @@ object PetWidgetSnapshot {
         val cosmetic: String,
         val streakDays: Int,
         val mood: Int,
+        val questStepsDone: Int,
     )
 
     private const val KEY_NAME = "name"
@@ -51,4 +61,5 @@ object PetWidgetSnapshot {
     private const val KEY_COSMETIC = "cosmetic"
     private const val KEY_STREAK = "streak"
     private const val KEY_MOOD = "mood"
+    private const val KEY_QUEST_DONE = "quest_done"
 }

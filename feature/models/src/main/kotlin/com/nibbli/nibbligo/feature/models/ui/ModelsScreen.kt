@@ -126,10 +126,10 @@ fun ModelsScreen(
                             style = MaterialTheme.typography.labelLarge,
                         )
                     } else if (item.isDownloading) {
-                        val progressLabel = if (item.downloadProgress > 0) {
-                            "Downloading… ${item.downloadProgress}%"
-                        } else {
-                            "Downloading…"
+                        val progressLabel = when {
+                            item.downloadProgress > 0 -> "Downloading… ${item.downloadProgress}%"
+                            item.isResumingDownload -> "Resuming download…"
+                            else -> "Starting download…"
                         }
                         Text(
                             progressLabel,

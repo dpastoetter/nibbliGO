@@ -1,6 +1,10 @@
 package com.nibbli.nibbligo.feature.pet.presentation
 
+import android.content.Context
 import com.nibbli.nibbligo.core.domain.model.ModelAvailabilityGate
+import com.nibbli.nibbligo.core.domain.repository.ModelRepository
+import com.nibbli.nibbligo.core.model.InstalledModel
+import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AppAccentPalette
@@ -32,6 +36,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -57,8 +62,8 @@ class PetOnboardingViewModelTest {
     }
 
     @Test
-    fun stepCount_isSix() {
-        assertEquals(6, PetOnboardingUiState().stepCount)
+    fun stepCount_isSeven() {
+        assertEquals(7, PetOnboardingUiState().stepCount)
     }
 
     @Test
@@ -147,7 +152,27 @@ class PetOnboardingViewModelTest {
         }
         val resolver = PetModelResolver(runtime, preferences, gate)
         val preloader = LiteRtModelPreloader(gate, resolver, runtime, preferences, petRepo)
-        return PetOnboardingViewModel(preferences, petRepo, preloader, runtime, resolver, gate)
+        val modelRepo = object : ModelRepository {
+            override fun observeCatalog(): Flow<List<ModelInfo>> = flowOf(emptyList())
+            override fun observeInstalled(): Flow<List<InstalledModel>> = flowOf(emptyList())
+            override suspend fun getCatalog(): List<ModelInfo> = emptyList()
+            override suspend fun getInstalled(): List<InstalledModel> = emptyList()
+            override suspend fun isInstalled(modelId: String): Boolean = false
+            override suspend fun install(modelId: String): Result<Unit> = Result.success(Unit)
+            override suspend fun uninstall(modelId: String): Result<Unit> = Result.success(Unit)
+            override suspend fun getInstalledModelIds(): List<String> = emptyList()
+        }
+        val context: Context = RuntimeEnvironment.getApplication()
+        return PetOnboardingViewModel(
+            context,
+            preferences,
+            petRepo,
+            modelRepo,
+            preloader,
+            runtime,
+            resolver,
+            gate,
+        )
     }
 }
 
@@ -174,6 +199,15 @@ private class OnboardingFakePrefs(
     override val onboardingCompleted = flowOf(profile.completed)
     override val modelSetupPromptDismissed = flowOf(false)
     override val termsAccepted = flowOf(false)
+    override val petSoundHapticsEnabled = flowOf(true)
+    override val petNotificationsEnabled = flowOf(true)
+    override val lcdCoachMarksDismissed = flowOf(false)
+    override val firstTalkGreetingSent = flowOf(false)
+    override suspend fun getPetNotificationsEnabled(): Boolean = true
+    override suspend fun setPetSoundHapticsEnabled(enabled: Boolean) = Unit
+    override suspend fun setPetNotificationsEnabled(enabled: Boolean) = Unit
+    override suspend fun setLcdCoachMarksDismissed(dismissed: Boolean) = Unit
+    override suspend fun setFirstTalkGreetingSent(sent: Boolean) = Unit
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: GenerationParams) = Unit

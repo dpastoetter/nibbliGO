@@ -136,6 +136,15 @@ private class FakeUserPreferencesRepository(
     override val onboardingCompleted = flowOf(true)
     override val modelSetupPromptDismissed = flowOf(false)
     override val termsAccepted = flowOf(false)
+    override val petSoundHapticsEnabled = flowOf(true)
+    override val petNotificationsEnabled = flowOf(true)
+    override val lcdCoachMarksDismissed = flowOf(false)
+    override val firstTalkGreetingSent = flowOf(false)
+    override suspend fun getPetNotificationsEnabled(): Boolean = true
+    override suspend fun setPetSoundHapticsEnabled(enabled: Boolean) = Unit
+    override suspend fun setPetNotificationsEnabled(enabled: Boolean) = Unit
+    override suspend fun setLcdCoachMarksDismissed(dismissed: Boolean) = Unit
+    override suspend fun setFirstTalkGreetingSent(sent: Boolean) = Unit
     override suspend fun setDefaultModelId(modelId: String?) = Unit
     override suspend fun setPetModelId(modelId: String?) = Unit
     override suspend fun setGenerationParams(params: com.nibbli.nibbligo.core.model.GenerationParams) = Unit

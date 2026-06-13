@@ -123,6 +123,29 @@ fun SettingsScreen(
             }
         }
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
+            Text("Pet notifications", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Alerts when your pet needs care, your streak is at risk, or the daily quest is unfinished.",
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Enable pet notifications",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Switch(
+                    checked = uiState.petNotificationsEnabled,
+                    onCheckedChange = viewModel::setPetNotificationsEnabled,
+                )
+            }
+        }
+        NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("Downloads", style = MaterialTheme.typography.titleMedium)
             Row(
                 modifier = Modifier.padding(top = 8.dp),

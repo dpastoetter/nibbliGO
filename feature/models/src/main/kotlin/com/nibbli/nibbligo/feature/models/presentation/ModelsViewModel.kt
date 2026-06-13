@@ -29,6 +29,7 @@ data class ModelItemUi(
     val isDownloading: Boolean = false,
     val isWaitingForNetwork: Boolean = false,
     val downloadProgress: Int = 0,
+    val isResumingDownload: Boolean = false,
 )
 
 data class ModelsUiState(
@@ -80,6 +81,11 @@ class ModelsViewModel @Inject constructor(
                         ?.removePrefix("hf_download_") ?: ""
                     modelId to work.progress.getInt(ModelDownloadWorker.KEY_PROGRESS, 0)
                 }
+                val resumingByModel = activeWorks.associate { work ->
+                    val modelId = work.tags.find { it.startsWith("hf_download_") }
+                        ?.removePrefix("hf_download_") ?: ""
+                    modelId to work.progress.getBoolean(ModelDownloadWorker.KEY_IS_RESUMING, false)
+                }
                 val failed = workInfos
                     .filter { it.state == WorkInfo.State.FAILED }
                     .maxByOrNull { it.id }
@@ -100,6 +106,7 @@ class ModelsViewModel @Inject constructor(
                             isDownloading = info.id in downloadingIds,
                             isWaitingForNetwork = info.id in blockedIds,
                             downloadProgress = progressByModel[info.id] ?: 0,
+                            isResumingDownload = resumingByModel[info.id] ?: false,
                         )
                     },
                     installed = installed,

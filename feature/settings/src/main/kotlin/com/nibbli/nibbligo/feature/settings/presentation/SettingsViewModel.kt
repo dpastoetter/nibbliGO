@@ -36,6 +36,7 @@ data class SettingsUiState(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val accentPalette: AppAccentPalette = AppAccentPalette.TEAL,
     val litertAccelerator: LiteRtAcceleratorPreference = LiteRtAcceleratorPreference.AUTO,
+    val petNotificationsEnabled: Boolean = true,
 )
 
 @HiltViewModel
@@ -61,6 +62,7 @@ class SettingsViewModel @Inject constructor(
                 userPreferencesRepository.themeMode,
                 userPreferencesRepository.accentPalette,
                 userPreferencesRepository.litertAccelerator,
+                userPreferencesRepository.petNotificationsEnabled,
                 huggingFaceAuthRepository.accessToken,
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
@@ -70,7 +72,8 @@ class SettingsViewModel @Inject constructor(
                 val themeMode = values[3] as AppThemeMode
                 val accentPalette = values[4] as AppAccentPalette
                 val litertAccelerator = values[5] as LiteRtAcceleratorPreference
-                val token = values[6] as String?
+                val petNotifications = values[6] as Boolean
+                val token = values[7] as String?
                 val bytes = installed.sumOf { it.sizeBytes }
                 SettingsUiState(
                     installedCount = installed.size,
@@ -83,6 +86,7 @@ class SettingsViewModel @Inject constructor(
                     themeMode = themeMode,
                     accentPalette = accentPalette,
                     litertAccelerator = litertAccelerator,
+                    petNotificationsEnabled = petNotifications,
                 )
             }.collect { state ->
                 _uiState.update { current ->
@@ -150,6 +154,10 @@ class SettingsViewModel @Inject constructor(
             liteRtEnginePool.unloadAll()
             liteRtModelPreloader.reloadPrimaryModel()
         }
+    }
+
+    fun setPetNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.setPetNotificationsEnabled(enabled) }
     }
 
     fun saveManualHuggingFaceToken() {

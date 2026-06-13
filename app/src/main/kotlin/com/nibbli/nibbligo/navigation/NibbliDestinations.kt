@@ -42,4 +42,5 @@ object Routes {
     const val PROMPT_LAB = "prompt_lab"
     const val FAQ_NIBBLIGO = "faq_nibbliGO"
     const val FAQ_AI_BASICS = "faq_ai_basics"
+    const val PET_COLLECTION = "pet_collection"
 }

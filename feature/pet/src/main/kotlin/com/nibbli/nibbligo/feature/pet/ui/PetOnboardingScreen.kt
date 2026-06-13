@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +40,7 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSecondaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
 import com.nibbli.nibbligo.core.designsystem.component.NibbliTextField
+import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.model.PetPersonality
 import com.nibbli.nibbligo.feature.pet.presentation.PetOnboardingViewModel
 
@@ -107,6 +109,17 @@ fun PetOnboardingScreen(
                         5 -> TermsStep(
                             accepted = uiState.termsAccepted,
                             onAcceptedChange = viewModel::updateTermsAccepted,
+                        )
+                        6 -> ModelDownloadStep(
+                            modelName = ModelCatalog.displayName(uiState.recommendedModelId),
+                            sizeLabel = ModelCatalog.approximateSizeLabel(uiState.recommendedModelId),
+                            isLowRamDevice = uiState.recommendedModelId == ModelCatalog.LIGHTWEIGHT_PET_MODEL_ID,
+                            isDownloading = uiState.isDownloadingModel,
+                            downloadProgress = uiState.downloadProgress,
+                            downloadResuming = uiState.downloadResuming,
+                            message = uiState.downloadMessage,
+                            onDownload = viewModel::downloadRecommendedModel,
+                            onClearMessage = viewModel::clearDownloadMessage,
                         )
                     }
                 }
@@ -350,6 +363,77 @@ private fun TermsStep(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 4.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun ModelDownloadStep(
+    modelName: String,
+    sizeLabel: String,
+    isLowRamDevice: Boolean,
+    isDownloading: Boolean,
+    downloadProgress: Int,
+    downloadResuming: Boolean,
+    message: String?,
+    onDownload: () -> Unit,
+    onClearMessage: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Download nibbli's brain?",
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Text(
+            text = buildString {
+                append("$modelName ($sizeLabel) runs talk, voice, and mood lines on-device.")
+                if (isLowRamDevice) {
+                    append(" We picked a lighter model for your device.")
+                } else {
+                    append(" Wi‑Fi recommended for the download.")
+                }
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (isDownloading) {
+            LinearProgressIndicator(
+                progress = { downloadProgress.coerceIn(0, 100) / 100f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+            )
+            Text(
+                text = when {
+                    downloadProgress > 0 -> "Downloading… $downloadProgress%"
+                    downloadResuming -> "Resuming download…"
+                    else -> "Starting download…"
+                },
+                style = MaterialTheme.typography.bodySmall,
+            )
+        } else {
+            NibbliPrimaryButton(
+                text = "Download now",
+                onClick = onDownload,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Text(
+            text = "Optional — tap Meet below to skip and download later from Home.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        message?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            LaunchedEffect(it) {
+                kotlinx.coroutines.delay(4000)
+                onClearMessage()
+            }
         }
     }
 }

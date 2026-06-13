@@ -40,6 +40,7 @@ fun P1DeviceShell(
     onCareAction: (PetInteraction) -> Unit,
     onEquipLcdItem: (LcdPickerEntry) -> Unit,
     onLcdActivity: () -> Unit = {},
+    onCareConfirm: () -> Unit = {},
     dialogueLine: String = "",
     isGeneratingDialogue: Boolean = false,
     talkLcdMode: Boolean = false,
@@ -47,6 +48,9 @@ fun P1DeviceShell(
     visitLabel: String? = null,
     visitPet: PetState? = null,
     carePet: PetState = pet,
+    openItemsModeRequest: Boolean = false,
+    onItemsModeOpened: () -> Unit = {},
+    highlightConfirm: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val menu = p1CareMenu(carePet)
@@ -98,6 +102,17 @@ fun P1DeviceShell(
         if (motionBoost) {
             delay(1_100)
             motionBoost = false
+        }
+    }
+
+    LaunchedEffect(openItemsModeRequest) {
+        if (openItemsModeRequest) {
+            shellMode = P1ShellMode.ITEMS
+            if (pickerEntries.isNotEmpty()) {
+                pickerIndex = pickerEntries.indexOfFirst { it.isCurrentlyEquipped(carePet) }
+                    .coerceAtLeast(0)
+            }
+            onItemsModeOpened()
         }
     }
 
@@ -177,6 +192,7 @@ fun P1DeviceShell(
                         pickerIndex = pickerEntries.indexOfFirst { it.isCurrentlyEquipped(carePet) }
                             .coerceAtLeast(0)
                     } else {
+                        onCareConfirm()
                         onCareAction(current.interaction)
                     }
                 },
@@ -193,6 +209,7 @@ fun P1DeviceShell(
                 },
                 cycleEnabled = carePet.isAlive,
                 confirmEnabled = canConfirm,
+                highlightConfirm = highlightConfirm,
                 modifier = Modifier.padding(top = 12.dp),
             )
             visitLabel?.let { name ->

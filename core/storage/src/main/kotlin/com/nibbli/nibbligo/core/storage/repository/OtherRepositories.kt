@@ -33,6 +33,7 @@ import com.nibbli.nibbligo.core.storage.mapper.toDomain
 import com.nibbli.nibbligo.core.storage.mapper.toEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -122,6 +123,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     val modelSetupPromptDismissed = booleanPreferencesKey("model_setup_prompt_dismissed")
     val termsAccepted = booleanPreferencesKey("terms_accepted")
     val termsAcceptedAt = longPreferencesKey("terms_accepted_at")
+    val petSoundHapticsEnabled = booleanPreferencesKey("pet_sound_haptics_enabled")
+    val petNotificationsEnabled = booleanPreferencesKey("pet_notifications_enabled")
+    val lcdCoachMarksDismissed = booleanPreferencesKey("lcd_coach_marks_dismissed")
+    val firstTalkGreetingSent = booleanPreferencesKey("first_talk_greeting_sent")
   }
 
   override val defaultModelId: Flow<String?> =
@@ -213,6 +218,18 @@ class UserPreferencesRepositoryImpl @Inject constructor(
   override val termsAccepted: Flow<Boolean> =
     context.dataStore.data.map { it[Keys.termsAccepted] ?: false }
 
+  override val petSoundHapticsEnabled: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.petSoundHapticsEnabled] ?: true }
+
+  override val petNotificationsEnabled: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.petNotificationsEnabled] ?: true }
+
+  override val lcdCoachMarksDismissed: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.lcdCoachMarksDismissed] ?: false }
+
+  override val firstTalkGreetingSent: Flow<Boolean> =
+    context.dataStore.data.map { it[Keys.firstTalkGreetingSent] ?: false }
+
   override suspend fun setTermsAccepted(acceptedAtMillis: Long) {
     context.dataStore.edit { prefs ->
       prefs[Keys.termsAccepted] = true
@@ -303,6 +320,25 @@ class UserPreferencesRepositoryImpl @Inject constructor(
       else prefs[Keys.onboardingGoal] = profile.companionGoal.trim()
     }
   }
+
+  override suspend fun setPetSoundHapticsEnabled(enabled: Boolean) {
+    context.dataStore.edit { it[Keys.petSoundHapticsEnabled] = enabled }
+  }
+
+  override suspend fun setPetNotificationsEnabled(enabled: Boolean) {
+    context.dataStore.edit { it[Keys.petNotificationsEnabled] = enabled }
+  }
+
+  override suspend fun setLcdCoachMarksDismissed(dismissed: Boolean) {
+    context.dataStore.edit { it[Keys.lcdCoachMarksDismissed] = dismissed }
+  }
+
+  override suspend fun setFirstTalkGreetingSent(sent: Boolean) {
+    context.dataStore.edit { it[Keys.firstTalkGreetingSent] = sent }
+  }
+
+  override suspend fun getPetNotificationsEnabled(): Boolean =
+    context.dataStore.data.map { it[Keys.petNotificationsEnabled] ?: true }.first()
 
   private fun Preferences.toOnboardingProfile(): PetOnboardingProfile =
     PetOnboardingProfile(

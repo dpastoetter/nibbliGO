@@ -15,6 +15,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.nibbli.nibbligo.core.designsystem.component.NibbliBottomNavItem
 import com.nibbli.nibbligo.core.designsystem.component.NibbliBottomNavigationBar
+import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
 import com.nibbli.nibbligo.feature.actions.ui.ActionsScreen
 import com.nibbli.nibbligo.feature.audio.ui.AudioScribeScreen
 import com.nibbli.nibbligo.feature.agent.ui.AgentChatScreen
@@ -24,6 +25,7 @@ import com.nibbli.nibbligo.feature.promptlab.ui.PromptLabScreen
 import com.nibbli.nibbligo.feature.image.ui.AskImageScreen
 import com.nibbli.nibbligo.feature.models.ui.ModelsScreen
 import com.nibbli.nibbligo.feature.pet.ui.PetHomeScreen
+import com.nibbli.nibbligo.feature.pet.ui.collection.PetCollectionScreen
 import com.nibbli.nibbligo.feature.settings.ui.BasicAiKnowledgeScreen
 import com.nibbli.nibbligo.feature.settings.ui.CompanionScreen
 import com.nibbli.nibbligo.feature.settings.ui.NibbliFaqScreen
@@ -56,10 +58,13 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
         }
     }
 
+    val keyboardVisible = isKeyboardVisible()
+
     Scaffold(
         bottomBar = {
-            NibbliBottomNavigationBar(
-                items = visibleDestinations.map { destination ->
+            if (!keyboardVisible) {
+                NibbliBottomNavigationBar(
+                    items = visibleDestinations.map { destination ->
                     val selected = currentRoute?.startsWith(destination.route) == true ||
                         when (destination) {
                             TopLevelDestination.Sense -> currentRoute in listOf(
@@ -76,6 +81,7 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
                                 Routes.AGENT,
                                 Routes.FAQ_NIBBLIGO,
                                 Routes.FAQ_AI_BASICS,
+                                Routes.PET_COLLECTION,
                             )
                             else -> false
                         }
@@ -93,8 +99,9 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
                             }
                         },
                     )
-                },
-            )
+                    },
+                )
+            }
         },
     ) { padding ->
         NavHost(
@@ -115,7 +122,10 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
             composable(Routes.BENCHMARK) { BenchmarkScreen() }
             composable(Routes.PROMPT_LAB) { PromptLabScreen() }
             composable(Routes.SETTINGS) { SettingsScreen() }
-            composable(Routes.COMPANION) { CompanionScreen() }
+            composable(Routes.COMPANION) {
+                CompanionScreen(onOpenCollection = { navController.navigate(Routes.PET_COLLECTION) })
+            }
+            composable(Routes.PET_COLLECTION) { PetCollectionScreen() }
             composable(Routes.FAQ_NIBBLIGO) { NibbliFaqScreen() }
             composable(Routes.FAQ_AI_BASICS) { BasicAiKnowledgeScreen() }
             composable(Routes.MANAGE) { ManageHubScreen(navController) }

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,9 +32,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
 import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
 import com.nibbli.nibbligo.core.model.PetCondition
-import com.nibbli.nibbligo.core.ui.LoadingState
+import com.nibbli.nibbligo.core.model.PetInteraction
+import com.nibbli.nibbligo.core.model.PetNeed
+import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
 import com.nibbli.nibbligo.feature.pet.ui.visit.PetVisitSheet
+import com.nibbli.nibbligo.feature.pet.ui.feedback.PetFeedbackKind
+import com.nibbli.nibbligo.feature.pet.ui.feedback.rememberPetFeedbackController
 import com.nibbli.nibbligo.feature.pet.ui.voice.rememberVoiceAssistLauncher
 
 @Composable
@@ -47,6 +50,14 @@ fun PetHomeScreen(
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val feedback = rememberPetFeedbackController()
+
+    LaunchedEffect(uiState.currentCelebration, uiState.petSoundHapticsEnabled) {
+        val celebration = uiState.currentCelebration ?: return@LaunchedEffect
+        viewModel.feedbackKindForCelebration(celebration)?.let { kind ->
+            feedback.perform(kind, uiState.petSoundHapticsEnabled)
+        }
+    }
 
     val launchVoiceTalk = rememberVoiceAssistLauncher(
         onListening = { viewModel.setVoiceListening(true) },
@@ -93,7 +104,7 @@ fun PetHomeScreen(
     }
 
     if (uiState.isLoading) {
-        LoadingState(modifier)
+        PetHomeLoadingState(modifier = modifier, petName = uiState.petState.name)
         return
     }
 
@@ -106,6 +117,8 @@ fun PetHomeScreen(
         !uiState.isVoiceListening && !uiState.isWarmingModel
     val micEnabled = talkEnabled && uiState.petModelInstalled
     val keyboardVisible = isKeyboardVisible()
+    val activeNeed = PetNeedRules.deriveNeed(pet).takeIf { it != PetNeed.NONE }
+        ?: pet.activeNeed.takeIf { it != PetNeed.NONE }
 
     Box(modifier = modifier.fillMaxSize()) {
         NibbliAmbientBackground()
@@ -119,15 +132,37 @@ fun PetHomeScreen(
                 petModelInstalled = uiState.petModelInstalled,
                 isGeneratingDialogue = uiState.isGeneratingDialogue,
                 onRefreshModel = viewModel::refreshPetModel,
+                onQuestHint = viewModel::onQuestHint,
             )
+
+            if (uiState.showStreakWelcomeBack && pet.isAlive) {
+                PetWelcomeBackBanner(
+                    streakDays = pet.engagement.careStreakDays,
+                    onFeed = {
+                        viewModel.dismissStreakWelcomeBack()
+                        viewModel.onInteraction(PetInteraction.FEED_MEAL)
+                    },
+                    onPlay = {
+                        viewModel.dismissStreakWelcomeBack()
+                        viewModel.openMinigame()
+                    },
+                    onTalk = {
+                        viewModel.dismissStreakWelcomeBack()
+                        viewModel.onQuickChip("How are you?")
+                    },
+                    onDismiss = viewModel::dismissStreakWelcomeBack,
+                )
+            }
 
             if (!uiState.petModelInstalled) {
                 PetModelSetupBanner(
                     visible = true,
                     isDownloading = uiState.isPetModelDownloading,
                     downloadProgress = uiState.petModelDownloadProgress,
+                    isResumingDownload = uiState.petModelDownloadResuming,
                     onDownload = viewModel::downloadRecommendedPetModel,
                     startCollapsed = uiState.modelSetupPromptDismissed,
+                    modelId = uiState.recommendedPetModelId,
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 4.dp),
                 )
@@ -158,14 +193,29 @@ fun PetHomeScreen(
                         visitPet = visitPet,
                         carePet = pet,
                         visitLabel = visitPostcard?.senderName,
-                        onPetTap = { viewModel.onPetTapped() },
+                        onPetTap = {
+                            if (uiState.petSoundHapticsEnabled) {
+                                feedback.perform(PetFeedbackKind.TAP, soundEnabled = true)
+                            }
+                            viewModel.onPetTapped()
+                        },
                         onCareAction = { viewModel.onInteraction(it) },
+                        onCareConfirm = {
+                            if (uiState.petSoundHapticsEnabled) {
+                                feedback.perform(PetFeedbackKind.CARE_CONFIRM, soundEnabled = true)
+                            }
+                        },
                         onEquipLcdItem = viewModel::onEquipLcdItem,
                         onLcdActivity = viewModel::onLcdActivity,
                         dialogueLine = if (uiState.talkLcdMode) pet.dialogueLine else displayDialogue,
                         isGeneratingDialogue = uiState.isGeneratingDialogue,
                         talkLcdMode = uiState.talkLcdMode,
                         onDismissTalkLcd = viewModel::dismissTalkLcdMode,
+                        showCoachMarks = uiState.showCoachMarks,
+                        onDismissCoachMarks = viewModel::dismissCoachMarks,
+                        openItemsModeRequest = uiState.openLcdItemsMode,
+                        onItemsModeOpened = viewModel::clearOpenLcdItemsMode,
+                        highlightConfirm = activeNeed != null,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -175,15 +225,19 @@ fun PetHomeScreen(
                     isGeneratingDialogue = uiState.isGeneratingDialogue,
                     talkHistory = uiState.talkHistory,
                     streamingDialogue = pet.dialogueLine,
+                    talkLcdMode = uiState.talkLcdMode,
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .imePadding(),
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (!keyboardVisible && !isUserTalkGenerating && talkEnabled) {
+                    PetTalkSuggestionChips(
+                        enabled = micEnabled,
+                        onChipClick = viewModel::onQuickChip,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                }
                 PetTalkInputBar(
                     enabled = talkEnabled,
                     micEnabled = micEnabled,
@@ -196,7 +250,11 @@ fun PetHomeScreen(
                     onStopClick = { viewModel.stopGeneration() },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp)
+                        .padding(
+                            top = 8.dp,
+                            bottom = if (keyboardVisible) 4.dp else 8.dp,
+                        ),
                 )
 
                 if (!keyboardVisible) {
@@ -259,7 +317,12 @@ fun PetHomeScreen(
             viewModel.clearCatchGhost()
             viewModel.dismissMinigame()
         },
-        onWin = { viewModel.onMinigameWin() },
+        onWin = {
+            if (uiState.petSoundHapticsEnabled) {
+                feedback.perform(PetFeedbackKind.MINIGAME_WIN, soundEnabled = true)
+            }
+            viewModel.onMinigameWin()
+        },
         onGameEnd = viewModel::onMinigameEnd,
     )
     uiState.evolutionShareStage?.let { stage ->
@@ -297,11 +360,19 @@ fun PetHomeScreen(
         onDismissVisit = viewModel::endPostcardVisit,
         onDismiss = viewModel::dismissPostcardSheet,
     )
+    PetCelebrationSheet(
+        event = uiState.currentCelebration,
+        petName = pet.name,
+        onDismiss = viewModel::dismissCelebration,
+        onEquipNow = viewModel::equipFromCelebration,
+    )
     PetModelSetupSheet(
         visible = uiState.showModelSetupSheet,
         isDownloading = uiState.isPetModelDownloading,
         downloadProgress = uiState.petModelDownloadProgress,
+        isResumingDownload = uiState.petModelDownloadResuming,
         message = uiState.petModelSetupMessage,
+        modelId = uiState.recommendedPetModelId,
         onDownload = viewModel::downloadRecommendedPetModel,
         onDismiss = viewModel::dismissModelSetupSheet,
         onClearMessage = viewModel::clearPetModelSetupMessage,

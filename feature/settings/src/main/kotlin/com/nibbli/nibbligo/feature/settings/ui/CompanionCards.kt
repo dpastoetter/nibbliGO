@@ -214,9 +214,11 @@ internal fun CompanionBehaviorCard(
     petPersonality: PetPersonality,
     petCommentOnAgentWork: Boolean,
     petMoodPulseMode: PetMoodPulseMode,
+    petSoundHapticsEnabled: Boolean,
     onPersonalityChange: (PetPersonality) -> Unit,
     onCommentOnAgentWorkChange: (Boolean) -> Unit,
     onMoodPulseModeChange: (PetMoodPulseMode) -> Unit,
+    onPetSoundHapticsChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NibbliCard(modifier = modifier.padding(top = 12.dp)) {
@@ -252,6 +254,20 @@ internal fun CompanionBehaviorCard(
             Switch(
                 checked = petCommentOnAgentWork,
                 onCheckedChange = onCommentOnAgentWorkChange,
+            )
+        }
+        Row(
+            modifier = Modifier.padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Sound & haptics",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Switch(
+                checked = petSoundHapticsEnabled,
+                onCheckedChange = onPetSoundHapticsChange,
             )
         }
         Text(

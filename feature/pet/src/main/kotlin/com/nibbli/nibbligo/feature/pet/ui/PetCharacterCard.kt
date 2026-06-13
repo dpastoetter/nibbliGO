@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.feature.pet.ui.pixel.LcdPickerEntry
+import com.nibbli.nibbligo.feature.pet.ui.pixel.P1CoachMarksOverlay
 import com.nibbli.nibbligo.feature.pet.ui.pixel.P1DeviceShell
 
 @Composable
@@ -19,6 +20,7 @@ fun PetCharacterCard(
     onCareAction: (PetInteraction) -> Unit,
     onEquipLcdItem: (LcdPickerEntry) -> Unit,
     onLcdActivity: () -> Unit = {},
+    onCareConfirm: () -> Unit = {},
     dialogueLine: String = "",
     isGeneratingDialogue: Boolean = false,
     talkLcdMode: Boolean = false,
@@ -26,6 +28,11 @@ fun PetCharacterCard(
     visitLabel: String? = null,
     visitPet: PetState? = null,
     carePet: PetState = pet,
+    showCoachMarks: Boolean = false,
+    onDismissCoachMarks: () -> Unit = {},
+    openItemsModeRequest: Boolean = false,
+    onItemsModeOpened: () -> Unit = {},
+    highlightConfirm: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -37,6 +44,7 @@ fun PetCharacterCard(
             carePet = carePet,
             onPetTap = onPetTap,
             onCareAction = onCareAction,
+            onCareConfirm = onCareConfirm,
             onEquipLcdItem = onEquipLcdItem,
             onLcdActivity = onLcdActivity,
             dialogueLine = dialogueLine,
@@ -45,6 +53,16 @@ fun PetCharacterCard(
             onDismissTalkLcd = onDismissTalkLcd,
             visitLabel = visitLabel,
             visitPet = visitPet,
+            openItemsModeRequest = openItemsModeRequest,
+            onItemsModeOpened = onItemsModeOpened,
+            highlightConfirm = highlightConfirm,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+        )
+        P1CoachMarksOverlay(
+            visible = showCoachMarks,
+            onDismiss = onDismissCoachMarks,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),

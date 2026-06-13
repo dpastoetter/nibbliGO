@@ -10,23 +10,31 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
+import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.PetCondition
+import com.nibbli.nibbligo.core.model.PetEngagementRules
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
+import com.nibbli.nibbligo.feature.pet.widget.PetWidgetActions
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.util.Calendar
 
 @HiltWorker
 class PetTickWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val petRepository: PetRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
 ) : CoroutineWorker(context, params) {
 
     private val engine = PetSimulationEngine()
 
     override suspend fun doWork(): Result {
+        if (!userPreferencesRepository.getPetNotificationsEnabled()) {
+            return Result.success()
+        }
         val now = System.currentTimeMillis()
         var state = petRepository.getPetState()
         val tick = engine.tick(state, now)
@@ -36,48 +44,98 @@ class PetTickWorker @AssistedInject constructor(
         }
         petRepository.savePetState(state)
 
-        if (tick.shouldNotifyAttention && state.condition != PetCondition.DEAD) {
-            notifyAttention(state.activeNeed.name)
-        } else if (PetEngagementEngine.isStreakAtRisk(state, now) &&
-            state.condition != PetCondition.DEAD
-        ) {
-            notifyStreakAtRisk(state.engagement.careStreakDays)
+        if (state.condition == PetCondition.DEAD) {
+            return Result.success()
+        }
+
+        val petName = state.name.ifBlank { "nibbli" }
+        when {
+            tick.shouldNotifyAttention -> notifyAttention(petName, state.activeNeed.name)
+            PetEngagementEngine.isStreakAtRisk(state, now) ->
+                notifyStreakAtRisk(petName, state.engagement.careStreakDays)
+            shouldNotifyQuestReminder(state, now) -> notifyQuestReminder(petName, state)
         }
         return Result.success()
     }
 
-    private fun notifyStreakAtRisk(streakDays: Int) {
-        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Pet care", NotificationManager.IMPORTANCE_DEFAULT),
-        )
-        val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Streak at risk!")
-            .setContentText("Your $streakDays-day care streak needs a check-in today.")
-            .setContentIntent(openAppPendingIntent())
-            .setAutoCancel(true)
-            .build()
-        nm.notify(STREAK_NOTIFICATION_ID, notification)
+    private fun shouldNotifyQuestReminder(state: com.nibbli.nibbligo.core.model.PetState, nowMillis: Long): Boolean {
+        if (PetEngagementRules.dailyQuestComplete(state.engagement)) return false
+        val hour = Calendar.getInstance().apply { timeInMillis = nowMillis }.get(Calendar.HOUR_OF_DAY)
+        return hour >= 18
     }
 
-    private fun notifyAttention(needLabel: String) {
-        val channelId = CHANNEL_ID
-        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(
-            NotificationChannel(channelId, "Pet care", NotificationManager.IMPORTANCE_DEFAULT),
+    private fun notifyQuestReminder(petName: String, state: com.nibbli.nibbligo.core.model.PetState) {
+        val remaining = listOfNotNull(
+            "feed".takeIf { !state.engagement.dailyQuestFeed },
+            "play".takeIf { !state.engagement.dailyQuestPlay },
+            "talk".takeIf { !state.engagement.dailyQuestTalk },
+        ).joinToString(", ")
+        postNotification(
+            channelId = CHANNEL_QUEST,
+            channelName = "Daily quest",
+            notificationId = QUEST_NOTIFICATION_ID,
+            title = "$petName's daily quest",
+            text = "Still to do today: $remaining",
+            includeFeedAction = false,
         )
-        val notification = NotificationCompat.Builder(applicationContext, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("nibbli needs you")
-            .setContentText(needText(needLabel))
-            .setContentIntent(openAppPendingIntent())
-            .setAutoCancel(true)
-            .build()
-        nm.notify(NOTIFICATION_ID, notification)
     }
 
-    private fun openAppPendingIntent(): PendingIntent {
+    private fun notifyStreakAtRisk(petName: String, streakDays: Int) {
+        postNotification(
+            channelId = CHANNEL_STREAK,
+            channelName = "Care streak",
+            notificationId = STREAK_NOTIFICATION_ID,
+            title = "$petName misses you",
+            text = "Your $streakDays-day care streak needs a check-in today.",
+            includeFeedAction = false,
+        )
+    }
+
+    private fun notifyAttention(petName: String, needLabel: String) {
+        postNotification(
+            channelId = CHANNEL_NEEDS,
+            channelName = "Pet needs",
+            notificationId = NOTIFICATION_ID,
+            title = "$petName is ${needLabel.lowercase()}",
+            text = needText(needLabel),
+            includeFeedAction = needLabel == PetNeed.HUNGRY.name,
+        )
+    }
+
+    private fun postNotification(
+        channelId: String,
+        channelName: String,
+        notificationId: Int,
+        title: String,
+        text: String,
+        includeFeedAction: Boolean,
+    ) {
+        val nm = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(
+            NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT),
+        )
+        val builder = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.ic_menu_myplaces)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(openAppPendingIntent())
+            .setAutoCancel(true)
+            .addAction(
+                android.R.drawable.ic_menu_view,
+                "Open Home",
+                openAppPendingIntent(requestCode = OPEN_APP_REQUEST_CODE),
+            )
+        if (includeFeedAction) {
+            builder.addAction(
+                android.R.drawable.ic_input_add,
+                "Quick feed",
+                feedPendingIntent(),
+            )
+        }
+        nm.notify(notificationId, builder.build())
+    }
+
+    private fun openAppPendingIntent(requestCode: Int = OPEN_APP_REQUEST_CODE): PendingIntent {
         val launchIntent = applicationContext.packageManager
             .getLaunchIntentForPackage(applicationContext.packageName)
             ?.apply {
@@ -90,25 +148,51 @@ class PetTickWorker @AssistedInject constructor(
             }
         return PendingIntent.getActivity(
             applicationContext,
-            OPEN_APP_REQUEST_CODE,
+            requestCode,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun feedPendingIntent(): PendingIntent {
+        val launchIntent = applicationContext.packageManager
+            .getLaunchIntentForPackage(applicationContext.packageName)
+            ?.apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(PetWidgetActions.EXTRA, PetWidgetActions.FEED)
+            }
+            ?: Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+                setPackage(applicationContext.packageName)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(PetWidgetActions.EXTRA, PetWidgetActions.FEED)
+            }
+        return PendingIntent.getActivity(
+            applicationContext,
+            FEED_REQUEST_CODE,
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
 
     private fun needText(needLabel: String): String = when (needLabel) {
-        PetNeed.HUNGRY.name -> "Your pet is hungry — open nibbliGO to feed."
-        PetNeed.SICK.name -> "nibbli is sick — medicine time!"
+        PetNeed.HUNGRY.name -> "Open nibbliGO to feed your pet."
+        PetNeed.SICK.name -> "Medicine time — open nibbliGO."
         PetNeed.DIRTY.name -> "Time to clean up!"
-        PetNeed.TIRED.name -> "nibbli is very tired."
-        else -> "Check on nibbli in the app."
+        PetNeed.TIRED.name -> "Your pet is very tired."
+        PetNeed.UNHAPPY.name -> "Your pet could use some attention."
+        else -> "Check on your pet in the app."
     }
 
     companion object {
         const val WORK_TAG = "pet_tick"
-        private const val CHANNEL_ID = "pet_care"
+        private const val CHANNEL_NEEDS = "pet_needs"
+        private const val CHANNEL_STREAK = "pet_streak"
+        private const val CHANNEL_QUEST = "pet_quest"
         private const val NOTIFICATION_ID = 42
         private const val STREAK_NOTIFICATION_ID = 43
+        private const val QUEST_NOTIFICATION_ID = 44
         private const val OPEN_APP_REQUEST_CODE = 1001
+        private const val FEED_REQUEST_CODE = 1002
     }
 }
