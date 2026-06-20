@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,10 +87,18 @@ fun NibbliMessageBubble(
         )
     }
 
+    val roleSpoken = when (role) {
+        NibbliMessageRole.USER -> label ?: "You"
+        NibbliMessageRole.ASSISTANT -> label ?: "Assistant"
+        NibbliMessageRole.SYSTEM -> label ?: "System"
+        NibbliMessageRole.TOOL -> label ?: "Tool"
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 2.dp),
+            .padding(horizontal = 2.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "$roleSpoken said: $text" },
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
     ) {
         Surface(

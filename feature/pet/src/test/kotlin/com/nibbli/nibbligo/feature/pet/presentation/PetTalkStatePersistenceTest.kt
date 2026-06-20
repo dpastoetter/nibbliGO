@@ -2,6 +2,7 @@ package com.nibbli.nibbligo.feature.pet.presentation
 
 import com.nibbli.nibbligo.core.model.PetEngagementRules
 import com.nibbli.nibbligo.core.model.PetInteraction
+import com.nibbli.nibbligo.core.model.PetLcdProp
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
@@ -14,6 +15,24 @@ class PetTalkStatePersistenceTest {
 
     private val simulationEngine = PetSimulationEngine()
     private val now = System.currentTimeMillis()
+
+    @Test
+    fun talkCompletingDailyQuest_unlocksFloorPropInPipelineState() {
+        val before = PetState(
+            lastTickAtMillis = now,
+            lastInteractionAtMillis = now,
+            engagement = com.nibbli.nibbligo.core.model.PetEngagement(
+                dailyQuestDayEpoch = PetEngagementRules.dayEpoch(now),
+                dailyQuestFeed = true,
+                dailyQuestPlay = true,
+            ),
+        )
+        val tick = simulationEngine.tick(before, now)
+        val interacted = simulationEngine.interact(tick.state, PetInteraction.TALK, now).state
+        val afterTalk = PetEngagementEngine.recordTalk(interacted, now)
+        assertTrue(afterTalk.engagement.dailyQuestBonusClaimed)
+        assertTrue(PetLcdProp.BALL in afterTalk.unlockedProps)
+    }
 
     @Test
     fun talkPipeline_persistsMoodTrustAndQuest() {

@@ -101,7 +101,7 @@ fun PetTalkInputBar(
                                 Text(
                                     text = placeholder,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                                 )
                             }
                             innerTextField()
@@ -134,16 +134,16 @@ fun PetTalkInputBar(
                                 onSend(message)
                             },
                             enabled = canSend,
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send",
-                                modifier = Modifier.size(18.dp),
+                                contentDescription = "Send message",
+                                modifier = Modifier.size(22.dp),
                                 tint = if (canSend) {
                                     MaterialTheme.colorScheme.primary
                                 } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                 },
                             )
                         }

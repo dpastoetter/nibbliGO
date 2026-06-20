@@ -45,7 +45,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -150,11 +152,52 @@ class ChatViewModelTest {
         advanceUntilIdle()
         assertTrue(viewModel.uiState.value.messages.isEmpty())
     }
+
+    @Test
+    fun sendMessage_blocksUnsafeInputWithoutInference() = runTest(testDispatcher) {
+        val chatRepo = FakeChatRepository()
+        val runtime = FakeInferenceRuntime(reply = "should not run")
+        val viewModel = createViewModel(
+            chatRepository = chatRepo,
+            inferenceRuntime = runtime,
+        )
+        advanceUntilIdle()
+
+        viewModel.updateInput("i want to kill myself")
+        viewModel.sendMessage()
+        advanceUntilIdle()
+
+        assertEquals(0, runtime.streamHomeTalkCalls)
+        assertEquals(2, viewModel.uiState.value.messages.size)
+        assertEquals(MessageRole.ASSISTANT, viewModel.uiState.value.messages[1].role)
+        assertTrue(viewModel.uiState.value.messages[1].content.contains("trusted adult"))
+    }
+
+    @Test
+    fun stopGeneration_clearsStreamingState() = runTest(testDispatcher) {
+        val chatRepo = FakeChatRepository()
+        val runtime = HangingInferenceRuntime()
+        val viewModel = createViewModel(
+            chatRepository = chatRepo,
+            inferenceRuntime = runtime,
+        )
+        advanceUntilIdle()
+
+        viewModel.updateInput("Hello")
+        viewModel.sendMessage()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isStreaming)
+
+        viewModel.stopGeneration()
+        advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.isStreaming)
+        assertNull(viewModel.uiState.value.streamingText)
+    }
 }
 
 private fun createViewModel(
     chatRepository: FakeChatRepository,
-    inferenceRuntime: FakeInferenceRuntime,
+    inferenceRuntime: InferenceRuntime,
     petModelId: String = "smollm2-360m-instruct",
 ): ChatViewModel {
     val prefs = FakeUserPreferencesRepository(petModelId)
@@ -332,6 +375,8 @@ private class FakeUserPreferencesRepository(
 private class FakeInferenceRuntime(
     private val reply: String,
 ) : InferenceRuntime {
+    var streamHomeTalkCalls = 0
+
     override val runtimeKind: RuntimeKind = RuntimeKind.LITERT
 
     override suspend fun ensureModelLoaded(modelId: String, includeTools: Boolean) =
@@ -348,11 +393,14 @@ private class FakeInferenceRuntime(
 
     override fun unloadModel(modelId: String) = Unit
 
-    override fun streamHomeTalk(request: PetTurnRequest): Flow<InferenceChunk> = flowOf(
-        InferenceChunk(reply.take(5)),
-        InferenceChunk(reply.drop(5)),
-        InferenceChunk("", isComplete = true),
-    )
+    override fun streamHomeTalk(request: PetTurnRequest): Flow<InferenceChunk> {
+        streamHomeTalkCalls++
+        return flowOf(
+            InferenceChunk(reply.take(5)),
+            InferenceChunk(reply.drop(5)),
+            InferenceChunk("", isComplete = true),
+        )
+    }
 
     override fun streamChat(request: ChatInferenceRequest): Flow<InferenceChunk> = flowOf(
         InferenceChunk(reply),
@@ -361,6 +409,47 @@ private class FakeInferenceRuntime(
 
     override suspend fun complete(request: CompletionRequest) =
         RuntimeResult.Success(reply)
+
+    override suspend fun analyzeImage(request: VisionRequest) = RuntimeResult.Unsupported
+
+    override suspend fun transcribeAudio(request: TranscriptionRequest) = RuntimeResult.Unsupported
+
+    override suspend fun runBenchmark(modelId: String) = RuntimeResult.Unsupported
+
+    override suspend fun runPetBenchmark(modelId: String) = RuntimeResult.Unsupported
+
+    override fun capabilitiesFor(modelId: String) = ModelCapabilities(
+        modelId = modelId,
+        supportsChat = true,
+        supportsVision = false,
+        supportsAudio = false,
+        supportsStreaming = true,
+    )
+
+    override suspend fun generateWithTools(request: AgentRequest) =
+        RuntimeResult.Success(AgentTurn.FinalText("ok"))
+}
+
+private class HangingInferenceRuntime : InferenceRuntime {
+    override val runtimeKind: RuntimeKind = RuntimeKind.LITERT
+
+    override suspend fun ensureModelLoaded(modelId: String, includeTools: Boolean) =
+        RuntimeResult.Success(Unit)
+
+    override suspend fun ensureHomeTalkSession(modelId: String, systemInstruction: String) =
+        RuntimeResult.Success(Unit)
+
+    override fun unloadModel(modelId: String) = Unit
+
+    override fun streamHomeTalk(request: PetTurnRequest): Flow<InferenceChunk> = flow {
+        emit(InferenceChunk("partial"))
+        delay(Long.MAX_VALUE)
+    }
+
+    override fun streamChat(request: ChatInferenceRequest): Flow<InferenceChunk> =
+        flowOf(InferenceChunk("", isComplete = true))
+
+    override suspend fun complete(request: CompletionRequest) = RuntimeResult.Unsupported
 
     override suspend fun analyzeImage(request: VisionRequest) = RuntimeResult.Unsupported
 

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.animation.core.RepeatMode
@@ -82,10 +84,12 @@ fun P1LcdCanvas(
         label = "stat_pulse",
     )
 
+    val petDescription = buildPetCanvasDescription(pet)
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(P1DisplaySpec.lcdAspectRatio),
+            .aspectRatio(P1DisplaySpec.lcdAspectRatio)
+            .semantics { contentDescription = petDescription },
     ) {
         val scaleX = size.width / P1DisplaySpec.LCD_WIDTH_PX
         val scaleY = size.height / P1DisplaySpec.LCD_HEIGHT_PX
@@ -221,6 +225,22 @@ fun P1LcdCanvas(
             talkLcdMode = talkLcdMode,
         )
     }
+}
+
+private fun buildPetCanvasDescription(pet: PetState): String {
+    val stage = pet.stage.name.lowercase().replaceFirstChar { it.titlecase() }
+    val needText = when (pet.activeNeed) {
+        PetNeed.NONE -> "feeling good"
+        PetNeed.HUNGRY -> "hungry"
+        PetNeed.UNHAPPY -> "unhappy"
+        PetNeed.DIRTY -> "dirty"
+        PetNeed.TIRED -> "tired"
+        PetNeed.SICK -> "sick"
+        PetNeed.LONELY -> "lonely"
+    }
+    val base = "${pet.name}, $stage pixel pet, $needText"
+    val dialogue = pet.dialogueLine.trim()
+    return if (dialogue.isNotBlank()) "$base. Says: $dialogue" else base
 }
 
 private fun DrawScope.drawLcdPetSprite(

@@ -250,4 +250,29 @@ class PetPromptBuilderTest {
         ).systemInstruction
         assertEquals(sysA, sysB)
     }
+
+    @Test
+    fun buildTalkSystemInstruction_includesSafetyRule() {
+        val instruction = PetPromptBuilder.buildTalkSystemInstruction("smollm2-360m-instruct")
+        assertTrue(instruction.contains("age-appropriate"))
+        assertTrue(instruction.contains("Never discuss sexual content"))
+    }
+
+    @Test
+    fun homeTalkSystemInstruction_includesSafetyRule() {
+        val instruction = PetPromptBuilder.homeTalkSystemInstruction(
+            onboardingContext = "",
+            petName = "nibbli",
+        )
+        assertTrue(instruction.contains("age-appropriate"))
+    }
+
+    @Test
+    fun buildChatTalkParts_includesSafetyRule() {
+        val parts = PetPromptBuilder.buildChatTalkParts(
+            PetReactionRequest(state = PetState(name = "nibbli"), userMessage = "Hi"),
+            "smollm2-360m-instruct",
+        )
+        assertTrue(parts.systemInstruction.contains("age-appropriate"))
+    }
 }

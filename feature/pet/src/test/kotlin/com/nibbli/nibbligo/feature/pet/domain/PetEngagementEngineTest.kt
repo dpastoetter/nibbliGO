@@ -47,6 +47,57 @@ class PetEngagementEngineTest {
         assertTrue(updated.engagement.dailyCatchTargetScore in intArrayOf(22, 25, 28, 30))
     }
 
+    @Test
+    fun onSessionOpen_resetsStreakAfterGap() {
+        val today = PetEngagementRules.dayEpoch(NOW)
+        val state = PetState(
+            engagement = PetEngagement(
+                careStreakDays = 5,
+                lastCareDayEpoch = today - 3,
+            ),
+        )
+        val updated = PetEngagementEngine.onSessionOpen(state, NOW)
+        assertEquals(0, updated.engagement.careStreakDays)
+    }
+
+    @Test
+    fun isStreakAtRisk_whenLastCareBeforeToday() {
+        val today = PetEngagementRules.dayEpoch(NOW)
+        val state = PetState(
+            engagement = PetEngagement(
+                careStreakDays = 3,
+                lastCareDayEpoch = today - 1,
+            ),
+        )
+        assertTrue(PetEngagementEngine.isStreakAtRisk(state, NOW))
+    }
+
+    @Test
+    fun questBonus_claimedOnlyOncePerDay() {
+        val today = PetEngagementRules.dayEpoch(NOW)
+        val state = PetState(
+            engagement = PetEngagement(
+                dailyQuestDayEpoch = today,
+                dailyQuestFeed = true,
+                dailyQuestPlay = true,
+                dailyQuestTalk = true,
+                dailyQuestBonusClaimed = false,
+            ),
+        )
+        val afterFirst = PetEngagementEngine.recordTalk(state, NOW)
+        assertTrue(afterFirst.engagement.dailyQuestBonusClaimed)
+        val propCount = afterFirst.unlockedProps.size
+        val afterSecond = PetEngagementEngine.recordTalk(afterFirst, NOW)
+        assertEquals(propCount, afterSecond.unlockedProps.size)
+    }
+
+    @Test
+    fun recordCareInteraction_unchangedWhenDead() {
+        val dead = PetState(condition = com.nibbli.nibbligo.core.model.PetCondition.DEAD)
+        val updated = PetEngagementEngine.recordCareInteraction(dead, PetInteraction.FEED_MEAL, NOW)
+        assertEquals(dead, updated)
+    }
+
     companion object {
         private const val NOW = 1_700_000_000_000L
     }

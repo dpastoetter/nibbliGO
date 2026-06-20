@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SportsEsports
@@ -15,13 +15,12 @@ import androidx.compose.ui.unit.dp
 import com.nibbli.nibbligo.core.designsystem.component.NibbliActionTile
 
 @Composable
-fun PetQuickActionStrip(
+fun PetHomeBottomSegment(
     playEnabled: Boolean,
-    shareEnabled: Boolean,
     onPlay: () -> Unit,
-    onShare: () -> Unit,
-    onDiary: () -> Unit,
-    onPostcard: () -> Unit,
+    onVisit: () -> Unit,
+    onKeepShare: () -> Unit,
+    onCollectibles: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -39,24 +38,23 @@ fun PetQuickActionStrip(
             modifier = Modifier.weight(1f),
         )
         NibbliActionTile(
-            icon = Icons.Outlined.Share,
-            label = "Share",
-            enabled = shareEnabled,
-            onClick = onShare,
-            compact = true,
-            modifier = Modifier.weight(1f),
-        )
-        NibbliActionTile(
             icon = Icons.Outlined.Mail,
             label = "Visit",
-            onClick = onPostcard,
+            onClick = onVisit,
             compact = true,
             modifier = Modifier.weight(1f),
         )
         NibbliActionTile(
-            icon = Icons.Outlined.AutoStories,
-            label = "Diary",
-            onClick = onDiary,
+            icon = Icons.Outlined.Share,
+            label = "Keep & share",
+            onClick = onKeepShare,
+            compact = true,
+            modifier = Modifier.weight(1f),
+        )
+        NibbliActionTile(
+            icon = Icons.Outlined.Collections,
+            label = "Collectibles",
+            onClick = onCollectibles,
             compact = true,
             modifier = Modifier.weight(1f),
         )

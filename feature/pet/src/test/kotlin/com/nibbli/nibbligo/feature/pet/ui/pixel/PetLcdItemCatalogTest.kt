@@ -64,4 +64,31 @@ class PetLcdItemCatalogTest {
         assertTrue(LcdPickerEntry.Prop(PetLcdProp.BALL).isCurrentlyEquipped(equipped))
         assertFalse(LcdPickerEntry.WearNone.isCurrentlyEquipped(equipped))
     }
+
+    @Test
+    fun equip_rejectsItemNotInUnlockedSet() {
+        val pet = basePet.copy(unlockedCosmetics = emptySet())
+        assertNull(pet.applyPickerEquip(LcdPickerEntry.Wearable(PetCosmetic.SPARKLE_COLLAR)))
+    }
+
+    @Test
+    fun wearNone_clearsEquippedCosmetic() {
+        val equipped = basePet.copy(equippedCosmetic = PetCosmetic.SPARKLE_COLLAR)
+        val cleared = equipped.applyPickerEquip(LcdPickerEntry.WearNone)
+        assertNull(cleared?.equippedCosmetic)
+    }
+
+    @Test
+    fun sceneNone_resetsToCozy() {
+        val equipped = basePet.copy(roomId = PetLcdScene.STARS.id)
+        val cleared = equipped.applyPickerEquip(LcdPickerEntry.SceneNone)
+        assertEquals(PetLcdScene.COZY, cleared?.equippedScene)
+    }
+
+    @Test
+    fun propNone_clearsEquippedProp() {
+        val equipped = basePet.copy(equippedProp = PetLcdProp.BALL)
+        val cleared = equipped.applyPickerEquip(LcdPickerEntry.PropNone)
+        assertNull(cleared?.equippedProp)
+    }
 }

@@ -12,6 +12,7 @@ import com.nibbli.nibbligo.core.model.MessageRole
 import com.nibbli.nibbligo.core.model.PetEvent
 import com.nibbli.nibbligo.core.model.PetTurnRequest
 import com.nibbli.nibbligo.core.model.RuntimeResult
+import com.nibbli.nibbligo.core.pet.llm.ChatContentSafety
 import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
 import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
 import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
@@ -25,6 +26,7 @@ import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,6 +72,7 @@ class ChatViewModel @Inject constructor(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private val conversationIdFlow = MutableStateFlow<Long?>(null)
+    private var generationJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -134,12 +137,24 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun stopGeneration() {
+        generationJob?.cancel()
+        generationJob = null
+        viewModelScope.launch {
+            runCatching {
+                val modelId = petModelResolver.resolve()
+                inferenceRuntime.resetHomeTalkSession(modelId)
+            }
+        }
+        _uiState.update { it.copy(isStreaming = false, streamingText = null) }
+    }
+
     fun sendMessage(text: String = _uiState.value.input) {
         val state = _uiState.value
         val trimmed = text.trim()
         if (trimmed.isBlank() || state.isStreaming) return
 
-        viewModelScope.launch {
+        generationJob = viewModelScope.launch {
             val modelId = runCatching { petModelResolver.resolve() }.getOrNull()
             if (modelId == null) {
                 _uiState.update {
@@ -158,6 +173,20 @@ class ChatViewModel @Inject constructor(
             }
 
             val now = System.currentTimeMillis()
+
+            val inputVerdict = ChatContentSafety.screenInput(trimmed)
+            if (inputVerdict is ChatContentSafety.InputVerdict.Block) {
+                petTalkChatRecorder.recordSimpleTurn(
+                    conversationId = conversationId,
+                    modelId = modelId,
+                    userText = trimmed,
+                    assistant = inputVerdict.reply,
+                    timestampMillis = now,
+                )
+                _uiState.update { it.copy(input = "", isStreaming = false, streamingText = null, error = null) }
+                return@launch
+            }
+
             _uiState.update { it.copy(input = "", isStreaming = true, streamingText = "", error = null) }
 
             var petState = petRepository.getPetState()
@@ -169,20 +198,28 @@ class ChatViewModel @Inject constructor(
             val onboarding = PetOnboardingPrompt.formatForSystemInstruction(profile, petState.name)
             val systemInstruction = PetPromptBuilder.homeTalkSystemInstruction(onboarding, petState.name)
 
-            when (val loadResult = inferenceRuntime.ensureHomeTalkSession(modelId, systemInstruction)) {
+            when (inferenceRuntime.ensureHomeTalkSession(modelId, systemInstruction)) {
                 is RuntimeResult.Error -> {
-                    _uiState.update { it.copy(isStreaming = false, error = loadResult.message) }
+                    _uiState.update {
+                        it.copy(
+                            isStreaming = false,
+                            error = "${uiState.value.petName} couldn't wake up. Try again in a moment.",
+                        )
+                    }
                     return@launch
                 }
                 RuntimeResult.LowMemory -> {
                     _uiState.update {
-                        it.copy(isStreaming = false, error = "Not enough memory to load the model.")
+                        it.copy(
+                            isStreaming = false,
+                            error = "Your phone is low on memory, so ${uiState.value.petName} can't think right now.",
+                        )
                     }
                     return@launch
                 }
                 RuntimeResult.Unsupported -> {
                     _uiState.update {
-                        it.copy(isStreaming = false, error = "This model isn't supported here.")
+                        it.copy(isStreaming = false, error = "This model doesn't work on your phone yet.")
                     }
                     return@launch
                 }
@@ -209,7 +246,9 @@ class ChatViewModel @Inject constructor(
             ).collect { chunk ->
                 if (chunk.isComplete) return@collect
                 if (chunk.token.startsWith(LiteRtPetReactionGenerator.LITERT_ERROR_PREFIX)) {
-                    _uiState.update { it.copy(error = chunk.token.removePrefix(LiteRtPetReactionGenerator.LITERT_ERROR_PREFIX)) }
+                    _uiState.update {
+                        it.copy(error = "${it.petName} had a hiccup. Try sending that again.")
+                    }
                     return@collect
                 }
                 rawBuilder.append(chunk.token)
@@ -227,11 +266,15 @@ class ChatViewModel @Inject constructor(
             } else {
                 PetReactionParser.fallback(request)
             }
-            val parsed = reaction.dialogue
+            val parsed = ChatContentSafety.screenReplyOrNull(reaction.dialogue) ?: reaction.dialogue
 
             if (parsed.isBlank()) {
                 _uiState.update {
-                    it.copy(isStreaming = false, streamingText = null, error = "Model returned an empty reply.")
+                    it.copy(
+                        isStreaming = false,
+                        streamingText = null,
+                        error = "${it.petName} got tongue-tied. Ask again?",
+                    )
                 }
                 return@launch
             }

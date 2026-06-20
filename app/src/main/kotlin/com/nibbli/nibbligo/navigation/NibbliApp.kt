@@ -29,6 +29,7 @@ import com.nibbli.nibbligo.feature.pet.ui.collection.PetCollectionScreen
 import com.nibbli.nibbligo.feature.settings.ui.BasicAiKnowledgeScreen
 import com.nibbli.nibbligo.feature.settings.ui.CompanionScreen
 import com.nibbli.nibbligo.feature.settings.ui.NibbliFaqScreen
+import com.nibbli.nibbligo.feature.settings.ui.ParentControlsScreen
 import com.nibbli.nibbligo.feature.settings.ui.SettingsScreen
 import com.nibbli.nibbligo.presentation.MainViewModel
 import com.nibbli.nibbligo.ui.ManageHubScreen
@@ -82,6 +83,7 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
                                 Routes.FAQ_NIBBLIGO,
                                 Routes.FAQ_AI_BASICS,
                                 Routes.PET_COLLECTION,
+                                Routes.PARENT_CONTROLS,
                             )
                             else -> false
                         }
@@ -110,7 +112,9 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
             modifier = Modifier.padding(padding),
         ) {
             composable(Routes.PET) {
-                PetHomeScreen()
+                PetHomeScreen(
+                    onNavigateToCollection = { navController.navigate(Routes.PET_COLLECTION) },
+                )
             }
             composable(Routes.CHAT) { ChatScreen(navController = navController) }
             composable(Routes.AGENT) { AgentChatScreen() }
@@ -128,6 +132,7 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
             composable(Routes.PET_COLLECTION) { PetCollectionScreen() }
             composable(Routes.FAQ_NIBBLIGO) { NibbliFaqScreen() }
             composable(Routes.FAQ_AI_BASICS) { BasicAiKnowledgeScreen() }
+            composable(Routes.PARENT_CONTROLS) { ParentControlsScreen() }
             composable(Routes.MANAGE) { ManageHubScreen(navController) }
         }
     }

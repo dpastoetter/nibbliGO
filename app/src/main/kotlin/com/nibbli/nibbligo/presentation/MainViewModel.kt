@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nibbli.nibbligo.core.domain.assist.AssistNavigationBus
+import com.nibbli.nibbligo.core.domain.repository.AccessibilityPreferencesRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.AppAccentPalette
 import com.nibbli.nibbligo.core.model.AppThemeMode
@@ -19,6 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     userPreferencesRepository: UserPreferencesRepository,
+    accessibilityPreferencesRepository: AccessibilityPreferencesRepository,
     assistNavigationBus: AssistNavigationBus,
 ) : ViewModel() {
     val themeMode: StateFlow<AppThemeMode> = userPreferencesRepository.themeMode
@@ -26,6 +28,9 @@ class MainViewModel @Inject constructor(
 
     val accentPalette: StateFlow<AppAccentPalette> = userPreferencesRepository.accentPalette
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppAccentPalette.TEAL)
+
+    val fontScale: StateFlow<Float> = accessibilityPreferencesRepository.fontScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1.0f)
 
     val showOnboarding: StateFlow<Boolean> = userPreferencesRepository.onboardingCompleted
         .map { completed -> !completed }

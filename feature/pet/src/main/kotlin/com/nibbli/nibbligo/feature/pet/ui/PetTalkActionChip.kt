@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 
-internal val PetTalkActionHeight = 40.dp
+internal val PetTalkActionHeight = 48.dp
 private val PetTalkActionShape = RoundedCornerShape(20.dp)
 
 @Composable

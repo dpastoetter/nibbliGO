@@ -11,9 +11,11 @@ import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.model.PetLcdProp
 import com.nibbli.nibbligo.core.model.PetLcdScene
+import com.nibbli.nibbligo.core.model.PetGameReference
 import com.nibbli.nibbligo.core.model.PetStats
 import com.nibbli.nibbligo.core.model.equippedScene
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -226,5 +228,84 @@ class PetSimulationEngineTest {
         val state = PetState(stats = PetStats(mood = 50))
         val result = engine.applyMinigameWin(state, nowMillis = 1000L)
         assertTrue(result.unlockedProps.contains(PetLcdProp.BALL))
+    }
+
+    @Test
+    fun tick_afterCriticalNeglectDuration_killsPet() {
+        val now = 10_000_000L
+        val state = PetState(
+            stats = PetStats(hunger = 5, health = 90),
+            criticalNeglectSinceMillis = now - PetGameReference.CRITICAL_DEATH_MS - 1_000L,
+            lastTickAtMillis = now - 60_000L,
+            lastInteractionAtMillis = now - 60_000L,
+        )
+        val result = engine.tick(state, now)
+        assertEquals(PetCondition.DEAD, result.state.condition)
+    }
+
+    @Test
+    fun interact_clearsCriticalNeglectTimer() {
+        val state = PetState(
+            stats = PetStats(hunger = 5),
+            criticalNeglectSinceMillis = 1_000L,
+        )
+        val result = engine.interact(state, PetInteraction.FEED_MEAL, 2_000L)
+        assertNull(result.state.criticalNeglectSinceMillis)
+    }
+
+    @Test
+    fun tick_messAndLowHygiene_causesSickness() {
+        val state = PetState(
+            hasMess = true,
+            stats = PetStats(hygiene = 20),
+            condition = PetCondition.HEALTHY,
+            lastTickAtMillis = 0L,
+            lastInteractionAtMillis = 0L,
+        )
+        val result = engine.tick(state, 60 * 60 * 1000L)
+        assertEquals(PetCondition.SICK, result.state.condition)
+        assertTrue(result.events.contains(PetEvent.BecameSick))
+    }
+
+    @Test
+    fun tick_babyToChild_whenAgeAndCareMet() {
+        val state = PetState(
+            stage = LifeStage.BABY,
+            ageMinutes = 24 * 60,
+            careScore = 45,
+            lastTickAtMillis = 0L,
+            lastInteractionAtMillis = 0L,
+        )
+        val result = engine.tick(state, 60_000L)
+        assertEquals(LifeStage.CHILD, result.state.stage)
+        assertTrue(result.evolved)
+    }
+
+    @Test
+    fun tick_onDeadPet_isNoOp() {
+        val dead = PetState(condition = PetCondition.DEAD, dialogueLine = "gone")
+        val result = engine.tick(dead, 100_000L)
+        assertEquals(dead.condition, result.state.condition)
+        assertEquals(dead.dialogueLine, result.state.dialogueLine)
+    }
+
+    @Test
+    fun interact_onDeadPet_returnsUnchanged() {
+        val dead = PetState(condition = PetCondition.DEAD, stats = PetStats(hunger = 5))
+        val result = engine.interact(dead, PetInteraction.FEED_MEAL, 1_000L)
+        assertEquals(dead.stats.hunger, result.state.stats.hunger)
+    }
+
+    @Test
+    fun tick_whileSleeping_recoversEnergyAndDecaysHunger() {
+        val state = PetState(
+            condition = PetCondition.SLEEPING,
+            stats = PetStats(energy = 30, hunger = 50),
+            lastTickAtMillis = 0L,
+            lastInteractionAtMillis = 0L,
+        )
+        val result = engine.tick(state, 60 * 60 * 1000L)
+        assertTrue(result.state.stats.energy > 30)
+        assertTrue(result.state.stats.hunger < 50)
     }
 }

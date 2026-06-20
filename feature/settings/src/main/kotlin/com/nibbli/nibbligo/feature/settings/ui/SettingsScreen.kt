@@ -13,6 +13,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -22,9 +25,11 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliCard
 import com.nibbli.nibbligo.core.designsystem.component.NibbliPrimaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
+import com.nibbli.nibbligo.core.designsystem.component.NibbliSecondaryButton
 import com.nibbli.nibbligo.core.designsystem.component.NibbliSuggestionChip
 import com.nibbli.nibbligo.core.designsystem.component.NibbliTextField
 import com.nibbli.nibbligo.core.model.LiteRtAcceleratorPreference
+import com.nibbli.nibbligo.feature.settings.presentation.ParentalGateViewModel
 import com.nibbli.nibbligo.feature.settings.presentation.SettingsViewModel
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -32,10 +37,24 @@ import com.nibbli.nibbligo.feature.settings.presentation.SettingsViewModel
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
+    gateViewModel: ParentalGateViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val gateActive by gateViewModel.gateActive.collectAsStateWithLifecycle()
+    var hfUnlocked by remember { mutableStateOf(false) }
+    var showHfGate by remember { mutableStateOf(false) }
     val hfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         viewModel.onHuggingFaceAuthResult(result.data)
+    }
+
+    if (showHfGate) {
+        ParentalGateDialog(
+            onUnlocked = {
+                showHfGate = false
+                hfUnlocked = true
+            },
+            onDismiss = { showHfGate = false },
+        )
     }
     NibbliScreen(modifier = modifier, scrollable = true) {
         NibbliScreenHeader(
@@ -48,6 +67,8 @@ fun SettingsScreen(
             onThemeModeChange = viewModel::setThemeMode,
             accentPalette = uiState.accentPalette,
             onAccentPaletteChange = viewModel::setAccentPalette,
+            fontScale = uiState.fontScale,
+            onFontScaleChange = viewModel::setFontScale,
         )
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("Local-first promise", style = MaterialTheme.typography.titleMedium)
@@ -63,6 +84,24 @@ fun SettingsScreen(
             Text(uiState.storageSummary, modifier = Modifier.padding(top = 8.dp))
             Text("Installed models: ${uiState.installedCount}", modifier = Modifier.padding(top = 4.dp))
         }
+        if (gateActive && !hfUnlocked) {
+            NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
+                Text("Hugging Face", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Locked with the parent PIN. Sign-in and access tokens are managed by a parent.",
+                    modifier = Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                NibbliSecondaryButton(
+                    text = "Unlock with PIN",
+                    onClick = { showHfGate = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
+            }
+        } else {
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("Hugging Face", style = MaterialTheme.typography.titleMedium)
             Text(
@@ -121,6 +160,7 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
+        }
         }
         NibbliCard(modifier = Modifier.padding(top = 12.dp)) {
             Text("Pet notifications", style = MaterialTheme.typography.titleMedium)

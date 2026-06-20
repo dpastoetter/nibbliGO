@@ -116,6 +116,23 @@ class PetViewModelInferenceTest {
         assertTrue(viewModel.uiState.value.talkLcdMode)
     }
 
+    @Test
+    fun onTalkSend_blocksUnsafeInputWithoutCallingGenerator() = runBlocking {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        val reactionPort = RecordingPetReactionPort()
+        val viewModel = createViewModel(
+            context = RuntimeEnvironment.getApplication(),
+            reactionPort = reactionPort,
+        )
+        delay(50)
+
+        viewModel.onTalkSend("i want to kill myself")
+        delay(200)
+
+        assertEquals(0, reactionPort.generateCalls.size)
+        assertTrue(viewModel.uiState.value.talkHistory.any { it.text.contains("trusted adult") })
+    }
+
     private fun createViewModel(
         context: Context,
         reactionPort: PetReactionPort,

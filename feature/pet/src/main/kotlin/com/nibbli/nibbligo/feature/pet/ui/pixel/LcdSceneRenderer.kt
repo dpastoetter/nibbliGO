@@ -17,7 +17,27 @@ fun DrawScope.drawLcdScene(
     zoneTopPx: Float,
     zoneHeightPx: Float,
 ) {
-    when (pet.equippedScene) {
+    drawLcdScenePreview(
+        scene = pet.equippedScene,
+        lcdScaleX = lcdScaleX,
+        lcdScaleY = lcdScaleY,
+        colors = colors,
+        frameIndex = frameIndex,
+        zoneTopPx = zoneTopPx,
+        zoneHeightPx = zoneHeightPx,
+    )
+}
+
+fun DrawScope.drawLcdScenePreview(
+    scene: PetLcdScene,
+    lcdScaleX: Float,
+    lcdScaleY: Float,
+    colors: P1Colors,
+    frameIndex: Int,
+    zoneTopPx: Float,
+    zoneHeightPx: Float,
+) {
+    when (scene) {
         PetLcdScene.COZY -> drawCozyScene(lcdScaleX, colors)
         PetLcdScene.STARS -> drawStarsScene(lcdScaleX, lcdScaleY, colors, frameIndex, zoneTopPx, zoneHeightPx)
         PetLcdScene.CLOUDS -> drawCloudsScene(lcdScaleX, lcdScaleY, colors, zoneTopPx)

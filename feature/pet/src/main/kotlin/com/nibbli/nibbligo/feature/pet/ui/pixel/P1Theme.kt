@@ -31,7 +31,7 @@ object P1Theme {
     val LcdWellRadius = 12.dp
     val LcdMargin = 6.dp
     val ButtonWidth = 56.dp
-    val ButtonHeight = 28.dp
+    val ButtonHeight = 48.dp
 }
 
 @Composable

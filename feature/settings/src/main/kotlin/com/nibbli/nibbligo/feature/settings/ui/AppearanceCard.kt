@@ -120,10 +120,12 @@ fun AppearanceCard(
     onThemeModeChange: (AppThemeMode) -> Unit,
     accentPalette: AppAccentPalette,
     onAccentPaletteChange: (AppAccentPalette) -> Unit,
+    fontScale: Float,
+    onFontScaleChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NibbliCard(modifier = modifier) {
-        Text("Appearance", style = MaterialTheme.typography.titleMedium)
+        Text("Appearance & accessibility", style = MaterialTheme.typography.titleMedium)
         Text(
             "Light, dark, super dark (OLED black), or match your phone's system setting.",
             modifier = Modifier.padding(top = 8.dp),
@@ -151,5 +153,50 @@ fun AppearanceCard(
             onSelect = onAccentPaletteChange,
             modifier = Modifier.padding(top = 12.dp),
         )
+        Text(
+            "Text size",
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+        Text(
+            "Scales text across the app, on top of your phone's system font size.",
+            modifier = Modifier.padding(top = 4.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FontScaleSelector(
+            selected = fontScale,
+            onSelect = onFontScaleChange,
+            modifier = Modifier.padding(top = 12.dp),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FontScaleSelector(
+    selected: Float,
+    onSelect: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val options = listOf(
+        "Small" to 0.85f,
+        "Default" to 1.0f,
+        "Large" to 1.15f,
+        "Larger" to 1.3f,
+        "Largest" to 1.6f,
+    )
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { (label, scale) ->
+            NibbliSuggestionChip(
+                label = label,
+                selected = kotlin.math.abs(selected - scale) < 0.01f,
+                onClick = { onSelect(scale) },
+            )
+        }
     }
 }

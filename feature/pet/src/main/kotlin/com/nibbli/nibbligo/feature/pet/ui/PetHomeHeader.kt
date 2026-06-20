@@ -104,7 +104,7 @@ fun PetHomeHeader(
                 IconButton(
                     onClick = onRefreshModel,
                     enabled = !isWarmingModel && !isGeneratingDialogue,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(48.dp),
                 ) {
                     if (isWarmingModel) {
                         CircularProgressIndicator(

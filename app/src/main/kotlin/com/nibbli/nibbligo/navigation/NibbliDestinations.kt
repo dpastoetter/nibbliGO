@@ -43,4 +43,5 @@ object Routes {
     const val FAQ_NIBBLIGO = "faq_nibbliGO"
     const val FAQ_AI_BASICS = "faq_ai_basics"
     const val PET_COLLECTION = "pet_collection"
+    const val PARENT_CONTROLS = "parent_controls"
 }

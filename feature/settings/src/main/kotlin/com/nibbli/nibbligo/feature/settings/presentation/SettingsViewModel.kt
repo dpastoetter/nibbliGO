@@ -3,6 +3,7 @@ package com.nibbli.nibbligo.feature.settings.presentation
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nibbli.nibbligo.core.domain.repository.AccessibilityPreferencesRepository
 import com.nibbli.nibbligo.core.domain.repository.ChatRepository
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
@@ -37,11 +38,13 @@ data class SettingsUiState(
     val accentPalette: AppAccentPalette = AppAccentPalette.TEAL,
     val litertAccelerator: LiteRtAcceleratorPreference = LiteRtAcceleratorPreference.AUTO,
     val petNotificationsEnabled: Boolean = true,
+    val fontScale: Float = 1.0f,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val accessibilityPreferencesRepository: AccessibilityPreferencesRepository,
     private val modelRepository: ModelRepository,
     private val chatRepository: ChatRepository,
     private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
@@ -64,6 +67,7 @@ class SettingsViewModel @Inject constructor(
                 userPreferencesRepository.litertAccelerator,
                 userPreferencesRepository.petNotificationsEnabled,
                 huggingFaceAuthRepository.accessToken,
+                accessibilityPreferencesRepository.fontScale,
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val installed = values[0] as List<InstalledModel>
@@ -74,6 +78,7 @@ class SettingsViewModel @Inject constructor(
                 val litertAccelerator = values[5] as LiteRtAcceleratorPreference
                 val petNotifications = values[6] as Boolean
                 val token = values[7] as String?
+                val fontScale = values[8] as Float
                 val bytes = installed.sumOf { it.sizeBytes }
                 SettingsUiState(
                     installedCount = installed.size,
@@ -87,6 +92,7 @@ class SettingsViewModel @Inject constructor(
                     accentPalette = accentPalette,
                     litertAccelerator = litertAccelerator,
                     petNotificationsEnabled = petNotifications,
+                    fontScale = fontScale,
                 )
             }.collect { state ->
                 _uiState.update { current ->
@@ -158,6 +164,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setPetNotificationsEnabled(enabled: Boolean) {
         viewModelScope.launch { userPreferencesRepository.setPetNotificationsEnabled(enabled) }
+    }
+
+    fun setFontScale(scale: Float) {
+        viewModelScope.launch { accessibilityPreferencesRepository.setFontScale(scale) }
     }
 
     fun saveManualHuggingFaceToken() {

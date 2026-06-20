@@ -4,6 +4,9 @@ import com.nibbli.nibbligo.core.model.PetCosmetic
 import com.nibbli.nibbligo.core.model.PetLcdProp
 import com.nibbli.nibbligo.core.model.PetLcdScene
 import com.nibbli.nibbligo.core.model.PetState
+import com.nibbli.nibbligo.core.model.equippedScene
+import com.nibbli.nibbligo.feature.pet.ui.pixel.LcdPickerEntry
+import com.nibbli.nibbligo.feature.pet.ui.pixel.isCurrentlyEquipped
 
 fun lcdItemDisplayName(cosmetic: PetCosmetic): String = when (cosmetic) {
     PetCosmetic.SPARKLE_COLLAR -> "Sparkle collar"
@@ -40,13 +43,34 @@ fun lcdItemUnlockHint(prop: PetLcdProp): String = when (prop) {
     PetLcdProp.BLANKET -> "Complete daily quest or care milestones"
 }
 
+sealed interface LcdCollectionItemRef {
+    data class Wearable(val cosmetic: PetCosmetic) : LcdCollectionItemRef
+    data class Scene(val scene: PetLcdScene) : LcdCollectionItemRef
+    data class Prop(val prop: PetLcdProp) : LcdCollectionItemRef
+}
+
 data class LcdCollectionEntry(
     val id: String,
     val displayName: String,
     val category: String,
     val unlocked: Boolean,
     val unlockHint: String,
+    val itemRef: LcdCollectionItemRef,
 )
+
+fun LcdCollectionEntry.toPickerEntry(): LcdPickerEntry? {
+    if (!unlocked) return null
+    return when (val ref = itemRef) {
+        is LcdCollectionItemRef.Wearable -> LcdPickerEntry.Wearable(ref.cosmetic)
+        is LcdCollectionItemRef.Scene -> LcdPickerEntry.Scene(ref.scene)
+        is LcdCollectionItemRef.Prop -> LcdPickerEntry.Prop(ref.prop)
+    }
+}
+
+fun LcdCollectionEntry.isEquipped(pet: PetState): Boolean {
+    val pickerEntry = toPickerEntry() ?: return false
+    return pickerEntry.isCurrentlyEquipped(pet)
+}
 
 fun PetState.lcdCollectionEntries(): List<LcdCollectionEntry> = buildList {
     PetCosmetic.entries.forEach { cosmetic ->
@@ -57,6 +81,7 @@ fun PetState.lcdCollectionEntries(): List<LcdCollectionEntry> = buildList {
                 category = "Wearable",
                 unlocked = cosmetic in unlockedCosmetics,
                 unlockHint = lcdItemUnlockHint(cosmetic),
+                itemRef = LcdCollectionItemRef.Wearable(cosmetic),
             ),
         )
     }
@@ -68,6 +93,7 @@ fun PetState.lcdCollectionEntries(): List<LcdCollectionEntry> = buildList {
                 category = "Scene",
                 unlocked = scene in unlockedScenes,
                 unlockHint = lcdItemUnlockHint(scene),
+                itemRef = LcdCollectionItemRef.Scene(scene),
             ),
         )
     }
@@ -79,6 +105,7 @@ fun PetState.lcdCollectionEntries(): List<LcdCollectionEntry> = buildList {
                 category = "Floor prop",
                 unlocked = prop in unlockedProps,
                 unlockHint = lcdItemUnlockHint(prop),
+                itemRef = LcdCollectionItemRef.Prop(prop),
             ),
         )
     }

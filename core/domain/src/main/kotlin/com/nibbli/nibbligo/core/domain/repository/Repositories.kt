@@ -75,6 +75,30 @@ interface RecordingRepository {
     suspend fun updateTranscript(id: Long, transcript: String, summary: String?)
 }
 
+/**
+ * Parent/guardian controls. Stored separately from [UserPreferencesRepository] so the
+ * many existing test fakes of that interface remain untouched.
+ */
+interface ParentalControlsRepository {
+    /** Salted SHA-256 hex of the parent PIN, or null when no PIN has been set. */
+    val pinHash: Flow<String?>
+
+    /** When true, Agent, Benchmark, Prompt Lab, and the HF token panel require the parent PIN. */
+    val restrictAdultFeatures: Flow<Boolean>
+
+    suspend fun setPin(rawPin: String?)
+    suspend fun verifyPin(rawPin: String): Boolean
+    suspend fun isPinSet(): Boolean
+    suspend fun setRestrictAdultFeatures(enabled: Boolean)
+}
+
+/** Accessibility preferences kept apart from the broad [UserPreferencesRepository]. */
+interface AccessibilityPreferencesRepository {
+    /** Text size multiplier applied on top of the system font scale. 1.0 = default. */
+    val fontScale: Flow<Float>
+    suspend fun setFontScale(scale: Float)
+}
+
 interface UserPreferencesRepository {
     val defaultModelId: Flow<String?>
     val petModelId: Flow<String?>

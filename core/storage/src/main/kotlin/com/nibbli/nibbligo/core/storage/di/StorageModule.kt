@@ -9,10 +9,14 @@ import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.PetRepository
 import com.nibbli.nibbligo.core.domain.repository.PromptRepository
 import com.nibbli.nibbligo.core.domain.repository.RecordingRepository
+import com.nibbli.nibbligo.core.domain.repository.AccessibilityPreferencesRepository
 import com.nibbli.nibbligo.core.domain.repository.ActionHistoryRepository
+import com.nibbli.nibbligo.core.domain.repository.ParentalControlsRepository
 import com.nibbli.nibbligo.core.domain.repository.SkillPackageRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
+import com.nibbli.nibbligo.core.storage.repository.AccessibilityPreferencesRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.ActionHistoryRepositoryImpl
+import com.nibbli.nibbligo.core.storage.repository.ParentalControlsRepositoryImpl
 import com.nibbli.nibbligo.core.storage.repository.SkillPackageRepositoryImpl
 import com.nibbli.nibbligo.core.storage.local.NibbliDatabase
 import com.nibbli.nibbligo.core.storage.repository.BenchmarkRepositoryImpl
@@ -70,6 +74,12 @@ abstract class RepositoryModule {
   @Binds @Singleton abstract fun bindBenchmarkRepository(impl: BenchmarkRepositoryImpl): BenchmarkRepository
   @Binds @Singleton abstract fun bindRecordingRepository(impl: RecordingRepositoryImpl): RecordingRepository
   @Binds @Singleton abstract fun bindUserPreferences(impl: UserPreferencesRepositoryImpl): UserPreferencesRepository
+  @Binds @Singleton abstract fun bindParentalControls(
+    impl: ParentalControlsRepositoryImpl,
+  ): ParentalControlsRepository
+  @Binds @Singleton abstract fun bindAccessibilityPreferences(
+    impl: AccessibilityPreferencesRepositoryImpl,
+  ): AccessibilityPreferencesRepository
   @Binds @Singleton abstract fun bindSkillPackageRepository(impl: SkillPackageRepositoryImpl): SkillPackageRepository
   @Binds @Singleton abstract fun bindActionHistoryRepository(impl: ActionHistoryRepositoryImpl): ActionHistoryRepository
   @Binds @Singleton abstract fun bindHfDownloadScheduler(impl: HfModelDownloadSchedulerImpl): HfModelDownloadScheduler

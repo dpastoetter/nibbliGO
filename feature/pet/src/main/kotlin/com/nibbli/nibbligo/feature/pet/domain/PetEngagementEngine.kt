@@ -144,11 +144,19 @@ object PetEngagementEngine {
             mood = (state.stats.mood + 5).coerceAtMost(100),
             trust = (state.stats.trust + 3).coerceAtMost(100),
         )
-        return state.copy(
+        val withBonus = state.copy(
             stats = stats.clamped(),
             careScore = (state.careScore + 1).coerceAtMost(100),
             unlockedProps = PetLcdItemUnlocks.grantNextProp(state.unlockedProps),
             engagement = engagement.copy(dailyQuestBonusClaimed = true),
         )
+        // Quest bonus bumps trust/careScore after interact() already ran unlock checks.
+        val lcdUnlocks = PetSimulationEngine().applyLcdItemUnlocks(withBonus, withBonus.stats)
+        val newProps = withBonus.unlockedProps - state.unlockedProps
+        val equippedProp = when {
+            newProps.isNotEmpty() && lcdUnlocks.state.equippedProp == null -> newProps.first()
+            else -> lcdUnlocks.state.equippedProp
+        }
+        return lcdUnlocks.state.copy(equippedProp = equippedProp)
     }
 }

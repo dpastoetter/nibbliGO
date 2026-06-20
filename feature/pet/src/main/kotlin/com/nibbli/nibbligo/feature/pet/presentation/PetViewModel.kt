@@ -22,6 +22,7 @@ import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetMoodPulseMode
 import com.nibbli.nibbligo.core.model.PetState
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
+import com.nibbli.nibbligo.core.pet.llm.ChatContentSafety
 import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
 import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
 import com.nibbli.nibbligo.core.pet.llm.PetReaction
@@ -644,6 +645,11 @@ class PetViewModel @Inject constructor(
             openMinigame()
             return
         }
+        val safetyVerdict = ChatContentSafety.screenInput(trimmed)
+        if (safetyVerdict is ChatContentSafety.InputVerdict.Block) {
+            respondWithSafeBlock(trimmed, safetyVerdict.reply)
+            return
+        }
         activityReactionJob?.cancel()
         userStoppedGeneration = false
         petInferenceJob?.cancel()
@@ -666,8 +672,12 @@ class PetViewModel @Inject constructor(
                     PetEngagementEngine.recordTalk(interacted.state, now)
                 }
                 val warmLoaded = warmLoad.await()
+                val state = talkState.await()
+                petStateMutex.withLock {
+                    persistWithCelebrations(state)
+                }
                 generateReaction(
-                    state = talkState.await(),
+                    state = state,
                     userMessage = trimmed,
                     userInitiated = true,
                     coldStart = !warmLoaded,
@@ -678,6 +688,29 @@ class PetViewModel @Inject constructor(
                 }
                 clearGeneratingDialogueIfIdle()
             }
+        }
+    }
+
+    private fun respondWithSafeBlock(userMessage: String, safeReply: String) {
+        activityReactionJob?.cancel()
+        petInferenceJob?.cancel()
+        petInferenceJob = null
+        viewModelScope.launch {
+            _uiState.update { ui ->
+                val withUser = appendTalkHistory(
+                    ui.talkHistory,
+                    TalkHistoryEntry(TalkHistoryRole.USER, userMessage),
+                )
+                ui.copy(
+                    talkLcdMode = true,
+                    talkHistory = appendTalkHistory(
+                        withUser,
+                        TalkHistoryEntry(TalkHistoryRole.PET, safeReply),
+                    ),
+                    petState = ui.petState.copy(dialogueLine = safeReply),
+                )
+            }
+            clearGeneratingDialogue()
         }
     }
 
@@ -1049,6 +1082,9 @@ class PetViewModel @Inject constructor(
             if (reaction == null) {
                 if (userStoppedGeneration || moodPulse) return
                 Log.w(TAG, "Pet reaction timed out (non-streaming)")
+                if (request.userMessage != null) {
+                    showTransientStatusMessage("${state.name} is thinking slowly — here's a quick reply.")
+                }
                 applyReaction(state, request, PetReactionParser.fallback(request))
                 return
             }
@@ -1124,6 +1160,9 @@ class PetViewModel @Inject constructor(
                     return
                 }
                 Log.w(TAG, "Pet talk stream ended without a reaction (timeout or cancel)")
+                if (request.userMessage != null) {
+                    showTransientStatusMessage("${state.name} is thinking slowly — here's a quick reply.")
+                }
                 applyReaction(state, request, PetReactionParser.fallback(request))
                 return
             }
@@ -1150,10 +1189,11 @@ class PetViewModel @Inject constructor(
             } else {
                 reaction
             }
+            val safeDialogue = ChatContentSafety.screenReplyOrNull(resolved.dialogue) ?: resolved.dialogue
             val expression = resolved.suggestedExpression ?: state.expression
             val updated = PetTalkCoordinator.mergeTalkReaction(
                 postInteraction = state,
-                dialogue = resolved.dialogue,
+                dialogue = safeDialogue,
                 expression = expression,
             )
             val userMessage = request.userMessage
@@ -1167,7 +1207,7 @@ class PetViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         petState = updated,
-                        talkHistory = updateLastPetTalkEntry(it.talkHistory, resolved.dialogue),
+                        talkHistory = updateLastPetTalkEntry(it.talkHistory, safeDialogue),
                     )
                 }
             } else {
@@ -1178,7 +1218,7 @@ class PetViewModel @Inject constructor(
                 val modelId = petTalkChatRecorder.resolvePetModelId()
                 petTalkChatRecorder.recordHomeTalkTurn(
                     request = request.copy(state = updated),
-                    assistantText = resolved.dialogue,
+                    assistantText = safeDialogue,
                     modelId = modelId,
                 )
             }

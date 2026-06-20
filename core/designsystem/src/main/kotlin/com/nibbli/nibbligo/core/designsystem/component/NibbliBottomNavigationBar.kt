@@ -63,7 +63,7 @@ private fun RowScope.NibbliBottomNavDestination(item: NibbliBottomNavItem) {
     val contentColor = if (item.selected) {
         MaterialTheme.colorScheme.primary
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+        MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(
         onClick = item.onClick,

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -318,40 +322,65 @@ private fun TermsStep(
     accepted: Boolean,
     onAcceptedChange: (Boolean) -> Unit,
 ) {
+    var showFullTerms by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "Before you meet nibbli",
+            text = "A few quick things",
             style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = "Please read and accept the following to continue:",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                text = "• You agree not to use nibbliGO for anything illegal or harmful.",
-                style = MaterialTheme.typography.bodySmall,
+                text = "• Your chats stay on this phone. Nothing is sent to the internet to answer you.",
+                style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "• On-device generative AI can be wrong, incomplete, or inappropriate. " +
-                    "Verify important information yourself.",
-                style = MaterialTheme.typography.bodySmall,
+                text = "• I'm a small AI, so I can be wrong sometimes. Ask a grown-up about important stuff.",
+                style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "• The nibbliGO team is not liable for model errors, actions you take " +
-                    "based on outputs, or device resource use.",
-                style = MaterialTheme.typography.bodySmall,
+                text = "• Be kind and stay safe — keep our chats friendly.",
+                style = MaterialTheme.typography.bodyMedium,
             )
-            Text(
-                text = "• Pixel Friend chat runs on your phone — not sent to a cloud LLM for inference. " +
-                    "You remain responsible for how you use the app.",
-                style = MaterialTheme.typography.bodySmall,
-            )
+        }
+        Text(
+            text = if (showFullTerms) "Hide full terms" else "Read the full terms",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clickable { showFullTerms = !showFullTerms }
+                .padding(vertical = 4.dp),
+        )
+        if (showFullTerms) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "• You agree not to use nibbliGO for anything illegal or harmful.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "• On-device generative AI can be wrong, incomplete, or inappropriate. " +
+                        "Verify important information yourself.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "• The nibbliGO team is not liable for model errors, actions you take " +
+                        "based on outputs, or device resource use.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "• Pixel Friend chat runs on your phone — not sent to a cloud LLM for inference. " +
+                        "You remain responsible for how you use the app.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .clickable { onAcceptedChange(!accepted) }
                 .padding(top = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -361,7 +390,7 @@ private fun TermsStep(
                 onCheckedChange = onAcceptedChange,
             )
             Text(
-                text = "I agree to the above",
+                text = "I understand and agree",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 4.dp),
             )
@@ -422,7 +451,8 @@ private fun ModelDownloadStep(
             )
         }
         Text(
-            text = "Optional — tap Meet below to skip and download later from Home.",
+            text = "You can start playing right away — tap Meet below to skip and download later " +
+                "whenever you want to chat.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

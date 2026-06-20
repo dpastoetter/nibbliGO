@@ -40,4 +40,15 @@ class PetVisitQrCodecTest {
         assertNull(PetVisitQrCodec.decode("nibbli:other:1:abc"))
         assertNull(PetVisitQrCodec.decode("not-a-qr-payload"))
     }
+
+    @Test
+    fun decode_rejectsMalformedBase64() {
+        assertNull(PetVisitQrCodec.decode("nibbli:visit:1:%%%not-base64%%%"))
+    }
+
+    @Test
+    fun decode_rejectsOversizePayload() {
+        val huge = "A".repeat(5_000)
+        assertNull(PetVisitQrCodec.decode("nibbli:visit:1:$huge"))
+    }
 }

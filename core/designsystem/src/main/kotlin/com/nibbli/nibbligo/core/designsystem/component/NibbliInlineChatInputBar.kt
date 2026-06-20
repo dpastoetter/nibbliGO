@@ -24,8 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
-private val InlineChatInputShape = RoundedCornerShape(20.dp)
-private val InlineChatInputHeight = 40.dp
+private val InlineChatInputShape = RoundedCornerShape(24.dp)
+private val InlineChatInputHeight = 48.dp
 
 @Composable
 fun NibbliInlineChatInputBar(
@@ -76,7 +76,7 @@ fun NibbliInlineChatInputBar(
                             Text(
                                 text = placeholder,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                             )
                         }
                         innerTextField()
@@ -100,17 +100,17 @@ fun NibbliInlineChatInputBar(
                     },
                     enabled = canSend,
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(48.dp)
                         .then(if (sendTestTag != null) Modifier.testTag(sendTestTag) else Modifier),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        modifier = Modifier.size(18.dp),
+                        contentDescription = "Send message",
+                        modifier = Modifier.size(22.dp),
                         tint = if (canSend) {
                             MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         },
                     )
                 }

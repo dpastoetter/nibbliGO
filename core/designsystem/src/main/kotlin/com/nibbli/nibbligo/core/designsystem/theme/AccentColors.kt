@@ -21,7 +21,8 @@ object AccentColors {
     fun tokens(accent: AppAccentPalette, base: ThemeBase): AccentTokens = when (accent) {
         AppAccentPalette.TEAL -> when (base) {
             ThemeBase.LIGHT -> AccentTokens(
-                primary = TealPrimary,
+                // Darkened from TealPrimary so white text meets WCAG AA (>=4.5:1).
+                primary = TealPrimaryDark,
                 onPrimary = Color.White,
                 primaryContainer = Color(0xFFD4F0EB),
                 onPrimaryContainer = Color(0xFF1A4A44),
@@ -44,7 +45,7 @@ object AccentColors {
         }
         AppAccentPalette.LAVENDER -> when (base) {
             ThemeBase.LIGHT -> AccentTokens(
-                primary = Color(0xFF8B7DB8),
+                primary = Color(0xFF645A84),
                 onPrimary = Color.White,
                 primaryContainer = Color(0xFFE8E0F5),
                 onPrimaryContainer = Color(0xFF2E2648),
@@ -67,7 +68,7 @@ object AccentColors {
         }
         AppAccentPalette.SAGE -> when (base) {
             ThemeBase.LIGHT -> AccentTokens(
-                primary = Color(0xFF6F9872),
+                primary = Color(0xFF4F6E52),
                 onPrimary = Color.White,
                 primaryContainer = Color(0xFFDFECE0),
                 onPrimaryContainer = Color(0xFF243828),
@@ -90,7 +91,7 @@ object AccentColors {
         }
         AppAccentPalette.DUSK -> when (base) {
             ThemeBase.LIGHT -> AccentTokens(
-                primary = Color(0xFF5F849E),
+                primary = Color(0xFF445F72),
                 onPrimary = Color.White,
                 primaryContainer = Color(0xFFDCE8F0),
                 onPrimaryContainer = Color(0xFF1E3444),
@@ -113,7 +114,7 @@ object AccentColors {
         }
         AppAccentPalette.SAND -> when (base) {
             ThemeBase.LIGHT -> AccentTokens(
-                primary = Color(0xFFB89860),
+                primary = Color(0xFF846D45),
                 onPrimary = Color.White,
                 primaryContainer = Color(0xFFF0E8D8),
                 onPrimaryContainer = Color(0xFF443820),
@@ -137,7 +138,7 @@ object AccentColors {
     }
 
     fun swatchColor(accent: AppAccentPalette): Color = when (accent) {
-        AppAccentPalette.TEAL -> TealPrimary
+        AppAccentPalette.TEAL -> TealPrimaryDark
         AppAccentPalette.LAVENDER -> Color(0xFF9B8EC4)
         AppAccentPalette.SAGE -> Color(0xFF7FA882)
         AppAccentPalette.DUSK -> Color(0xFF6B8FA8)

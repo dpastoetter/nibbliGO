@@ -39,6 +39,8 @@ import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
 import com.nibbli.nibbligo.core.pet.llm.PetTalkSuggestions
+import com.nibbli.nibbligo.feature.pet.ui.collection.PetCollectionEquipSheet
+import com.nibbli.nibbligo.feature.pet.ui.collection.lcdCollectionEntries
 import com.nibbli.nibbligo.feature.pet.ui.visit.PetVisitSheet
 import com.nibbli.nibbligo.feature.pet.ui.feedback.PetFeedbackKind
 import com.nibbli.nibbligo.feature.pet.ui.feedback.rememberPetFeedbackController
@@ -47,6 +49,7 @@ import com.nibbli.nibbligo.feature.pet.ui.voice.rememberVoiceAssistLauncher
 @Composable
 fun PetHomeScreen(
     modifier: Modifier = Modifier,
+    onNavigateToCollection: () -> Unit = {},
     viewModel: PetViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -120,6 +123,8 @@ fun PetHomeScreen(
         !uiState.isVoiceListening && !uiState.isWarmingModel
     val micEnabled = talkEnabled && uiState.petModelInstalled
     val keyboardVisible = isKeyboardVisible()
+    var showKeepShareSheet by remember { mutableStateOf(false) }
+    var showCollectionSheet by remember { mutableStateOf(false) }
     val activeNeed = PetNeedRules.deriveNeed(pet).takeIf { it != PetNeed.NONE }
         ?: pet.activeNeed.takeIf { it != PetNeed.NONE }
 
@@ -266,21 +271,12 @@ fun PetHomeScreen(
                 )
 
                 if (!keyboardVisible) {
-                    PetQuickActionStrip(
+                    PetHomeBottomSegment(
                         playEnabled = pet.isAlive,
-                        shareEnabled = pet.isAlive,
                         onPlay = { viewModel.openMinigame() },
-                        onShare = {
-                            viewModel.shareTodayCard(context) { intent ->
-                                context.startActivity(
-                                    Intent.createChooser(intent, "Share nibbli"),
-                                )
-                            }
-                        },
-                        onPostcard = { viewModel.openPostcardSheet() },
-                        onDiary = {
-                            context.startActivity(Intent.createChooser(viewModel.exportDiary(), "Export diary"))
-                        },
+                        onVisit = { viewModel.openPostcardSheet() },
+                        onKeepShare = { showKeepShareSheet = true },
+                        onCollectibles = { showCollectionSheet = true },
                     )
                 }
             }
@@ -369,6 +365,28 @@ fun PetHomeScreen(
             },
         )
     }
+    PetKeepShareSheet(
+        visible = showKeepShareSheet,
+        shareEnabled = pet.isAlive,
+        onShareTodayCard = {
+            viewModel.shareTodayCard(context) { intent ->
+                context.startActivity(Intent.createChooser(intent, "Share nibbli"))
+            }
+        },
+        onExportDiary = {
+            context.startActivity(Intent.createChooser(viewModel.exportDiary(), "Export diary"))
+        },
+        onDismiss = { showKeepShareSheet = false },
+    )
+    PetCollectionEquipSheet(
+        visible = showCollectionSheet,
+        pet = pet,
+        entries = pet.lcdCollectionEntries(),
+        initialItemId = null,
+        onEquip = viewModel::onEquipLcdItem,
+        onSeeAll = onNavigateToCollection,
+        onDismiss = { showCollectionSheet = false },
+    )
     PetVisitSheet(
         visible = uiState.showPostcardSheet,
         pet = pet,

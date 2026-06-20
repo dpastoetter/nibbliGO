@@ -22,7 +22,29 @@ fun DrawScope.drawLcdProp(
     zoneHeightPx: Float,
     zoneWidthPx: Float,
 ) {
-    when (pet.equippedProp) {
+    drawLcdPropPreview(
+        prop = pet.equippedProp,
+        lcdScaleX = lcdScaleX,
+        lcdScaleY = lcdScaleY,
+        colors = colors,
+        frameIndex = frameIndex,
+        zoneTopPx = zoneTopPx,
+        zoneHeightPx = zoneHeightPx,
+        zoneWidthPx = zoneWidthPx,
+    )
+}
+
+fun DrawScope.drawLcdPropPreview(
+    prop: PetLcdProp?,
+    lcdScaleX: Float,
+    lcdScaleY: Float,
+    colors: P1Colors,
+    frameIndex: Int,
+    zoneTopPx: Float,
+    zoneHeightPx: Float,
+    zoneWidthPx: Float,
+) {
+    when (prop) {
         PetLcdProp.BALL -> drawBallProp(lcdScaleX, lcdScaleY, colors, frameIndex, zoneTopPx, zoneHeightPx, zoneWidthPx)
         PetLcdProp.PLANT -> drawPlantProp(lcdScaleX, lcdScaleY, colors, zoneTopPx, zoneHeightPx, zoneWidthPx)
         PetLcdProp.BLANKET -> drawBlanketProp(lcdScaleX, lcdScaleY, colors, zoneTopPx, zoneHeightPx, zoneWidthPx)

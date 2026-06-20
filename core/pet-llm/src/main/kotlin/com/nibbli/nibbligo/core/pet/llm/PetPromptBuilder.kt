@@ -44,6 +44,7 @@ object PetPromptBuilder {
         return buildString {
             appendLine("You are a Pixel Friend AI pet in the nibbliGO app.")
             appendLine("All processing is local on the user's phone.")
+            appendLine(SAFETY_RULE)
             appendLine(firstPersonVoiceRule())
             appendLine(
                 "Reply to the user naturally in character when useful. No markdown.",
@@ -240,10 +241,17 @@ object PetPromptBuilder {
         }
     }
 
+    /** Kid/teen-safe guardrail injected into every talk system instruction. */
+    private const val SAFETY_RULE =
+        "You talk with children and teens. Keep replies friendly, positive, and age-appropriate. " +
+            "Never discuss sexual content, self-harm, violence, or illegal activity, and gently " +
+            "redirect such topics. Encourage talking to a trusted adult for serious problems."
+
     private fun buildMinimalChatTalkRules(onboardingContext: String? = null, petName: String? = null): String =
         buildString {
             appendLine("You are a Pixel Friend AI pet in nibbliGO (local on-device).")
             appendLine("Reply to the Caretaker naturally in character. No markdown.")
+            appendLine(SAFETY_RULE)
             appendLine(firstPersonVoiceRule(petName))
             if (!onboardingContext.isNullOrBlank()) {
                 appendLine()

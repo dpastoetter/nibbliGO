@@ -38,7 +38,7 @@ fun NibbliPrimaryButton(
             color = if (enabled) {
                 MaterialTheme.colorScheme.onPrimary
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             },
         )
     }
@@ -71,7 +71,7 @@ fun NibbliSecondaryButton(
             color = if (enabled) {
                 MaterialTheme.colorScheme.onSurface
             } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             },
         )
     }

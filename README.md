@@ -87,8 +87,9 @@ Public models (e.g. Qwen 2.5 1.5B, SmolLM2 360M) download without sign-in.
 - **LCD Items** — care menu → **Items** → ◀ exit · ▶ browse · ● equip (wearables, scenes, floor props). Unlocks via care score, evolution, arcade wins, and daily quest bonus. **Manage → Collection** lists everything you've unlocked with hints.
 - **Arcade** — **Snack Drop** and **Tidy Tap** minigames (Home → Play); wins unlock floor props.
 - **Visit** — scan a friend's visit QR for a 24h LCD guest (local-only). Postcards include a care tip and borrowed prop/scene souvenir.
-- **Share** — export PNG cards (today, evolution, quote, minigame score). **Diary** export from the quick-action strip.
-- **Quick actions** below the talk bar: **Play**, **Share**, **Visit**, **Diary** (keyboard hides the strip while typing).
+- **Action tiles** below the talk bar: **Play**, **Visit**, **Keep & share**, **Collectibles** (keyboard hides the row while typing; all targets are 48dp for accessibility).
+- **Keep & share** sheet — **Share today's card** (PNG via the Android share sheet; disabled when nibbli has died) and **Export diary** (Markdown; always available). Nothing leaves the device unless you pick a destination app.
+- **Collectibles** sheet — thumbnail previews of wearables, scenes, and floor props with **Equip / Equipped / Locked** states and unlock hints; **See all** opens the full **Collection** screen. Equip updates the P1 LCD live.
 - Optional **mood pulse** — spontaneous LLM lines while Home is visible and nibbli is awake (**Manage → Companion → Behavior**: off / normal / quiet).
 - **Sound & haptics** on care confirm, tap, quest complete, and minigame win (**Manage → Companion → Behavior** toggle).
 - **Pet notifications** — needs, streak-at-risk, and evening daily-quest reminders with **Open Home** and **Quick feed** actions (**Settings** toggle).
@@ -104,6 +105,7 @@ Public models (e.g. Qwen 2.5 1.5B, SmolLM2 360M) download without sign-in.
 - **Chat** tab is your Pixel Friend only — same conversation as Home talk, on-device, no separate Assist thread.
 - Card-style message bubbles (no speech tails); streaming replies with a keyboard-aware composer.
 - Link to **Agent Chat** for email/calendar tasks.
+- **On-device content safety** — a deterministic [`ChatContentSafety`](core/pet-llm/src/main/kotlin/com/nibbli/nibbligo/core/pet/llm/ChatContentSafety.kt) guard screens kid/teen-unsafe topics (self-harm, violence, sexual content, PII) on both Home talk and the Chat tab: unsafe input is replaced with a caring, age-appropriate refusal and never reaches inference. It pairs with prompt-level guardrails in [`PetPromptBuilder`](core/pet-llm/src/main/kotlin/com/nibbli/nibbligo/core/pet/llm/PetPromptBuilder.kt) — a safety net, not a guarantee.
 
 ### Assist (Manage hub)
 
@@ -119,6 +121,7 @@ Public models (e.g. Qwen 2.5 1.5B, SmolLM2 360M) download without sign-in.
 - **Learn edge AI** — Benchmark, Prompt Lab, and Agent shortcuts with short on-device AI literacy copy.
 - **Help & learning** — read-only FAQ for nibbliGO (privacy, models, Home vs Chat, arcade, visits) and **Basic AI Knowledge** (what LLMs are, hallucinations, on-device vs cloud).
 - **Settings** — appearance (theme + **accent color**), **pet notifications**, privacy, storage, HF token, default app model, LiteRT accelerator, delete chat history.
+- **For parents** — a **parental gate**: set a 4+ digit PIN and toggle **Restrict advanced tools** to lock **Benchmark**, **Prompt Lab**, **Agent**, and Hugging Face sign-in behind the PIN (enforced in both the Manage hub and Settings). Removing the PIN clears the restriction.
 - **Coming soon** cards on Manage and Sense hubs for Do/MCP and multimodal features not yet product-ready.
 
 **Appearance** (in Settings): Light, Dark, **Super dark** (OLED-friendly), or System; five accent palettes — **Teal**, **Lavender**, **Sage**, **Dusk**, **Sand**.
@@ -289,14 +292,14 @@ Models live under app storage as `*.litertlm`. Chat, Agent, Prompt Lab, and pet 
 ./gradlew connectedAndroidTest   # device/emulator required
 ```
 
-Unit tests cover `PetSimulationEngine`, `PetLcdItemCatalog`, `PetEngagementEngine`, `PetVisitQrCodec`, `ModelCatalog`, `PetPromptBuilder`, `PetGameFaqMatcher`, `AccentColors`, `LiteRtBackendResolver`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/LCD helpers. CI runs `./gradlew testDebugUnitTest` on push/PR. Some instrumented flows need a downloaded model and are `@Ignore` by default.
+Unit tests (270+ cases) cover `PetSimulationEngine` (care, sickness, evolution, death/neglect), `PetEngagementEngine` (streak reset, at-risk, quest idempotency), `PetLcdItemCatalog` + LCD item unlock gates, `PetCelebrationDetector`, `PetDiaryExporter`, `PetPostcard`, `PetVisitQrCodec`, `ModelCatalog`, `PetPromptBuilder`, `ChatContentSafety` + ViewModel safety integration, parental controls (`ParentalControlsRepository`, `ParentControlsViewModel`), `PetGameFaqMatcher`, `AccentColors`, `LiteRtBackendResolver`, `SkillManifestParser`, `AgentOrchestrator`, phone `ToolExecutor`, and sprite/LCD helpers. CI runs `./gradlew testDebugUnitTest` on push/PR. Some instrumented flows need a downloaded model and are `@Ignore` by default.
 
 ## Releases
 
 Debug APKs are built automatically when a version tag is pushed (`v*` or `debug-*`). Download the latest from [GitHub Releases](https://github.com/dpastoetter/nibbliGO/releases).
 
 ```bash
-git tag v1.0.11 && git push origin v1.0.11   # triggers release-apk workflow
+git tag v1.0.14 && git push origin v1.0.14   # triggers release-apk workflow
 ```
 
 Local build:
