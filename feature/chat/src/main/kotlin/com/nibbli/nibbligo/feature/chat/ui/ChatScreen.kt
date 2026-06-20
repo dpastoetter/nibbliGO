@@ -29,7 +29,7 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliComposerStrip
 import com.nibbli.nibbligo.core.designsystem.component.NibbliInlineChatInputBar
 import com.nibbli.nibbligo.core.designsystem.component.NibbliAmbientBackground
 import com.nibbli.nibbligo.core.designsystem.component.isKeyboardVisible
-import com.nibbli.nibbligo.core.pet.llm.PetTalkChipResolver
+import com.nibbli.nibbligo.core.pet.llm.PetTalkSuggestions
 import com.nibbli.nibbligo.feature.pet.ui.PetTalkSuggestionChips
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageBubble
 import com.nibbli.nibbligo.core.designsystem.component.NibbliMessageRole
@@ -48,7 +48,6 @@ fun ChatScreen(
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val lastTalkTurn by viewModel.lastTalkTurn.collectAsStateWithLifecycle()
     var showClearConfirm by remember { mutableStateOf(false) }
 
     if (!uiState.hasPetModel) {
@@ -175,19 +174,13 @@ fun ChatScreen(
             NibbliComposerStrip {
                 val keyboardVisible = isKeyboardVisible()
                 val awaitingReply = uiState.isStreaming || uiState.streamingText != null
-                if (!keyboardVisible && !awaitingReply) {
-                    val suggestionChips = PetTalkChipResolver.resolve(
-                        lastTurn = lastTalkTurn,
-                        isGenerating = awaitingReply,
+                if (!keyboardVisible && !awaitingReply && uiState.messages.isEmpty()) {
+                    PetTalkSuggestionChips(
+                        chips = PetTalkSuggestions.starterChips,
+                        enabled = true,
+                        onChipClick = viewModel::sendMessage,
+                        modifier = Modifier.padding(bottom = 4.dp),
                     )
-                    if (suggestionChips.isNotEmpty()) {
-                        PetTalkSuggestionChips(
-                            chips = suggestionChips,
-                            enabled = true,
-                            onChipClick = viewModel::sendMessage,
-                            modifier = Modifier.padding(bottom = 4.dp),
-                        )
-                    }
                 }
                 NibbliInlineChatInputBar(
                     value = uiState.input,

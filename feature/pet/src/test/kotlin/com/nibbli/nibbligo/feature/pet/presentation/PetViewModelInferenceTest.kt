@@ -34,8 +34,6 @@ import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
 import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnCoordinator
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnState
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
@@ -142,8 +140,6 @@ class PetViewModelInferenceTest {
             petEventBus = PetEventBus(),
             petReactionPort = reactionPort,
             petTalkChatRecorder = createPetTalkChatRecorder(),
-            petTalkTurnCoordinator = PetTalkTurnCoordinator(reactionPort, PetTalkTurnState()),
-            petTalkTurnState = PetTalkTurnState(),
             companionMemoryStore = CompanionMemoryStore(FakeCompanionMemoryRepository(), petRepo),
             companionTurnLog = CompanionTurnLog(chatRepo, petModelResolver),
             inferenceRuntime = runtime,
@@ -285,12 +281,6 @@ private class RecordingPetReactionPort : PetReactionPort {
     override fun generateStream(request: PetReactionRequest): Flow<PetReactionStreamEvent> =
         flowOf(PetReactionStreamEvent.Done(PetReaction(dialogue = "streamed")))
 
-    override suspend fun generateReplySuggestions(
-        userMessage: String,
-        petDialogue: String,
-        request: PetReactionRequest,
-    ): List<String> = emptyList()
-
     override suspend fun warmLoad() = Unit
 
     override suspend fun activeModelDisplayName(): String = "Test model"
@@ -308,12 +298,6 @@ private class HangingStreamPetReactionPort : PetReactionPort {
         delay(10_000)
         emit(PetReactionStreamEvent.Done(PetReaction(dialogue = "streamed")))
     }
-
-    override suspend fun generateReplySuggestions(
-        userMessage: String,
-        petDialogue: String,
-        request: PetReactionRequest,
-    ): List<String> = emptyList()
 
     override suspend fun warmLoad() = Unit
 

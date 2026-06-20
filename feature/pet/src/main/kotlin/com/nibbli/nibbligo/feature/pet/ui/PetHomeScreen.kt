@@ -38,7 +38,7 @@ import com.nibbli.nibbligo.core.model.PetInteraction
 import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.core.model.PetNeedRules
 import com.nibbli.nibbligo.feature.pet.presentation.PetViewModel
-import com.nibbli.nibbligo.core.pet.llm.PetTalkChipResolver
+import com.nibbli.nibbligo.core.pet.llm.PetTalkSuggestions
 import com.nibbli.nibbligo.feature.pet.ui.visit.PetVisitSheet
 import com.nibbli.nibbligo.feature.pet.ui.feedback.PetFeedbackKind
 import com.nibbli.nibbligo.feature.pet.ui.feedback.rememberPetFeedbackController
@@ -50,7 +50,6 @@ fun PetHomeScreen(
     viewModel: PetViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val lastTalkTurn by viewModel.lastTalkTurn.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -239,19 +238,13 @@ fun PetHomeScreen(
                     .fillMaxWidth()
                     .imePadding(),
             ) {
-                if (!keyboardVisible && !isUserTalkGenerating && talkEnabled) {
-                    val suggestionChips = PetTalkChipResolver.resolve(
-                        lastTurn = lastTalkTurn,
-                        isGenerating = isUserTalkGenerating,
+                if (!keyboardVisible && !isUserTalkGenerating && talkEnabled && uiState.talkHistory.isEmpty()) {
+                    PetTalkSuggestionChips(
+                        chips = PetTalkSuggestions.starterChips,
+                        enabled = micEnabled,
+                        onChipClick = viewModel::onQuickChip,
+                        modifier = Modifier.padding(bottom = 4.dp),
                     )
-                    if (suggestionChips.isNotEmpty()) {
-                        PetTalkSuggestionChips(
-                            chips = suggestionChips,
-                            enabled = micEnabled,
-                            onChipClick = viewModel::onQuickChip,
-                            modifier = Modifier.padding(bottom = 4.dp),
-                        )
-                    }
                 }
                 PetTalkInputBar(
                     enabled = talkEnabled,

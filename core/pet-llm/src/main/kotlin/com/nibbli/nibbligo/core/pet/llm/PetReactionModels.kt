@@ -30,7 +30,6 @@ data class PetReactionRequest(
 data class PetReaction(
     val dialogue: String,
     val suggestedExpression: PetExpression? = null,
-    val replySuggestions: List<String> = emptyList(),
 )
 
 sealed interface PetReactionStreamEvent {
@@ -42,12 +41,6 @@ interface PetReactionPort {
     suspend fun generate(request: PetReactionRequest): PetReaction
 
     fun generateStream(request: PetReactionRequest): Flow<PetReactionStreamEvent>
-
-    suspend fun generateReplySuggestions(
-        userMessage: String,
-        petDialogue: String,
-        request: PetReactionRequest,
-    ): List<String>
 
     suspend fun warmLoad()
 

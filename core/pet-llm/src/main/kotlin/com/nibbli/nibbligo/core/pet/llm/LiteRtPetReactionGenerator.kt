@@ -37,9 +37,8 @@ class LiteRtPetReactionGenerator @Inject constructor(
                 val request = enriched
                 val reaction = parseUserTalkOutput("$answer|NEUTRAL", request)
                     ?: PetReactionParser.parseTalk("$answer|NEUTRAL", request.state.name, request.caretakerName)
-                val withSuggestions = ensureReplySuggestions(reaction, request, modelId)
                 resetHomeTalkSessionAfterTurn(modelId)
-                return withSuggestions
+                return reaction
             }
             return generateUserTalk(enriched, modelId)
         }
@@ -68,9 +67,8 @@ class LiteRtPetReactionGenerator @Inject constructor(
             PetGameFaqMatcher.confidentInstantAnswer(msg)?.let { answer ->
                 val reaction = parseUserTalkOutput("$answer|NEUTRAL", enriched)
                     ?: PetReactionParser.parseTalk("$answer|NEUTRAL", enriched.state.name, enriched.caretakerName)
-                val withSuggestions = ensureReplySuggestions(reaction, enriched, modelId)
                 resetHomeTalkSessionAfterTurn(modelId)
-                emit(PetReactionStreamEvent.Done(withSuggestions))
+                emit(PetReactionStreamEvent.Done(reaction))
                 return@flow
             }
             emitAll(streamUserTalkViaHomeSession(enriched, modelId))
@@ -136,25 +134,6 @@ class LiteRtPetReactionGenerator @Inject constructor(
         emit(PetReactionStreamEvent.Done(PetReactionParser.fallback(enriched)))
     }
 
-    override suspend fun generateReplySuggestions(
-        userMessage: String,
-        petDialogue: String,
-        request: PetReactionRequest,
-    ): List<String> {
-        if (!modelAvailabilityGate.hasUsableModel()) return emptyList()
-        val modelId = petModelResolver.resolve()
-        val enriched = enrichRequest(request)
-        if (!ensureHomeTalkSession(modelId, enriched.state.name)) return emptyList()
-        val parts = PetPromptBuilder.buildReplySuggestionParts(
-            userMessage = userMessage,
-            petDialogue = petDialogue,
-            petName = enriched.state.name,
-            caretakerName = enriched.caretakerName,
-        )
-        val raw = completeHomeTalkTurn(modelId, parts) ?: return emptyList()
-        return PetReplySuggestionParser.parseRepliesOnly(raw, userMessage)
-    }
-
     override suspend fun warmLoad() {
         liteRtModelPreloader.preloadPrimaryModel()
     }
@@ -183,17 +162,15 @@ class LiteRtPetReactionGenerator @Inject constructor(
             if (PetReactionParser.hasPromptEcho(raw.orEmpty())) {
                 inferenceRuntime.resetHomeTalkSession(modelId)
             }
-            val withSuggestions = ensureReplySuggestions(reaction, request, modelId)
             resetHomeTalkSessionAfterTurn(modelId)
-            return withSuggestions
+            return reaction
         }
 
         val compactParts = PetPromptBuilder.buildCompactHomeTalkParts(request, onboardingContext)
         val compactRaw = completeHomeTalkTurn(modelId, compactParts)
         parseUserTalkOutput(compactRaw.orEmpty(), request)?.let {
-            val withSuggestions = ensureReplySuggestions(it, request, modelId)
             resetHomeTalkSessionAfterTurn(modelId)
-            return withSuggestions
+            return it
         }
 
         Log.w(TAG, "User talk empty; using fallback")
@@ -250,9 +227,8 @@ class LiteRtPetReactionGenerator @Inject constructor(
                 if (PetReactionParser.hasPromptEcho(raw)) {
                     inferenceRuntime.resetHomeTalkSession(modelId)
                 }
-                val withSuggestions = ensureReplySuggestions(reaction, request, modelId)
                 resetHomeTalkSessionAfterTurn(modelId)
-                emit(PetReactionStreamEvent.Done(withSuggestions))
+                emit(PetReactionStreamEvent.Done(reaction))
                 return@flow
             }
         }
@@ -261,9 +237,8 @@ class LiteRtPetReactionGenerator @Inject constructor(
             val compactParts = PetPromptBuilder.buildCompactHomeTalkParts(request, onboardingContext)
             if (ensureHomeTalkSession(modelId, request.state.name)) {
                 parseUserTalkOutput(completeHomeTalkTurn(modelId, compactParts).orEmpty(), request)?.let {
-                    val withSuggestions = ensureReplySuggestions(it, request, modelId)
                     resetHomeTalkSessionAfterTurn(modelId)
-                    emit(PetReactionStreamEvent.Done(withSuggestions))
+                    emit(PetReactionStreamEvent.Done(it))
                     return@flow
                 }
             }
@@ -384,24 +359,7 @@ class LiteRtPetReactionGenerator @Inject constructor(
             Log.w(TAG, "User talk degenerate repetition; treating as empty")
             return null
         }
-        return PetReplySuggestionParser.parseTalkWithSuggestions(
-            raw = raw,
-            petName = request.state.name,
-            caretakerName = request.caretakerName,
-            lastUserMessage = request.userMessage,
-        ).reaction
-    }
-
-    private suspend fun ensureReplySuggestions(
-        reaction: PetReaction,
-        request: PetReactionRequest,
-        modelId: String,
-    ): PetReaction {
-        if (reaction.replySuggestions.isNotEmpty()) return reaction
-        val userMessage = request.userMessage?.trim().orEmpty()
-        if (userMessage.isEmpty()) return reaction
-        val suggestions = generateReplySuggestions(userMessage, reaction.dialogue, request)
-        return reaction.copy(replySuggestions = suggestions)
+        return PetReactionParser.parseTalk(raw, request.state.name, request.caretakerName)
     }
 
     private fun parseModelOutput(raw: String?, request: PetReactionRequest): PetReaction? {

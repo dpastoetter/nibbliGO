@@ -262,10 +262,7 @@ object PetReactionParser {
         partial: String,
         petName: String? = null,
         caretakerName: String? = null,
-    ): String {
-        val withoutSuggestions = PetReplySuggestionParser.stripRepliesSuffix(partial)
-        return stripDialogueForStreaming(withoutSuggestions, petName, caretakerName)
-    }
+    ): String = stripDialogueForStreaming(partial, petName, caretakerName)
 
     private fun stripDialogueForStreaming(
         partial: String,

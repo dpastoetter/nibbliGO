@@ -132,13 +132,12 @@ class PetPromptBuilderTest {
     }
 
     @Test
-    fun buildChatTalkParts_includesReplyChipExamples() {
+    fun buildChatTalkParts_includesExamples() {
         val parts = PetPromptBuilder.buildChatTalkParts(
             PetReactionRequest(state = PetState(), userMessage = "Tell me a joke"),
             "smollm2-360m-instruct",
         )
         assertTrue(parts.systemInstruction.contains("Examples:"))
-        assertTrue(parts.systemInstruction.contains("REPLIES:"))
         assertTrue(parts.userMessage.contains("Caretaker: Tell me a joke"))
         assertTrue(!parts.userMessage.contains("User: Tell me a joke"))
         assertTrue(!parts.userMessage.contains("Status: hunger"))
@@ -213,9 +212,9 @@ class PetPromptBuilderTest {
         val rules = PetPromptBuilder.homeTalkSystemInstruction()
         assertTrue(rules.length in 120..900)
         assertTrue(rules.contains("HAPPY, SLEEPY, HUNGRY, CURIOUS, or NEUTRAL"))
-        assertTrue(rules.contains("REPLIES:"))
         assertTrue(rules.contains("naturally in character"))
         assertTrue(rules.contains("Examples:"))
+        assertTrue(!rules.contains("REPLIES:"))
         assertTrue(!rules.contains("Max 320"))
         assertTrue(!rules.contains("2 short sentences"))
     }

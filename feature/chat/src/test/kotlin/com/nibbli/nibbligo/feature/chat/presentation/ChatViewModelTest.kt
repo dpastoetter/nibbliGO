@@ -39,8 +39,6 @@ import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
 import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
 import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnCoordinator
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnState
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import org.robolectric.RuntimeEnvironment
 import kotlinx.coroutines.Dispatchers
@@ -173,25 +171,6 @@ private fun createViewModel(
         ),
         userPreferencesRepository = prefs,
     )
-    val turnState = PetTalkTurnState()
-    val reactionPort = object : com.nibbli.nibbligo.core.pet.llm.PetReactionPort {
-        override suspend fun generate(request: com.nibbli.nibbligo.core.pet.llm.PetReactionRequest) =
-            com.nibbli.nibbligo.core.pet.llm.PetReaction(dialogue = "unused")
-        override fun generateStream(request: com.nibbli.nibbligo.core.pet.llm.PetReactionRequest) =
-            flowOf(
-                com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent.Done(
-                    com.nibbli.nibbligo.core.pet.llm.PetReaction(dialogue = "unused"),
-                ),
-            )
-        override suspend fun generateReplySuggestions(
-            userMessage: String,
-            petDialogue: String,
-            request: com.nibbli.nibbligo.core.pet.llm.PetReactionRequest,
-        ): List<String> = emptyList()
-        override suspend fun warmLoad() = Unit
-        override suspend fun activeModelDisplayName(): String = "Test"
-    }
-    val coordinator = PetTalkTurnCoordinator(reactionPort, turnState)
     val memoryStore = CompanionMemoryStore(FakeCompanionMemoryRepository(), petRepo)
     val turnLog = CompanionTurnLog(chatRepository, PetModelResolver(
         inferenceRuntime,
@@ -217,8 +196,6 @@ private fun createViewModel(
                 override suspend fun firstUsableModelId() = petModelId
             },
         ),
-        petTalkTurnCoordinator = coordinator,
-        petTalkTurnState = turnState,
         companionMemoryStore = memoryStore,
         companionTurnLog = turnLog,
     )

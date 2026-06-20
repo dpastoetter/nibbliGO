@@ -14,7 +14,6 @@ import com.nibbli.nibbligo.core.model.PetTurnRequest
 import com.nibbli.nibbligo.core.model.RuntimeResult
 import com.nibbli.nibbligo.core.pet.llm.CompanionMemoryStore
 import com.nibbli.nibbligo.core.pet.llm.CompanionTurnLog
-import com.nibbli.nibbligo.core.pet.llm.LastTalkTurn
 import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
 import com.nibbli.nibbligo.core.pet.llm.PetModelResolver
 import com.nibbli.nibbligo.core.pet.llm.PetOnboardingPrompt
@@ -22,8 +21,6 @@ import com.nibbli.nibbligo.core.pet.llm.PetPromptBuilder
 import com.nibbli.nibbligo.core.pet.llm.PetReactionParser
 import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnCoordinator
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnState
 import com.nibbli.nibbligo.core.runtime.InferenceRuntime
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -63,8 +60,6 @@ class ChatViewModel @Inject constructor(
     private val petEventBus: PetEventBus,
     private val petTalkChatRecorder: PetTalkChatRecorder,
     private val petModelResolver: PetModelResolver,
-    private val petTalkTurnCoordinator: PetTalkTurnCoordinator,
-    private val petTalkTurnState: PetTalkTurnState,
     private val companionMemoryStore: CompanionMemoryStore,
     private val companionTurnLog: CompanionTurnLog,
 ) : ViewModel() {
@@ -73,7 +68,6 @@ class ChatViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
-    val lastTalkTurn: StateFlow<LastTalkTurn?> = petTalkTurnState.lastTurn
 
     private val conversationIdFlow = MutableStateFlow<Long?>(null)
 
@@ -132,7 +126,6 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             val conversationId = _uiState.value.conversationId ?: return@launch
             chatRepository.deleteMessagesForConversation(conversationId)
-            petTalkTurnCoordinator.clearTurn()
             runCatching {
                 val modelId = petModelResolver.resolve()
                 inferenceRuntime.resetHomeTalkSession(modelId)
@@ -230,7 +223,7 @@ class ChatViewModel @Inject constructor(
 
             val raw = rawBuilder.toString().trim()
             val reaction = if (raw.isNotBlank()) {
-                petTalkTurnCoordinator.resolveUserTalkReaction(raw, request)
+                PetReactionParser.parseTalk(raw, petState.name, request.caretakerName)
             } else {
                 PetReactionParser.fallback(request)
             }
@@ -248,12 +241,6 @@ class ChatViewModel @Inject constructor(
                 modelId = modelId,
                 userText = trimmed,
                 assistant = parsed,
-                timestampMillis = now,
-            )
-            petTalkTurnCoordinator.publishTurn(
-                userMessage = trimmed,
-                petDialogue = parsed,
-                replySuggestions = reaction.replySuggestions,
                 timestampMillis = now,
             )
             inferenceRuntime.resetHomeTalkSession(modelId)

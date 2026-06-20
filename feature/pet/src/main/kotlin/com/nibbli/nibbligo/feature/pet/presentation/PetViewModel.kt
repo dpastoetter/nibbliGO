@@ -34,9 +34,6 @@ import com.nibbli.nibbligo.core.pet.llm.PetReactionRequest
 import com.nibbli.nibbligo.core.pet.llm.PetReactionStreamEvent
 import com.nibbli.nibbligo.core.pet.llm.PetTalkChatRecorder
 import com.nibbli.nibbligo.core.pet.llm.PetTalkLimits
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnCoordinator
-import com.nibbli.nibbligo.core.pet.llm.PetTalkTurnState
-import com.nibbli.nibbligo.core.pet.llm.LastTalkTurn
 import com.nibbli.nibbligo.core.pet.llm.LiteRtModelPreloader
 import com.nibbli.nibbligo.feature.pet.domain.PetDiaryExporter
 import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
@@ -131,8 +128,6 @@ class PetViewModel @Inject constructor(
     private val petEventBus: PetEventBus,
     private val petReactionPort: PetReactionPort,
     private val petTalkChatRecorder: PetTalkChatRecorder,
-    private val petTalkTurnCoordinator: PetTalkTurnCoordinator,
-    private val petTalkTurnState: PetTalkTurnState,
     private val companionMemoryStore: CompanionMemoryStore,
     private val companionTurnLog: CompanionTurnLog,
     private val inferenceRuntime: InferenceRuntime,
@@ -151,7 +146,6 @@ class PetViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(PetUiState())
     val uiState: StateFlow<PetUiState> = _uiState.asStateFlow()
-    val lastTalkTurn: StateFlow<LastTalkTurn?> = petTalkTurnState.lastTurn
     private val homeActive = MutableStateFlow(false)
     private var lastReactionAtMillis = 0L
     private val pendingActivityHints = mutableListOf<String>()
@@ -902,7 +896,6 @@ class PetViewModel @Inject constructor(
                     pendingMemoryProposal = null,
                 )
             }
-            petTalkTurnCoordinator.clearTurn()
         }
     }
 
@@ -1144,23 +1137,12 @@ class PetViewModel @Inject constructor(
         petStateMutex.withLock {
             lastReactionAtMillis = System.currentTimeMillis()
             val resolved = if (request.userMessage != null) {
-                val userMsg = request.userMessage
-                var merged = PetReactionParser.reconcileTalkStream(
+                PetReactionParser.reconcileTalkStream(
                     reaction,
                     _uiState.value.petState.dialogueLine,
                     state.name,
                     request.caretakerName,
                 )
-                if (merged.replySuggestions.isEmpty()) {
-                    merged = merged.copy(
-                        replySuggestions = petReactionPort.generateReplySuggestions(
-                            userMessage = userMsg!!,
-                            petDialogue = merged.dialogue,
-                            request = request,
-                        ),
-                    )
-                }
-                merged
             } else {
                 reaction
             }
@@ -1196,11 +1178,6 @@ class PetViewModel @Inject constructor(
                     request = request.copy(state = current),
                     assistantText = resolved.dialogue,
                     modelId = modelId,
-                )
-                petTalkTurnCoordinator.publishTurn(
-                    userMessage = userMessage!!,
-                    petDialogue = resolved.dialogue,
-                    replySuggestions = resolved.replySuggestions,
                 )
             }
         }
