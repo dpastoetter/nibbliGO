@@ -179,7 +179,13 @@ class AgentOrchestrator @Inject constructor(
             result.outputJson,
             toolCallId = pending.call.toolId,
         )
-        return continueAfterTool(modelId, session.copy(messages = messages, steps = steps), listOf(result), params)
+        return continueAfterTool(
+            modelId,
+            session.copy(messages = messages, steps = steps),
+            listOf(result),
+            params,
+            stepsRemaining = MAX_STEPS - stepIndex,
+        )
     }
 
     private suspend fun continueAfterTool(
@@ -187,7 +193,15 @@ class AgentOrchestrator @Inject constructor(
         session: AgentSessionState,
         toolResults: List<ToolResult>,
         params: GenerationParams,
+        stepsRemaining: Int,
     ): AgentRunResult {
+        if (stepsRemaining <= 0) {
+            return AgentRunResult(
+                session.copy(isRunning = false),
+                pendingConfirmation = null,
+                finalText = "Reached max agent steps.",
+            )
+        }
         val request = AgentRequest(
             modelId = modelId,
             messages = session.messages,
@@ -227,7 +241,13 @@ class AgentOrchestrator @Inject constructor(
                             result.outputJson,
                             toolCallId = call.toolId,
                         )
-                        continueAfterTool(modelId, session.copy(messages = messages), listOf(result), params)
+                        continueAfterTool(
+                            modelId,
+                            session.copy(messages = messages),
+                            listOf(result),
+                            params,
+                            stepsRemaining = stepsRemaining - 1,
+                        )
                     }
                 }
             }

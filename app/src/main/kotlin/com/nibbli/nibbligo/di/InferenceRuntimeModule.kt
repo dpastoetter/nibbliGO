@@ -13,4 +13,10 @@ abstract class InferenceRuntimeModule {
     @Binds
     @Singleton
     abstract fun bindInferenceRuntime(impl: com.nibbli.nibbligo.core.runtime.litert.LiteRTInferenceRuntime): InferenceRuntime
+
+    @Binds
+    @Singleton
+    abstract fun bindModelRuntimeCoordinator(
+        impl: com.nibbli.nibbligo.core.runtime.litert.LiteRtModelRuntimeCoordinator,
+    ): com.nibbli.nibbligo.core.domain.model.ModelRuntimeCoordinator
 }

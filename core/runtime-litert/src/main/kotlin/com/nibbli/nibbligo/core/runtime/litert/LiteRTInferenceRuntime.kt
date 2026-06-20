@@ -1,12 +1,14 @@
 package com.nibbli.nibbligo.core.runtime.litert
 
 import com.nibbli.nibbligo.core.litert.engine.LiteRtEnginePool
+import com.nibbli.nibbligo.core.litert.engine.ModelFileNotFoundException
 import com.nibbli.nibbligo.core.litert.engine.StreamEvent
 import com.nibbli.nibbligo.core.litert.engine.TurnResult
 import com.nibbli.nibbligo.core.litert.engine.liteRtToolArgumentsToJson
+import com.nibbli.nibbligo.core.model.AgentMessage
 import com.nibbli.nibbligo.core.model.AgentMessageRole
-import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
 import com.nibbli.nibbligo.core.model.AgentRequest
+import com.nibbli.nibbligo.core.pet.llm.LiteRtPetReactionGenerator
 import com.nibbli.nibbligo.core.model.AgentTurn
 import com.nibbli.nibbligo.core.model.BenchmarkMetrics
 import com.nibbli.nibbligo.core.model.PetBenchmarkMetrics
@@ -52,8 +54,24 @@ class LiteRTInferenceRuntime @Inject constructor(
             enginePool.ensureSession(modelId, tools, systemInstruction)
             RuntimeResult.Success(Unit)
         } catch (e: Exception) {
-            RuntimeResult.Error(e.message ?: "LiteRT load failed", e)
+            mapLoadFailure(e)
         }
+    }
+
+    private fun mapLoadFailure(e: Exception): RuntimeResult<Unit> {
+        if (isLowMemoryError(e)) return RuntimeResult.LowMemory
+        if (e is ModelFileNotFoundException) {
+            return RuntimeResult.Error(e.message ?: "Model file not found", e)
+        }
+        return RuntimeResult.Error(e.message ?: "LiteRT load failed", e)
+    }
+
+    private fun isLowMemoryError(e: Throwable): Boolean {
+        if (e is OutOfMemoryError) return true
+        val message = e.message?.lowercase().orEmpty()
+        return message.contains("out of memory") ||
+            message.contains("oom") ||
+            message.contains("not enough memory")
     }
 
     override suspend fun ensureAgentModelLoaded(modelId: String): RuntimeResult<Unit> {
@@ -74,7 +92,7 @@ class LiteRTInferenceRuntime @Inject constructor(
             )
             RuntimeResult.Success(Unit)
         } catch (e: Exception) {
-            RuntimeResult.Error(e.message ?: "LiteRT agent load failed", e)
+            mapLoadFailure(e)
         }
     }
 
@@ -92,7 +110,7 @@ class LiteRTInferenceRuntime @Inject constructor(
             )
             RuntimeResult.Success(Unit)
         } catch (e: Exception) {
-            RuntimeResult.Error(e.message ?: "LiteRT pet load failed", e)
+            mapLoadFailure(e)
         }
     }
 
@@ -110,7 +128,7 @@ class LiteRTInferenceRuntime @Inject constructor(
             )
             RuntimeResult.Success(Unit)
         } catch (e: Exception) {
-            RuntimeResult.Error(e.message ?: "LiteRT home talk load failed", e)
+            mapLoadFailure(e)
         }
     }
 
@@ -339,11 +357,10 @@ class LiteRTInferenceRuntime @Inject constructor(
                 )
                 enginePool.sendAgentTurn(request.modelId, prompt, tools, systemInstruction)
             } else {
-                val lastUser =
-                    request.messages.lastOrNull { it.role == AgentMessageRole.USER }?.content.orEmpty()
+                val conversation = formatAgentConversation(request.messages)
                 enginePool.sendAgentTurn(
                     request.modelId,
-                    formatAgentUserMessage(lastUser),
+                    formatAgentUserMessage(conversation),
                     tools,
                     systemInstruction,
                 )
@@ -353,6 +370,16 @@ class LiteRTInferenceRuntime @Inject constructor(
             RuntimeResult.Error(e.message ?: "LiteRT agent turn failed", e)
         }
     }
+
+    private fun formatAgentConversation(messages: List<AgentMessage>): String =
+        messages.takeLast(8).joinToString("\n") { message ->
+            when (message.role) {
+                AgentMessageRole.USER -> "User: ${message.content}"
+                AgentMessageRole.ASSISTANT -> "Assistant: ${message.content}"
+                AgentMessageRole.TOOL -> "Tool: ${message.content.take(200)}"
+                AgentMessageRole.SYSTEM -> "System: ${message.content.take(200)}"
+            }
+        }
 
     private fun parseAgentTurn(result: TurnResult): AgentTurn {
         if (result.toolCalls.isNotEmpty()) {

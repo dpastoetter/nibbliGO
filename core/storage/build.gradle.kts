@@ -32,4 +32,11 @@ dependencies {
     implementation(libs.okhttp)
     ksp(libs.hilt.compiler)
     ksp(libs.hilt.work.compiler)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.core.ktx)
+    testImplementation(libs.androidx.room.runtime)
+    testImplementation(libs.androidx.room.ktx)
 }

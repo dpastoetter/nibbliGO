@@ -17,6 +17,8 @@ import com.nibbli.nibbligo.core.model.PetNeed
 import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetActions
+import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
+import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.Calendar
@@ -32,9 +34,6 @@ class PetTickWorker @AssistedInject constructor(
     private val engine = PetSimulationEngine()
 
     override suspend fun doWork(): Result {
-        if (!userPreferencesRepository.getPetNotificationsEnabled()) {
-            return Result.success()
-        }
         val now = System.currentTimeMillis()
         var state = petRepository.getPetState()
         val tick = engine.tick(state, now)
@@ -43,8 +42,14 @@ class PetTickWorker @AssistedInject constructor(
             state = state.copy(dialogueLine = line)
         }
         petRepository.savePetState(state)
+        PetWidgetSnapshot.write(applicationContext, state)
+        PetWidgetUpdater.refresh(applicationContext)
 
         if (state.condition == PetCondition.DEAD) {
+            return Result.success()
+        }
+
+        if (!userPreferencesRepository.getPetNotificationsEnabled()) {
             return Result.success()
         }
 

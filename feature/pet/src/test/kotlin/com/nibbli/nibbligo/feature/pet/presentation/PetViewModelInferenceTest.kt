@@ -150,6 +150,10 @@ class PetViewModelInferenceTest {
             petDeepLinkBus = PetDeepLinkBus(),
             modelAvailabilityGate = gate,
             modelRepository = FakeModelRepository(),
+            petStatePersistence = PetStatePersistence(
+                context = context,
+                petRepository = petRepo,
+            ),
         )
     }
 

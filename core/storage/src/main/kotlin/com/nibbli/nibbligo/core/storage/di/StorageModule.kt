@@ -42,7 +42,7 @@ object DatabaseModule {
   @Singleton
   fun provideDatabase(@ApplicationContext context: Context): NibbliDatabase =
     Room.databaseBuilder(context, NibbliDatabase::class.java, "nibbli.db")
-      .fallbackToDestructiveMigration()
+      .fallbackToDestructiveMigrationOnDowngrade()
       .build()
 
   @Provides fun providePetStateDao(db: NibbliDatabase) = db.petStateDao()

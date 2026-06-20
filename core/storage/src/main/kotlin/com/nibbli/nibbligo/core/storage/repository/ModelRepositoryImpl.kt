@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.nibbli.nibbligo.core.domain.download.HfModelDownloadScheduler
+import com.nibbli.nibbligo.core.domain.model.InstalledModelPathResolver
 import com.nibbli.nibbligo.core.domain.repository.ModelRepository
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.InstalledModel
@@ -12,6 +13,7 @@ import com.nibbli.nibbligo.core.model.ModelCatalog
 import com.nibbli.nibbligo.core.model.ModelInfo
 import com.nibbli.nibbligo.core.storage.local.dao.ModelInstallDao
 import com.nibbli.nibbligo.core.storage.mapper.toDomain
+import com.nibbli.nibbligo.core.domain.model.ModelRuntimeCoordinator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -29,6 +31,8 @@ class ModelRepositoryImpl @Inject constructor(
     private val hfDownloadScheduler: HfModelDownloadScheduler,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
+    private val installedModelPathResolver: InstalledModelPathResolver,
+    private val modelRuntimeCoordinator: ModelRuntimeCoordinator,
 ) : ModelRepository {
 
     override fun observeCatalog(): Flow<List<ModelInfo>> =
@@ -81,6 +85,8 @@ class ModelRepositoryImpl @Inject constructor(
     override suspend fun uninstall(modelId: String): Result<Unit> = withContext(Dispatchers.IO) {
         modelInstallDao.get(modelId)?.localPath?.let { File(it).delete() }
         modelInstallDao.delete(modelId)
+        modelRuntimeCoordinator.unloadModel(modelId)
+        installedModelPathResolver.refreshCache(modelId)
         Result.success(Unit)
     }
 

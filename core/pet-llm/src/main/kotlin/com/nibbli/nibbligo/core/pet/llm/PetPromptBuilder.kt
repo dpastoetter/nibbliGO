@@ -17,6 +17,7 @@ enum class HomeTalkPromptTier {
 
 object PetPromptBuilder {
     private const val MAX_REPLY_CHARS = 180
+    private const val HOME_TALK_USER_TOKEN_BUDGET = 384
     private val expressionNames = PetExpression.entries.joinToString(", ") { it.name }
 
     /** Stable per model — mood pulse, care reactions, ambient lines. */
@@ -166,7 +167,10 @@ object PetPromptBuilder {
         val tier = resolveHomeTalkTier(caretakerMessage)
         return PetPromptParts(
             systemInstruction = homeTalkSystemInstruction(onboardingContext, request.state.name),
-            userMessage = buildHomeTalkUserTurn(request, modelId, tier),
+            userMessage = PromptTokenEstimator.trimToTokenBudget(
+                buildHomeTalkUserTurn(request, modelId, tier),
+                HOME_TALK_USER_TOKEN_BUDGET,
+            ),
         )
     }
 

@@ -148,6 +148,7 @@ data class PetTickResult(
     val shouldNotifyAttention: Boolean = false,
     val welcomeBack: Boolean = false,
     val evolved: Boolean = false,
+    val events: List<PetEvent> = emptyList(),
 )
 
 data class PetInteractionResult(

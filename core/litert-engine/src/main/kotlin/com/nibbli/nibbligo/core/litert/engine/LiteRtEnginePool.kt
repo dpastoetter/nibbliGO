@@ -17,6 +17,7 @@ import com.google.ai.edge.litertlm.ToolProvider
 import com.nibbli.nibbligo.core.domain.model.InstalledModelPathResolver
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.model.ModelCatalog
+import com.nibbli.nibbligo.core.model.GenerationParams
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -56,6 +57,8 @@ class LiteRtEnginePool @Inject constructor(
     private val sessions = ConcurrentHashMap<String, LiteRtSession>()
     private val initMutex = Mutex()
     private val petTurnMutex = Mutex()
+    @Volatile
+    private var cachedGenerationParams = GenerationParams()
 
     private fun sessionKey(
         modelId: String,
@@ -137,9 +140,10 @@ class LiteRtEnginePool @Inject constructor(
             }
 
             val path = modelPath(modelId)?.absolutePath
-                ?: error("No .litertlm file for $modelId")
+                ?: throw ModelFileNotFoundException("No .litertlm file for $modelId")
 
             val preference = userPreferencesRepository.litertAccelerator.first()
+            cachedGenerationParams = userPreferencesRepository.generationParams.first()
             val backends = LiteRtBackendResolver.resolveBackendOrder(
                 modelId = modelId,
                 userPreference = preference,
@@ -203,7 +207,7 @@ class LiteRtEnginePool @Inject constructor(
         val catalogMaxTokens = ModelCatalog.find(modelId)?.maxContextTokens
         val maxNumTokens = when (profile) {
             SESSION_PROFILE_PET_CHAT -> PET_MAX_NUM_TOKENS
-            SESSION_PROFILE_HOME_TALK -> catalogMaxTokens ?: DEFAULT_MAX_NUM_TOKENS
+            SESSION_PROFILE_HOME_TALK -> HOME_TALK_MAX_NUM_TOKENS
             else -> catalogMaxTokens ?: DEFAULT_MAX_NUM_TOKENS
         }
         // maxNumTokens is total context capacity (input + output), not output length alone.
@@ -243,7 +247,21 @@ class LiteRtEnginePool @Inject constructor(
         )
     }
 
-    private fun samplerConfigFor(profile: String, modelId: String): SamplerConfig = when {
+    private fun samplerConfigFor(profile: String, modelId: String): SamplerConfig {
+        val defaults = samplerDefaults(profile, modelId)
+        if (profile == SESSION_PROFILE_MOBILE_ACTIONS) return defaults
+        val params = cachedGenerationParams
+        return SamplerConfig(
+            topK = params.topK.coerceIn(1, 128),
+            topP = params.topP.coerceIn(0.01f, 1f).toDouble(),
+            temperature = when (profile) {
+                SESSION_PROFILE_PET_CHAT, SESSION_PROFILE_HOME_TALK -> defaults.temperature
+                else -> params.temperature.coerceIn(0f, 2f).toDouble()
+            },
+        )
+    }
+
+    private fun samplerDefaults(profile: String, modelId: String): SamplerConfig = when {
         profile == SESSION_PROFILE_PET_CHAT && isCompactPetModel(modelId) ->
             SamplerConfig(topK = 16, topP = 0.9, temperature = 0.4)
         profile == SESSION_PROFILE_PET_CHAT ->

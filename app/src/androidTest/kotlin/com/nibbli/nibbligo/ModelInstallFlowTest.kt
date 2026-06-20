@@ -3,11 +3,12 @@ package com.nibbli.nibbligo
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import org.junit.Assume
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,9 +26,20 @@ class ModelInstallFlowTest {
     @Before
     fun setup() {
         hiltRule.inject()
+        Assume.assumeTrue(
+            "Requires network for model download",
+            isNetworkAvailable(),
+        )
     }
 
-    @Ignore("Requires network download of functiongemma-270m (~289 MB)")
+    private fun isNetworkAvailable(): Boolean {
+        val cm = composeRule.activity.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+            as android.net.ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
     @Test
     fun installModel_showsInstalledBadge() {
         composeRule.onNodeWithText("Manage").performClick()

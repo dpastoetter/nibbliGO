@@ -82,7 +82,8 @@ object PetGameFaqMatcher {
         }
 
         if (picked.isEmpty()) {
-            return listOf(PetGameFaq.findById("care_basics")!!).take(maxEntries)
+            val fallback = PetGameFaq.findById("care_basics")
+            return if (fallback != null) listOf(fallback).take(maxEntries) else emptyList()
         }
         return picked
     }

@@ -55,15 +55,17 @@ fun P1LcdCanvas(
     val visitFrameIndex = frameIndex + 3
     val visitSelection = visitPet?.resolveSprite()
     val visitFrame = visitSelection?.frameAtIndex(visitFrameIndex)
-    val visitMotion = visitPet?.let { guest ->
+    val visitMotion = if (visitPet != null && visitSelection != null) {
         rememberLcdPetMotion(
-            selection = visitSelection!!,
-            pet = guest,
+            selection = visitSelection,
+            pet = visitPet,
             frameIndex = visitFrameIndex,
             tapBoost = false,
             phaseOffset = 0.5f,
             motionKey = "visit",
         )
+    } else {
+        null
     }
 
     val colors = p1Colors()
@@ -130,11 +132,11 @@ fun P1LcdCanvas(
             }
         }
 
-        if (dualVisit) {
-            val guest = visitPet!!
-            val guestSelection = visitSelection!!
-            val guestFrame = visitFrame!!
-            val guestMotion = visitMotion!!
+        if (dualVisit && visitPet != null && visitSelection != null && visitFrame != null && visitMotion != null) {
+            val guest = visitPet
+            val guestSelection = visitSelection
+            val guestFrame = visitFrame
+            val guestMotion = visitMotion
             val slotWidth = P1DisplaySpec.VISIT_SLOT_WIDTH_PX.toFloat()
             drawLcdPetSprite(
                 atlas = atlas,
@@ -265,7 +267,7 @@ private fun DrawScope.drawLcdPetSprite(
         )
     }
     if (pet.showsCosmeticOverlay() && !talkLcdMode) {
-        val cosmetic = pet.equippedCosmetic!!
+        val cosmetic = pet.equippedCosmetic ?: return
         val overlayAlpha = when {
             cosmetic == PetCosmetic.AURORA_AURA && frameIndex % 2 == 1 -> 0.65f
             cosmetic == PetCosmetic.SPARKLE_COLLAR && frameIndex % 3 == 0 -> 0.85f

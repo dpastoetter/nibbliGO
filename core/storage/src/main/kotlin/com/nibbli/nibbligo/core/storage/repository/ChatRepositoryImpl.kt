@@ -66,6 +66,11 @@ class ChatRepositoryImpl @Inject constructor(
 
   override suspend fun saveMessage(message: ChatMessage) {
     messageDao.insert(message.toEntity())
+    val conversationId = message.conversationId
+    val count = messageDao.countForConversation(conversationId)
+    if (count > MAX_MESSAGES_PER_CONVERSATION) {
+      messageDao.deleteOldest(conversationId, count - MAX_MESSAGES_PER_CONVERSATION)
+    }
   }
 
   override suspend fun deleteMessagesForConversation(conversationId: Long) {
@@ -78,5 +83,9 @@ class ChatRepositoryImpl @Inject constructor(
 
   override suspend fun deleteAllConversations() {
     conversationDao.deleteAll()
+  }
+
+  companion object {
+    private const val MAX_MESSAGES_PER_CONVERSATION = 200
   }
 }

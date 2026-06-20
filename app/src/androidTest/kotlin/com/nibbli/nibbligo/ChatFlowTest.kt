@@ -8,8 +8,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import org.junit.Assume
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,9 +27,15 @@ class ChatFlowTest {
     @Before
     fun setup() {
         hiltRule.inject()
+        Assume.assumeTrue(
+            "Requires installed LiteRT model on device",
+            java.io.File(
+                composeRule.activity.filesDir,
+                "models",
+            ).listFiles()?.any { it.name.endsWith(".litertlm") && it.length() > 1_000_000 } == true,
+        )
     }
 
-    @Ignore("Requires installed LiteRT model and network download")
     @Test
     fun sendMessage_streamsResponse() {
         composeRule.onNodeWithText("Manage").performClick()

@@ -47,13 +47,16 @@ object PetEngagementEngine {
             catchHighScore = maxOf(engagement.catchHighScore, score),
             catchBestCombo = maxOf(engagement.catchBestCombo, bestCombo),
         )
-        if (score >= engagement.dailyCatchTargetScore) {
+        if (score >= engagement.dailyCatchTargetScore && !engagement.dailyCatchChallengeCompleted) {
             engagement = engagement.copy(dailyCatchChallengeCompleted = true)
         }
-        if (won) {
-            engagement = markQuestProgress(engagement, PetInteraction.PLAY, today)
-        }
+        engagement = markQuestProgress(engagement, PetInteraction.PLAY, today)
         var updated = state.copy(engagement = engagement)
+        if (engagement.dailyCatchChallengeCompleted && !state.engagement.dailyCatchChallengeCompleted) {
+            updated = updated.copy(
+                stats = updated.stats.copy(mood = (updated.stats.mood + 3).coerceAtMost(100)).clamped(),
+            )
+        }
         if (PetEngagementRules.dailyQuestComplete(engagement)) {
             updated = applyQuestBonusIfNew(updated, today)
         }

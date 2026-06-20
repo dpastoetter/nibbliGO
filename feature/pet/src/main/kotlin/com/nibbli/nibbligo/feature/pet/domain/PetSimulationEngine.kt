@@ -77,6 +77,7 @@ class PetSimulationEngine {
 
         var hasMess = state.hasMess
         var condition = state.condition
+        val wasHealthy = condition == PetCondition.HEALTHY
         if (condition != PetCondition.SLEEPING &&
             stats.hygiene < PetGameReference.MESS_HYGIENE_THRESHOLD &&
             Random.nextFloat() < 0.08f * ticks
@@ -116,6 +117,10 @@ class PetSimulationEngine {
         )
 
         var evolved = false
+        val events = mutableListOf<PetEvent>()
+        if (condition == PetCondition.SICK && wasHealthy) {
+            events.add(PetEvent.BecameSick)
+        }
         val evolution = PetGameReference.canEvolve(updated)
         if (evolution != null) {
             updated = updated.copy(
@@ -126,6 +131,7 @@ class PetSimulationEngine {
                 lastInteractionAtMillis = nowMillis,
             )
             evolved = true
+            events.add(PetEvent.Evolution(evolution))
             updated = applyLcdItemUnlocks(updated, updated.stats).state
         }
 
@@ -154,6 +160,17 @@ class PetSimulationEngine {
 
         val hoursAway = (nowMillis - state.lastInteractionAtMillis) / (1000 * 60 * 60f)
         val welcomeBack = hoursAway >= 6f
+        if (hoursAway >= 12f && critical) {
+            events.add(PetEvent.NeglectTick)
+        }
+        if (welcomeBack) {
+            updated = updated.copy(
+                stats = updated.stats.copy(
+                    mood = (updated.stats.mood + 5).coerceAtMost(100),
+                    trust = (updated.stats.trust + 2).coerceAtMost(100),
+                ).clamped(),
+            )
+        }
         val templateDialogue = when {
             welcomeBack -> "I've missed you! Everything still runs on-device here."
             hoursAway > 2 && need != PetNeed.NONE -> attentionLine(need)
@@ -166,6 +183,7 @@ class PetSimulationEngine {
             shouldNotifyAttention = need != PetNeed.NONE && need != PetNeed.LONELY,
             welcomeBack = welcomeBack,
             evolved = evolved,
+            events = events,
         )
     }
 

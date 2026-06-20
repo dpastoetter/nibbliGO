@@ -94,6 +94,17 @@ interface MessageDao {
     @Query("SELECT * FROM message WHERE conversationId = :conversationId ORDER BY timestampMillis DESC LIMIT :limit")
     suspend fun getRecent(conversationId: Long, limit: Int): List<MessageEntity>
 
+    @Query("SELECT COUNT(*) FROM message WHERE conversationId = :conversationId")
+    suspend fun countForConversation(conversationId: Long): Int
+
+    @Query(
+        "DELETE FROM message WHERE conversationId = :conversationId AND id IN (" +
+            "SELECT id FROM message WHERE conversationId = :conversationId " +
+            "ORDER BY timestampMillis ASC LIMIT :deleteCount" +
+            ")",
+    )
+    suspend fun deleteOldest(conversationId: Long, deleteCount: Int)
+
     @Query("DELETE FROM message WHERE conversationId = :conversationId")
     suspend fun deleteForConversation(conversationId: Long)
 }

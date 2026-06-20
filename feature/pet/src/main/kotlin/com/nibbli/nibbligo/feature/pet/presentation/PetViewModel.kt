@@ -138,6 +138,7 @@ class PetViewModel @Inject constructor(
     private val petDeepLinkBus: PetDeepLinkBus,
     private val modelAvailabilityGate: ModelAvailabilityGate,
     private val modelRepository: ModelRepository,
+    private val petStatePersistence: PetStatePersistence,
 ) : ViewModel() {
 
     private val workManager by lazy { WorkManager.getInstance(context) }
@@ -168,7 +169,8 @@ class PetViewModel @Inject constructor(
                 val tick = engine.tick(state, now)
                 state = tick.state
                 tick.templateDialogue?.let { line -> state = state.copy(dialogueLine = line) }
-                petRepository.savePetState(state)
+                tick.events.forEach { event -> petEventBus.emit(event) }
+                petStatePersistence.persist(state)
                 val visit = postcardStore.load()
                 val streakAtRisk = PetEngagementEngine.isStreakAtRisk(state, now)
                 _uiState.update {
@@ -195,26 +197,28 @@ class PetViewModel @Inject constructor(
         }
         viewModelScope.launch {
             petRepository.observePetState()
-                .map { it.name }
-                .distinctUntilChanged()
-                .collect { name ->
+                .collect { roomState ->
                     _uiState.update { ui ->
-                        if (ui.isLoading || ui.petState.name == name) ui
-                        else ui.copy(petState = ui.petState.copy(name = name))
+                        if (ui.isLoading || ui.isGeneratingDialogue) ui
+                        else ui.copy(petState = mergePetStateFromRoom(ui.petState, roomState))
                     }
                 }
         }
         viewModelScope.launch {
             petEventBus.events.collect { event ->
-                val updated = engine.onPetEvent(_uiState.value.petState, event)
-                persist(updated)
-                val toast = when (event) {
-                    PetEvent.AssistantSuccess -> "nibbli noticed your chat!"
-                    PetEvent.AgentStepCompleted -> "nibbli noticed Agent helping you!"
-                    PetEvent.ActionCompleted -> "nibbli noticed you finished something!"
-                    else -> null
+                petStateMutex.withLock {
+                    val now = System.currentTimeMillis()
+                    val ticked = engine.tick(_uiState.value.petState, now).state
+                    val updated = engine.onPetEvent(ticked, event)
+                    persistUnlocked(updated)
+                    val toast = when (event) {
+                        PetEvent.AssistantSuccess -> "nibbli noticed your chat!"
+                        PetEvent.AgentStepCompleted -> "nibbli noticed Agent helping you!"
+                        PetEvent.ActionCompleted -> "nibbli noticed you finished something!"
+                        else -> null
+                    }
+                    _uiState.update { it.copy(agentToast = toast) }
                 }
-                _uiState.update { it.copy(agentToast = toast) }
                 scheduleActivityReaction(event)
             }
         }
@@ -1146,10 +1150,10 @@ class PetViewModel @Inject constructor(
             } else {
                 reaction
             }
-            val current = _uiState.value.petState
-            val expression = resolved.suggestedExpression ?: current.expression
-            var updated = current.copy(
-                dialogueLine = resolved.dialogue,
+            val expression = resolved.suggestedExpression ?: state.expression
+            val updated = PetTalkCoordinator.mergeTalkReaction(
+                postInteraction = state,
+                dialogue = resolved.dialogue,
                 expression = expression,
             )
             val userMessage = request.userMessage
@@ -1169,13 +1173,11 @@ class PetViewModel @Inject constructor(
             } else {
                 _uiState.update { it.copy(petState = updated) }
             }
-            petRepository.savePetState(updated)
-            PetWidgetSnapshot.write(context, updated)
-            PetWidgetUpdater.refresh(context)
+            petStatePersistence.persist(updated)
             if (request.userMessage != null) {
                 val modelId = petTalkChatRecorder.resolvePetModelId()
                 petTalkChatRecorder.recordHomeTalkTurn(
-                    request = request.copy(state = current),
+                    request = request.copy(state = updated),
                     assistantText = resolved.dialogue,
                     modelId = modelId,
                 )
@@ -1213,11 +1215,11 @@ class PetViewModel @Inject constructor(
         } else {
             state
         }
-        petRepository.savePetState(toPersist)
-        PetWidgetSnapshot.write(context, toPersist)
-        PetWidgetUpdater.refresh(context)
+        petStatePersistence.persist(toPersist)
         _uiState.update { it.copy(petState = toPersist) }
     }
+
+    private fun mergePetStateFromRoom(uiPet: PetState, roomPet: PetState): PetState = roomPet
 
     private companion object {
         private const val TAG = "PetViewModel"

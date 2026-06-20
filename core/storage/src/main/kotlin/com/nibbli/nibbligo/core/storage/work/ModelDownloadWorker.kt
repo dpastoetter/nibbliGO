@@ -11,6 +11,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.nibbli.nibbligo.core.domain.model.InstalledModelPathResolver
 import com.nibbli.nibbligo.core.domain.repository.UserPreferencesRepository
 import com.nibbli.nibbligo.core.hf.download.HfDownloadException
 import com.nibbli.nibbligo.core.hf.download.HfFileDownloader
@@ -33,6 +34,7 @@ class ModelDownloadWorker @AssistedInject constructor(
     private val modelInstallDao: ModelInstallDao,
     private val huggingFaceAuthRepository: HuggingFaceAuthRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val installedModelPathResolver: InstalledModelPathResolver,
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -91,6 +93,7 @@ class ModelDownloadWorker @AssistedInject constructor(
             ) {
                 userPreferencesRepository.setPetModelId(modelId)
             }
+            installedModelPathResolver.refreshCache(modelId)
             Log.i(TAG, "Installed $modelId (${modelFile.length()} bytes)")
             Result.success()
         } catch (e: Exception) {

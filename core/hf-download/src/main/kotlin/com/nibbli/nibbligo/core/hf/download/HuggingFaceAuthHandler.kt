@@ -3,6 +3,9 @@ package com.nibbli.nibbligo.core.hf.download
 import android.content.Context
 import android.content.Intent
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationResponse
@@ -36,8 +39,8 @@ class HuggingFaceAuthHandler @Inject constructor(
                     tokenResponse?.accessToken.isNullOrBlank() ->
                         cont.resume(Result.failure(IllegalStateException("No access token in response")))
                     else -> {
-                        val token = tokenResponse!!.accessToken!!
-                        kotlinx.coroutines.runBlocking {
+                        val token = tokenResponse.accessToken.orEmpty()
+                        CoroutineScope(Dispatchers.IO).launch {
                             authRepository.saveAccessToken(token)
                         }
                         cont.resume(Result.success(Unit))
