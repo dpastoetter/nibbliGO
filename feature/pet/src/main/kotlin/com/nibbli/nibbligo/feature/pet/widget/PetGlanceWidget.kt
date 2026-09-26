@@ -43,7 +43,7 @@ private fun homeIntent(context: Context): Intent =
     }
 
 private fun widgetActionIntent(context: Context, action: String): Intent =
-    homeIntent(context).putExtra(PetWidgetActions.EXTRA, action)
+    PetWidgetTrampolineActivity.intent(context, action)
 
 @Composable
 private fun PetWidgetContent(

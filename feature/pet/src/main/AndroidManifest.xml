@@ -12,5 +12,10 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/pet_widget_info" />
         </receiver>
+        <activity
+            android:name=".widget.PetWidgetTrampolineActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
     </application>
 </manifest>

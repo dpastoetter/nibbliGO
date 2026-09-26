@@ -18,6 +18,7 @@ import com.nibbli.nibbligo.feature.pet.domain.PetEngagementEngine
 import com.nibbli.nibbligo.feature.pet.domain.PetSimulationEngine
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetActions
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetSnapshot
+import com.nibbli.nibbligo.feature.pet.widget.PetWidgetTrampolineActivity
 import com.nibbli.nibbligo.feature.pet.widget.PetWidgetUpdater
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -160,22 +161,10 @@ class PetTickWorker @AssistedInject constructor(
     }
 
     private fun feedPendingIntent(): PendingIntent {
-        val launchIntent = applicationContext.packageManager
-            .getLaunchIntentForPackage(applicationContext.packageName)
-            ?.apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(PetWidgetActions.EXTRA, PetWidgetActions.FEED)
-            }
-            ?: Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
-                setPackage(applicationContext.packageName)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra(PetWidgetActions.EXTRA, PetWidgetActions.FEED)
-            }
         return PendingIntent.getActivity(
             applicationContext,
             FEED_REQUEST_CODE,
-            launchIntent,
+            PetWidgetTrampolineActivity.intent(applicationContext, PetWidgetActions.FEED),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }

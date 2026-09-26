@@ -80,13 +80,26 @@ interface RecordingRepository {
  * many existing test fakes of that interface remain untouched.
  */
 interface ParentalControlsRepository {
-    /** Salted SHA-256 hex of the parent PIN, or null when no PIN has been set. */
+    /** Opaque PIN credential marker (never plaintext). Null when no PIN has been set. */
     val pinHash: Flow<String?>
 
     /** When true, Agent, Benchmark, Prompt Lab, and the HF token panel require the parent PIN. */
     val restrictAdultFeatures: Flow<Boolean>
 
-    suspend fun setPin(rawPin: String?)
+    /**
+     * Epoch millis until which PIN verification is locked after repeated failures, or 0 when unlocked.
+     */
+    val pinLockedUntilEpochMs: Flow<Long>
+
+    /**
+     * Sets or changes the PIN. When a PIN already exists, [currentPin] must verify first.
+     * Returns false when verification fails, the PIN is locked out, or [rawPin] is invalid.
+     */
+    suspend fun setPin(rawPin: String, currentPin: String? = null): Boolean
+
+    /** Clears the PIN. Requires a correct [currentPin] when one is set. */
+    suspend fun clearPin(currentPin: String): Boolean
+
     suspend fun verifyPin(rawPin: String): Boolean
     suspend fun isPinSet(): Boolean
     suspend fun setRestrictAdultFeatures(enabled: Boolean)

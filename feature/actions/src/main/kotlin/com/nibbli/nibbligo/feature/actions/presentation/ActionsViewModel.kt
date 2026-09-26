@@ -94,16 +94,29 @@ class ActionsViewModel @Inject constructor(
     fun addMcpServer() {
         val url = _uiState.value.mcpServerUrlInput.trim()
         if (url.isBlank()) return
-        val id = url.hashCode().toString()
-        viewModelScope.launch {
-            val server = McpServerConfig(id = id, name = "MCP $id", url = url)
-            mcpServerStore.add(server)
-            mcpToolRegistry.refresh(server).onSuccess { count ->
-                toolRegistry.registerMcpTools(mcpToolRegistry.allTools())
-                _uiState.update {
-                    it.copy(mcpServerUrlInput = "", resultMessage = "MCP: discovered $count tools")
-                }
+        val safeUrl = McpToolRegistry.validateLocalMcpUrl(url)
+        if (safeUrl == null) {
+            _uiState.update {
+                it.copy(resultMessage = "MCP URL must be http(s)://localhost or 127.0.0.1")
             }
+            return
+        }
+        val id = safeUrl.hashCode().toString()
+        viewModelScope.launch {
+            val server = McpServerConfig(id = id, name = "MCP $id", url = safeUrl)
+            mcpServerStore.add(server)
+            mcpToolRegistry.refresh(server)
+                .onSuccess { count ->
+                    toolRegistry.registerMcpTools(mcpToolRegistry.allTools())
+                    _uiState.update {
+                        it.copy(mcpServerUrlInput = "", resultMessage = "MCP: discovered $count tools")
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(resultMessage = e.message ?: "MCP refresh failed")
+                    }
+                }
         }
     }
 

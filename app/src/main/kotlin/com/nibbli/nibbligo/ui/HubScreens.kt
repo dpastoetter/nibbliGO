@@ -23,9 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,7 +34,6 @@ import com.nibbli.nibbligo.core.designsystem.component.NibbliComingSoonCard
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreen
 import com.nibbli.nibbligo.core.designsystem.component.NibbliScreenHeader
 import com.nibbli.nibbligo.feature.settings.presentation.ParentalGateViewModel
-import com.nibbli.nibbligo.feature.settings.ui.ParentalGateDialog
 import com.nibbli.nibbligo.navigation.Routes
 
 @Composable
@@ -83,24 +79,10 @@ fun SenseHubScreen(navController: NavController) {
 @Composable
 fun ManageHubScreen(
     navController: NavController,
+    onNavigateGated: (String) -> Unit,
     gateViewModel: ParentalGateViewModel = hiltViewModel(),
 ) {
     val gateActive by gateViewModel.gateActive.collectAsStateWithLifecycle()
-    var pendingGatedRoute by remember { mutableStateOf<String?>(null) }
-
-    fun navigateGated(route: String) {
-        if (gateActive) pendingGatedRoute = route else navController.navigate(route)
-    }
-
-    pendingGatedRoute?.let { route ->
-        ParentalGateDialog(
-            onUnlocked = {
-                pendingGatedRoute = null
-                navController.navigate(route)
-            },
-            onDismiss = { pendingGatedRoute = null },
-        )
-    }
 
     NibbliScreen {
         NibbliScreenHeader(
@@ -154,7 +136,7 @@ fun ManageHubScreen(
             NibbliActionTile(
                 icon = Icons.Outlined.FamilyRestroom,
                 label = "For parents",
-                onClick = { navController.navigate(Routes.PARENT_CONTROLS) },
+                onClick = { onNavigateGated(Routes.PARENT_CONTROLS) },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -188,19 +170,19 @@ fun ManageHubScreen(
             NibbliActionTile(
                 icon = Icons.Outlined.Speed,
                 label = "Benchmark",
-                onClick = { navigateGated(Routes.BENCHMARK) },
+                onClick = { onNavigateGated(Routes.BENCHMARK) },
                 modifier = Modifier.weight(1f),
             )
             NibbliActionTile(
                 icon = Icons.Outlined.Science,
                 label = "Prompt Lab",
-                onClick = { navigateGated(Routes.PROMPT_LAB) },
+                onClick = { onNavigateGated(Routes.PROMPT_LAB) },
                 modifier = Modifier.weight(1f),
             )
             NibbliActionTile(
                 icon = Icons.Outlined.AutoAwesome,
                 label = "Agent",
-                onClick = { navigateGated(Routes.AGENT) },
+                onClick = { onNavigateGated(Routes.AGENT) },
                 modifier = Modifier.weight(1f),
             )
         }

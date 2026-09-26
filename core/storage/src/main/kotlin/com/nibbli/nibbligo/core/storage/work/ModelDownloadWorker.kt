@@ -42,8 +42,11 @@ class ModelDownloadWorker @AssistedInject constructor(
             ?: return@withContext failure("Missing model id in download request.")
         val info = ModelCatalog.find(modelId)
             ?: return@withContext failure("Unknown model: $modelId")
-        val modelsDir = File(applicationContext.filesDir, "models").also { it.mkdirs() }
-        val modelFile = File(modelsDir, info.localFileName())
+        val modelsDir = File(applicationContext.filesDir, "models").also { it.mkdirs() }.canonicalFile
+        val modelFile = File(modelsDir, info.localFileName()).canonicalFile
+        if (!modelFile.path.startsWith(modelsDir.path + File.separator)) {
+            return@withContext failure("Invalid model path for $modelId")
+        }
         val url = info.resolveDownloadUrl()
             ?: return@withContext failure("No download URL for $modelId")
 

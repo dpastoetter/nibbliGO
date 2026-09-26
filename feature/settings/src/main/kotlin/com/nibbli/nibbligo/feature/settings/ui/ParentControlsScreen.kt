@@ -1,6 +1,6 @@
 package com.nibbli.nibbligo.feature.settings.ui
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -42,6 +42,7 @@ fun ParentControlsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var pinInput by remember { mutableStateOf("") }
+    var currentPinInput by remember { mutableStateOf("") }
 
     NibbliScreen(modifier = modifier, scrollable = true) {
         NibbliScreenHeader(
@@ -94,7 +95,7 @@ fun ParentControlsScreen(
             Text("Parent PIN", style = MaterialTheme.typography.titleMedium)
             Text(
                 if (uiState.pinSet) {
-                    "A PIN is set. Enter a new PIN to change it, or remove it below."
+                    "A PIN is set. Enter the current PIN, then a new PIN to change it, or remove it below."
                 } else {
                     "Set a 4+ digit PIN to lock advanced tools."
                 },
@@ -102,13 +103,26 @@ fun ParentControlsScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (uiState.pinSet) {
+                NibbliTextField(
+                    value = currentPinInput,
+                    onValueChange = { new -> currentPinInput = new.filter { it.isDigit() }.take(8) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    label = { Text("Current PIN") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                )
+            }
             NibbliTextField(
                 value = pinInput,
                 onValueChange = { new -> pinInput = new.filter { it.isDigit() }.take(8) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                label = { Text("Parent PIN") },
+                label = { Text(if (uiState.pinSet) "New PIN" else "Parent PIN") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -116,8 +130,12 @@ fun ParentControlsScreen(
             NibbliPrimaryButton(
                 text = if (uiState.pinSet) "Change PIN" else "Set PIN",
                 onClick = {
-                    viewModel.setPin(pinInput)
+                    viewModel.setPin(
+                        rawPin = pinInput,
+                        currentPin = currentPinInput.takeIf { uiState.pinSet },
+                    )
                     pinInput = ""
+                    currentPinInput = ""
                 },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -126,7 +144,10 @@ fun ParentControlsScreen(
             if (uiState.pinSet) {
                 NibbliSecondaryButton(
                     text = "Remove PIN",
-                    onClick = { viewModel.removePin() },
+                    onClick = {
+                        viewModel.removePin(currentPinInput)
+                        currentPinInput = ""
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
@@ -174,14 +195,15 @@ fun ParentalGateDialog(
     viewModel: ParentalGateViewModel = hiltViewModel(),
 ) {
     var pin by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val lockedUntil by viewModel.pinLockedUntilEpochMs.collectAsStateWithLifecycle()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Parent PIN") },
         text = {
-            androidx.compose.foundation.layout.Column {
+            Column {
                 Text(
                     "Ask a parent to unlock this. Enter the PIN to continue.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -189,8 +211,9 @@ fun ParentalGateDialog(
                 NibbliTextField(
                     value = pin,
                     onValueChange = { new ->
+                        if (lockedUntil > System.currentTimeMillis()) return@NibbliTextField
                         pin = new.filter { it.isDigit() }.take(8)
-                        error = false
+                        error = null
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -200,9 +223,9 @@ fun ParentalGateDialog(
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 )
-                if (error) {
+                error?.let { msg ->
                     Text(
-                        "Incorrect PIN.",
+                        msg,
                         modifier = Modifier
                             .padding(top = 6.dp)
                             .clearAndSetSemantics {},
@@ -213,11 +236,20 @@ fun ParentalGateDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                scope.launch {
-                    if (viewModel.verify(pin)) onUnlocked() else error = true
-                }
-            }) {
+            TextButton(
+                onClick = {
+                    scope.launch {
+                        when (viewModel.verify(pin)) {
+                            ParentalGateViewModel.VerifyResult.Success -> onUnlocked()
+                            ParentalGateViewModel.VerifyResult.Locked ->
+                                error = "Too many attempts. Try again later."
+                            ParentalGateViewModel.VerifyResult.Incorrect ->
+                                error = "Incorrect PIN."
+                        }
+                    }
+                },
+                enabled = lockedUntil <= System.currentTimeMillis(),
+            ) {
                 Text("Unlock")
             }
         },

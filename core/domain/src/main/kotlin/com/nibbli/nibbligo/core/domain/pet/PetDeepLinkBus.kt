@@ -16,7 +16,10 @@ class PetDeepLinkBus @Inject constructor() {
     val pendingWidgetAction: StateFlow<String?> = _pendingWidgetAction.asStateFlow()
 
     fun submitCatchChallenge(score: Int) {
-        if (score > 0) _pendingCatchChallengeScore.value = score
+        // Cap shared ghost scores so forged deep links cannot set absurd targets.
+        if (score in 1..MAX_CATCH_CHALLENGE_SCORE) {
+            _pendingCatchChallengeScore.value = score
+        }
     }
 
     fun consumeCatchChallenge(): Int? {
@@ -33,5 +36,9 @@ class PetDeepLinkBus @Inject constructor() {
         val action = _pendingWidgetAction.value ?: return null
         _pendingWidgetAction.value = null
         return action
+    }
+
+    companion object {
+        const val MAX_CATCH_CHALLENGE_SCORE = 500
     }
 }

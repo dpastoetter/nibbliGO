@@ -16,6 +16,7 @@ data class ParentControlsUiState(
     val pinSet: Boolean = false,
     val restrictAdultFeatures: Boolean = false,
     val message: String? = null,
+    val pinLocked: Boolean = false,
 )
 
 @HiltViewModel
@@ -31,29 +32,50 @@ class ParentControlsViewModel @Inject constructor(
             combine(
                 parentalControlsRepository.pinHash,
                 parentalControlsRepository.restrictAdultFeatures,
-            ) { hash, restrict -> (hash != null) to restrict }
-                .collect { (pinSet, restrict) ->
-                    _uiState.update { it.copy(pinSet = pinSet, restrictAdultFeatures = restrict) }
+                parentalControlsRepository.pinLockedUntilEpochMs,
+            ) { hash, restrict, lockedUntil ->
+                Triple(hash != null, restrict, lockedUntil > System.currentTimeMillis())
+            }.collect { (pinSet, restrict, locked) ->
+                _uiState.update {
+                    it.copy(pinSet = pinSet, restrictAdultFeatures = restrict, pinLocked = locked)
                 }
+            }
         }
     }
 
-    fun setPin(rawPin: String) {
+    fun setPin(rawPin: String, currentPin: String? = null) {
         val trimmed = rawPin.trim()
         if (trimmed.length < 4 || !trimmed.all { it.isDigit() }) {
             _uiState.update { it.copy(message = "Enter a 4+ digit PIN.") }
             return
         }
         viewModelScope.launch {
-            parentalControlsRepository.setPin(trimmed)
-            _uiState.update { it.copy(message = "Parent PIN saved.") }
+            val ok = parentalControlsRepository.setPin(trimmed, currentPin)
+            _uiState.update {
+                it.copy(
+                    message = when {
+                        ok -> "Parent PIN saved."
+                        it.pinSet && currentPin.isNullOrBlank() -> "Enter the current PIN to change it."
+                        it.pinLocked -> "Too many attempts. Try again later."
+                        else -> "Current PIN incorrect."
+                    },
+                )
+            }
         }
     }
 
-    fun removePin() {
+    fun removePin(currentPin: String) {
         viewModelScope.launch {
-            parentalControlsRepository.setPin(null)
-            _uiState.update { it.copy(message = "Parent PIN removed.") }
+            val ok = parentalControlsRepository.clearPin(currentPin)
+            _uiState.update {
+                it.copy(
+                    message = when {
+                        ok -> "Parent PIN removed."
+                        it.pinLocked -> "Too many attempts. Try again later."
+                        else -> "Current PIN incorrect."
+                    },
+                )
+            }
         }
     }
 

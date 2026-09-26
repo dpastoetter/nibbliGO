@@ -1,5 +1,7 @@
 package com.nibbli.nibbligo.core.model
 
+import java.io.File
+
 data class ModelInfo(
     val id: String,
     val displayName: String,
@@ -37,7 +39,14 @@ data class ModelInfo(
 
     fun hfRepoUrl(): String? = hfRepoId?.let { "https://huggingface.co/$it" }
 
-    fun localFileName(): String = hfModelFile ?: "$id.litertlm"
+    fun localFileName(): String {
+        // Always strip directories so a future catalog/path value cannot escape models/.
+        val candidate = File(hfModelFile ?: "$id.litertlm").name
+        require(candidate.endsWith(".litertlm") && !candidate.contains("..")) {
+            "Invalid model file name"
+        }
+        return candidate
+    }
 }
 
 data class InstalledModel(

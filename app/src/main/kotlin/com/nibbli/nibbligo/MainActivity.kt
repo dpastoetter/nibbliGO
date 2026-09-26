@@ -10,18 +10,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import com.nibbli.nibbligo.core.domain.pet.PetDeepLinkBus
-import com.nibbli.nibbligo.core.hf.download.HuggingFaceAuthHandler
-import com.nibbli.nibbligo.feature.pet.widget.PetWidgetActions
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject lateinit var huggingFaceAuthHandler: HuggingFaceAuthHandler
     @Inject lateinit var petDeepLinkBus: PetDeepLinkBus
 
     private val requestNotificationPermission = registerForActivityResult(
@@ -35,17 +30,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             NibbliAppWithTheme()
         }
-        handleWidgetAction(intent)
         handleDeepLink(intent)
-        handleHuggingFaceRedirect(intent)
+        // Widget actions are delivered only via non-exported PetWidgetTrampolineActivity.
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleWidgetAction(intent)
         handleDeepLink(intent)
-        handleHuggingFaceRedirect(intent)
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -58,25 +50,13 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun handleWidgetAction(intent: Intent?) {
-        intent?.getStringExtra(PetWidgetActions.EXTRA)?.let { action ->
-            petDeepLinkBus.submitWidgetAction(action)
-        }
-    }
-
     private fun handleDeepLink(intent: Intent?) {
         val data = intent?.data ?: return
         if (data.scheme != "nibbli" || data.host != "challenge") return
         if (data.path != "/catch") return
         val score = data.getQueryParameter("score")?.toIntOrNull() ?: return
         petDeepLinkBus.submitCatchChallenge(score)
-    }
-
-    private fun handleHuggingFaceRedirect(intent: Intent?) {
-        val data = intent?.data ?: return
-        if (data.scheme != "nibbli" || data.host != "oauth") return
-        lifecycleScope.launch {
-            huggingFaceAuthHandler.handleAuthorizationResponse(intent)
-        }
+        // Clear so a forged replay of the same intent cannot re-apply.
+        intent.data = null
     }
 }

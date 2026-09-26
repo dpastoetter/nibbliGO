@@ -5,6 +5,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -26,28 +29,69 @@ import com.nibbli.nibbligo.feature.image.ui.AskImageScreen
 import com.nibbli.nibbligo.feature.models.ui.ModelsScreen
 import com.nibbli.nibbligo.feature.pet.ui.PetHomeScreen
 import com.nibbli.nibbligo.feature.pet.ui.collection.PetCollectionScreen
+import com.nibbli.nibbligo.feature.settings.presentation.ParentalGateViewModel
 import com.nibbli.nibbligo.feature.settings.ui.BasicAiKnowledgeScreen
 import com.nibbli.nibbligo.feature.settings.ui.CompanionScreen
 import com.nibbli.nibbligo.feature.settings.ui.NibbliFaqScreen
 import com.nibbli.nibbligo.feature.settings.ui.ParentControlsScreen
+import com.nibbli.nibbligo.feature.settings.ui.ParentalGateDialog
 import com.nibbli.nibbligo.feature.settings.ui.SettingsScreen
 import com.nibbli.nibbligo.presentation.MainViewModel
 import com.nibbli.nibbligo.ui.ManageHubScreen
 import com.nibbli.nibbligo.ui.SenseHubScreen
 
+private val PIN_GATED_ROUTES = setOf(
+    Routes.AGENT,
+    Routes.BENCHMARK,
+    Routes.PROMPT_LAB,
+    Routes.PARENT_CONTROLS,
+)
+
 @Composable
-fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
+fun NibbliApp(
+    viewModel: MainViewModel = hiltViewModel(),
+    gateViewModel: ParentalGateViewModel = hiltViewModel(),
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val agentNavSignal by viewModel.agentNavigationSignal.collectAsStateWithLifecycle(initialValue = 0)
+    val gateActive by gateViewModel.gateActive.collectAsStateWithLifecycle()
+    var pendingGatedRoute by remember { mutableStateOf<String?>(null) }
+    var unlockedThisSession by remember { mutableStateOf(false) }
+
+    fun navigateRespectingGate(route: String) {
+        if (gateActive && !unlockedThisSession && route in PIN_GATED_ROUTES) {
+            pendingGatedRoute = route
+        } else {
+            navController.navigate(route) { launchSingleTop = true }
+        }
+    }
 
     LaunchedEffect(agentNavSignal) {
         if (agentNavSignal > 0) {
-            navController.navigate(Routes.AGENT) {
-                launchSingleTop = true
-            }
+            navigateRespectingGate(Routes.AGENT)
         }
+    }
+
+    // Block direct navigation into gated routes (deep restore / future deep links).
+    LaunchedEffect(currentRoute, gateActive, unlockedThisSession) {
+        val route = currentRoute ?: return@LaunchedEffect
+        if (gateActive && !unlockedThisSession && route in PIN_GATED_ROUTES) {
+            navController.popBackStack()
+            pendingGatedRoute = route
+        }
+    }
+
+    pendingGatedRoute?.let { route ->
+        ParentalGateDialog(
+            onUnlocked = {
+                unlockedThisSession = true
+                pendingGatedRoute = null
+                navController.navigate(route) { launchSingleTop = true }
+            },
+            onDismiss = { pendingGatedRoute = null },
+        )
     }
 
     val visibleDestinations = TopLevelDestination.entries.filter { destination ->
@@ -133,7 +177,12 @@ fun NibbliApp(viewModel: MainViewModel = hiltViewModel()) {
             composable(Routes.FAQ_NIBBLIGO) { NibbliFaqScreen() }
             composable(Routes.FAQ_AI_BASICS) { BasicAiKnowledgeScreen() }
             composable(Routes.PARENT_CONTROLS) { ParentControlsScreen() }
-            composable(Routes.MANAGE) { ManageHubScreen(navController) }
+            composable(Routes.MANAGE) {
+                ManageHubScreen(
+                    navController = navController,
+                    onNavigateGated = ::navigateRespectingGate,
+                )
+            }
         }
     }
 }

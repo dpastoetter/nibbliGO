@@ -20,7 +20,7 @@ class SkillPackageLoader @Inject constructor(
 
     suspend fun loadBundledSkills() {
         context.assets.list("skills")?.forEach { folder ->
-            val skillId = folder
+            val skillId = GallerySkillWebViewBridge.sanitizeSkillId(folder) ?: return@forEach
             val markdown = context.assets.open("skills/$folder/SKILL.md")
                 .bufferedReader()
                 .use { it.readText() }
@@ -30,18 +30,24 @@ class SkillPackageLoader @Inject constructor(
     }
 
     suspend fun importFromDirectory(sourceDir: File, skillId: String): Result<InstalledSkillPackage> {
+        val safeSkillId = GallerySkillWebViewBridge.sanitizeSkillId(skillId)
+            ?: return Result.failure(IllegalArgumentException("Invalid skill id"))
         val skillMd = File(sourceDir, "SKILL.md")
         if (!skillMd.exists()) {
             return Result.failure(IllegalArgumentException("SKILL.md not found"))
         }
-        val dest = File(skillsDir, skillId)
+        val dest = resolveSkillDir(safeSkillId)
+            ?: return Result.failure(IllegalArgumentException("Invalid skill path"))
         dest.mkdirs()
         sourceDir.listFiles()?.forEach { file ->
-            file.copyTo(File(dest, file.name), overwrite = true)
+            if (!file.isFile) return@forEach
+            val target = File(dest, file.name)
+            if (!isUnder(dest, target)) return@forEach
+            file.copyTo(target, overwrite = true)
         }
         val markdown = skillMd.readText()
         val hasJs = dest.listFiles()?.any { it.extension == "js" } == true
-        return installFromMarkdown(skillId, markdown, hasJs, isBundled = false)
+        return installFromMarkdown(safeSkillId, markdown, hasJs, isBundled = false)
     }
 
     private suspend fun installFromMarkdown(
@@ -52,11 +58,13 @@ class SkillPackageLoader @Inject constructor(
     ): Result<InstalledSkillPackage> {
         val parsed = SkillManifestParser.parse(skillId, markdown, hasJs)
         toolRegistry.registerSkillTools(skillId, parsed.tools)
+        val dest = resolveSkillDir(skillId)
+            ?: return Result.failure(IllegalArgumentException("Invalid skill path"))
         val pkg = InstalledSkillPackage(
             skillId = skillId,
             displayName = parsed.displayName,
             description = parsed.description,
-            localPath = File(skillsDir, skillId).absolutePath,
+            localPath = dest.absolutePath,
             version = parsed.version,
             permissions = parsed.permissions.joinToString(","),
             enabled = true,
@@ -65,7 +73,6 @@ class SkillPackageLoader @Inject constructor(
         )
         skillPackageRepository.upsert(pkg)
         if (!isBundled) {
-            val dest = File(skillsDir, skillId)
             dest.mkdirs()
             File(dest, "SKILL.md").writeText(markdown)
         }
@@ -84,5 +91,17 @@ class SkillPackageLoader @Inject constructor(
                 toolRegistry.registerSkillTools(skillId, parsed.tools)
             }
         }
+    }
+
+    private fun resolveSkillDir(skillId: String): File? {
+        val root = skillsDir.canonicalFile
+        val dest = File(root, skillId).canonicalFile
+        return dest.takeIf { isUnder(root, it) }
+    }
+
+    private fun isUnder(root: File, candidate: File): Boolean {
+        val rootPath = root.canonicalFile.path
+        val candidatePath = candidate.canonicalFile.path
+        return candidatePath == rootPath || candidatePath.startsWith(rootPath + File.separator)
     }
 }

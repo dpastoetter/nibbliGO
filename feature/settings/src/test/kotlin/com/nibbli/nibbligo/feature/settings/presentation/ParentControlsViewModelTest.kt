@@ -81,7 +81,7 @@ class ParentControlsViewModelTest {
     }
 
     @Test
-    fun removePin_clearsRestrictFlag() = runTest {
+    fun removePin_requiresCurrentPin() = runTest {
         Dispatchers.setMain(Dispatchers.Unconfined)
         val repo = FakeParentalControlsRepository()
         repo.setPin("1234")
@@ -89,12 +89,36 @@ class ParentControlsViewModelTest {
         val viewModel = ParentControlsViewModel(repo)
         advanceUntilIdle()
 
-        viewModel.removePin()
+        viewModel.removePin("9999")
+        advanceUntilIdle()
+        assertTrue(repo.isPinSet())
+        assertEquals("Current PIN incorrect.", viewModel.uiState.value.message)
+
+        viewModel.removePin("1234")
         advanceUntilIdle()
 
         assertFalse(repo.isPinSet())
         assertFalse(viewModel.uiState.value.pinSet)
         assertFalse(viewModel.uiState.value.restrictAdultFeatures)
+    }
+
+    @Test
+    fun changePin_requiresCurrentPin() = runTest {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        val repo = FakeParentalControlsRepository()
+        repo.setPin("1234")
+        val viewModel = ParentControlsViewModel(repo)
+        advanceUntilIdle()
+
+        viewModel.setPin("5678")
+        advanceUntilIdle()
+        assertEquals("Enter the current PIN to change it.", viewModel.uiState.value.message)
+        assertTrue(repo.verifyPin("1234"))
+
+        viewModel.setPin("5678", currentPin = "1234")
+        advanceUntilIdle()
+        assertTrue(repo.verifyPin("5678"))
+        assertEquals("Parent PIN saved.", viewModel.uiState.value.message)
     }
 
     @Test
@@ -108,7 +132,7 @@ class ParentControlsViewModelTest {
         repo.setPin("1234")
         assertTrue(gateActive(repo))
 
-        repo.setPin(null)
+        repo.clearPin("1234")
         assertFalse(gateActive(repo))
     }
 
@@ -120,18 +144,28 @@ class ParentControlsViewModelTest {
     private class FakeParentalControlsRepository : ParentalControlsRepository {
         private val pinHashFlow = MutableStateFlow<String?>(null)
         private val restrictFlow = MutableStateFlow(false)
+        private val lockedUntilFlow = MutableStateFlow(0L)
 
         override val pinHash: Flow<String?> = pinHashFlow
         override val restrictAdultFeatures: Flow<Boolean> = restrictFlow
+        override val pinLockedUntilEpochMs: Flow<Long> = lockedUntilFlow
 
-        override suspend fun setPin(rawPin: String?) {
-            val trimmed = rawPin?.trim()
-            if (trimmed.isNullOrEmpty()) {
-                pinHashFlow.value = null
-                restrictFlow.value = false
-            } else {
-                pinHashFlow.value = "hash:$trimmed"
+        override suspend fun setPin(rawPin: String, currentPin: String?): Boolean {
+            val trimmed = rawPin.trim()
+            if (trimmed.length < 4 || !trimmed.all { it.isDigit() }) return false
+            if (pinHashFlow.value != null) {
+                if (currentPin == null || !verifyPin(currentPin)) return false
             }
+            pinHashFlow.value = "hash:$trimmed"
+            return true
+        }
+
+        override suspend fun clearPin(currentPin: String): Boolean {
+            if (pinHashFlow.value == null) return true
+            if (!verifyPin(currentPin)) return false
+            pinHashFlow.value = null
+            restrictFlow.value = false
+            return true
         }
 
         override suspend fun verifyPin(rawPin: String): Boolean =
